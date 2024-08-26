@@ -25,6 +25,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install Fluent CLI
  #RUN cargo install --force --git https://github.com/njfio/fluent_cli --branch v.0.5.5-feature-docker-image fluent
+ RUN cargo install fluentcli_web_services --git https://github.com/njfio/fluentcli_web_services --branch master fluentcli_web_services
 # Install Amber CLI
 #RUN cargo install --git https://github.com/fpco/amber amber
 
@@ -64,6 +65,7 @@ EXPOSE 7474
 EXPOSE 7687
 EXPOSE 8000
 EXPOSE 5432
+EXPOSE 8080
 
 RUN echo "dbms.default_database=neo4j" >> /etc/neo4j/neo4j.conf
 RUN echo "dbms.connector.bolt.enabled=true" >> /etc/neo4j/neo4j.conf
@@ -92,7 +94,7 @@ RUN diesel migration run
 USER appuser
 RUN initdb -D /.fws/pgdata
 
-
+CMD ["./fluentcli-web-services"]
 #CMD ["/.fluent/start-combined.sh"]
-ENTRYPOINT ["bash"]
+#ENTRYPOINT ["bash"]
 #RUN echo "source /.fluent/fluent_autocomplete.sh" >> ~/.bashrc
