@@ -12,7 +12,9 @@ RUN apk add coreutils
 RUN apk add jq
 RUN apk add pandoc
 RUN apk add neo4j
-RUN apk add --no-cache libgcc postgresql-client
+RUN apk add libpq
+RUN apk add musl-dev postgresql-dev
+RUN apk add libgcc postgresql-client
 
 #install Python and Ruby
 RUN apk add --no-cache build-base bash git curl wget python3 python3-dev py3-pip \
@@ -25,7 +27,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install Fluent CLI
  #RUN cargo install --force --git https://github.com/njfio/fluent_cli --branch v.0.5.5-feature-docker-image fluent
- RUN cargo install fluentcli_web_services --git https://github.com/njfio/fluentcli_web_services --branch master fluentcli_web_services
+#RUN cargo install fluentcli_web_services --git https://github.com/njfio/fluentcli_web_services --branch master fws
 # Install Amber CLI
 #RUN cargo install --git https://github.com/fpco/amber amber
 
@@ -94,7 +96,7 @@ RUN diesel migration run
 USER appuser
 RUN initdb -D /.fws/pgdata
 
-CMD ["./fluentcli-web-services"]
+#CMD ["./fws"]
 #CMD ["/.fluent/start-combined.sh"]
-#ENTRYPOINT ["bash"]
+ENTRYPOINT ["bash"]
 #RUN echo "source /.fluent/fluent_autocomplete.sh" >> ~/.bashrc
