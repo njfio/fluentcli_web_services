@@ -1,0 +1,84 @@
+services:
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    depends_on:
+      - backend
+    networks:
+      - fws_network
+
+  worker:
+    image: alpine:latest
+    command: sh -c "while true; do echo 'Worker node running'; sleep 60; done"
+    networks:
+      - fws_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      neo4j:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/fws_db
+      - NEO4J_URL=bolt://neo4j:7687
+    networks:
+      - fws_network
+
+  management:
+    build:
+      context: .
+      dockerfile: Dockerfile.management
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/fws_db
+      - POSTGRES_PASSWORD=password
+    networks:
+      - fws_network
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=fws_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fws_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d fws_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:4.4-community
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/system2024!
+    volumes:
+      - neo4j_data:/data
+    networks:
+    - fws_network
+
+volumes:
+  postgres_data:
+  neo4j_data:
+
+networks:
+  fws_network:
+    driver: bridge

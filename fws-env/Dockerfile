@@ -2,6 +2,9 @@ FROM alpine:latest
 
 RUN apk update && apk upgrade
 
+# Add Cargo bin path to PATH (if needed)
+ENV PATH="/root/.cargo/bin:$PATH"
+
 # Install dependencies
 RUN apk add py3-gunicorn
 RUN apk add py3-gevent
@@ -12,24 +15,28 @@ RUN apk add coreutils
 RUN apk add jq
 RUN apk add pandoc
 RUN apk add neo4j
-RUN apk add libpq
-RUN apk add musl-dev postgresql-dev
-RUN apk add libgcc postgresql-client
+
+# Install necessary dependencies for PostgreSQL and Diesel
+RUN apk add --no-cache postgresql postgresql-dev musl-dev gcc rust cargo
+
+
+
 
 #install Python and Ruby
 RUN apk add --no-cache build-base bash git curl wget python3 python3-dev py3-pip \
                    ruby ruby-dev ruby-irb ruby-rdoc ruby-json ruby-bigdecimal
-RUN apk add screen
 
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+# Install Diesel CLI
+RUN cargo install diesel_cli --no-default-features --features postgres
 
 # Install Fluent CLI
- #RUN cargo install --force --git https://github.com/njfio/fluent_cli --branch v.0.5.5-feature-docker-image fluent
-#RUN cargo install fluentcli_web_services --git https://github.com/njfio/fluentcli_web_services --branch master fws
+#RUN cargo install --force --git https://github.com/njfio/fluent_cli --branch v.0.5.5-feature-docker-image fluent
+
+# Install FluentCLI Web Services
+RUN cargo install --git https://github.com/njfio/fluentcli_web_services --branch master fws
+
 # Install Amber CLI
-#RUN cargo install --git https://github.com/fpco/amber amber
+#RUN cargo install --git https://github.com/fpco/amber amber \
 
 # Install Flask
 #RUN apk add py3-flask
@@ -82,21 +89,23 @@ RUN neo4j-admin set-initial-password system2024!
 #CMD ["/.fluent/start-flask.sh"]
 # /.fluent/start-combined.sh
 
-WORKDIR /app
+#WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 RUN chown -R appuser:appgroup /var/lib/postgresql/
 RUN chown -R appuser:appgroup /.fws/pgdata
 RUN mkdir -p /run/postgresql && chown -R appuser:appgroup /run/postgresql && chmod 700 /run/postgresql
 
-RUN cargo install diesel_cli --no-default-features --features postgres
-RUN diesel setup
-RUN diesel migration generate create_tables
-RUN diesel migration run
-
 USER appuser
 RUN initdb -D /.fws/pgdata
+RUN pg_ctl start -D /.fws/pgdata &
+
+USER root
+#RUN diesel setup
+#RUN diesel migration generate create_tables
+#RUN diesel migration run
+
 
 #CMD ["./fws"]
 #CMD ["/.fluent/start-combined.sh"]
-ENTRYPOINT ["bash"]
+CMD ["/bin/bash"]
 #RUN echo "source /.fluent/fluent_autocomplete.sh" >> ~/.bashrc

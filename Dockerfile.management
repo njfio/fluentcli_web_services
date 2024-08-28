@@ -1,0 +1,50 @@
+FROM rust:1.78-buster AS builder
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Diesel CLI
+RUN cargo install diesel_cli --no-default-features --features postgres
+
+WORKDIR /app
+
+# Copy the entire project
+COPY . .
+
+# Build the application
+RUN cargo build --release
+
+# Runtime stage
+FROM debian:buster-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    openssl \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the binary from the builder stage
+COPY --from=builder /app/target/release/fws /app/fws
+COPY --from=builder /usr/local/cargo/bin/diesel /usr/local/bin/diesel
+
+# Copy migrations folder
+COPY migrations /app/migrations
+
+# Copy the startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+RUN chown root:root /app/start.sh
+
+# Set up environment variables
+ENV DATABASE_URL=postgres://user:password@db:5432/fws_db
+
+# Expose the port your application runs on
+EXPOSE 8080
+
+# Run the startup script
+CMD ["/app/start.sh"]

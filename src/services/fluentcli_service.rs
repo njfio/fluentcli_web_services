@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use std::process::Command;
 
 pub struct FluentCLIService;
