@@ -88,3 +88,4 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}/deactivate", web::post().to(worker::deactivate_worker))
         )
 }
+

@@ -3,7 +3,9 @@
 use thiserror::Error;
 use std::error::Error as StdError;
 use diesel::r2d2;
-
+use actix_web;
+use actix_web::ResponseError;
+use actix_web::http::StatusCode;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -44,5 +46,22 @@ pub enum AppError {
 impl From<Box<dyn StdError + Send + Sync>> for AppError {
     fn from(error: Box<dyn StdError + Send + Sync>) -> Self {
         AppError::GenericError(error)
+    }
+}
+
+impl ResponseError for AppError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            AppError::NotFound => StatusCode::NOT_FOUND,
+            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::Unauthorized => StatusCode::UNAUTHORIZED,
+            AppError::AuthenticationError => StatusCode::UNAUTHORIZED,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn error_response(&self) -> actix_web::HttpResponse {
+        actix_web::HttpResponse::build(self.status_code())
+            .json(serde_json::json!({ "error": self.to_string() }))
     }
 }

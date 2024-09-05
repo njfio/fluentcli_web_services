@@ -773,6 +773,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "jsonwebtoken",
+ "log",
  "serde",
  "serde_json",
  "thiserror",

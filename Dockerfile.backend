@@ -18,5 +18,5 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY --from=builder /app/target/release/fws /app/fws
 
-EXPOSE 8000
+EXPOSE 8
 CMD ["/app/fws"]
