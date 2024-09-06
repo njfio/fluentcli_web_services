@@ -30,6 +30,7 @@ diesel::table! {
         key_value -> Varchar,
         description -> Nullable<Text>,
         created_at -> Timestamptz,
+        updated_at -> Timestamptz,
         expires_at -> Nullable<Timestamptz>,
     }
 }

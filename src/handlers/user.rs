@@ -1,18 +1,18 @@
 use crate::models::user::{NewUser, UpdateUser};
 use crate::error::AppError;
-use env_logger;
+
 use actix_web::{web, HttpResponse, Responder, Error};
 use crate::db::DbPool;
 use serde_json::json; 
 use uuid::Uuid;
-use crate::utils::jwt;
+
 
 
 
 
 use crate::services::user_service::UserService;
 use crate::utils::jwt::generate_token;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -20,10 +20,6 @@ pub struct LoginRequest {
     password: String,
 }
 
-#[derive(Serialize)]
-pub struct LoginResponse {
-    token: String,
-}
 
 pub async fn create_user(
     pool: web::Data<DbPool>,
@@ -117,8 +113,6 @@ pub async fn delete_user(
         }
     }
 }
-
-use actix_web::http::header::AUTHORIZATION;
 
 pub async fn refresh_token(pool: web::Data<DbPool>, token: web::Json<String>) -> impl Responder {
     match UserService::refresh_token(&pool, &token.into_inner()) {
