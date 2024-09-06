@@ -5,6 +5,8 @@ use actix_web::{web, HttpResponse, Responder, Error};
 use crate::db::DbPool;
 use serde_json::json; 
 use uuid::Uuid;
+use crate::utils::jwt;
+
 
 
 
@@ -59,19 +61,32 @@ pub async fn login(
     }
 }
 
-pub async fn list_users() -> impl Responder {
-    HttpResponse::Ok().body("List users")
+pub async fn list_users(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
+    match UserService::list_users(&pool) {
+        Ok(users) => Ok(HttpResponse::Ok().json(users)),
+        Err(e) => {
+            log::error!("Error listing users: {:?}", e);
+            Err(actix_web::error::ErrorInternalServerError("Failed to list users"))
+        }
+    }
 }
 
+use actix_web::HttpRequest;
+
 pub async fn get_user(
+    req: HttpRequest,
     pool: web::Data<DbPool>,
     user_id: web::Path<Uuid>,
 ) -> Result<HttpResponse, Error> {
+    log::info!("Received GET user request. User ID: {:?}, Headers: {:?}", user_id, req.headers());
     match UserService::get_user(&pool, user_id.into_inner()) {
         Ok(user) => Ok(HttpResponse::Ok().json(user)),
         Err(e) => {
             log::error!("Error getting user: {:?}", e);
-            Err(actix_web::error::ErrorInternalServerError("Failed to get user"))
+            match e {
+                AppError::NotFound => Err(actix_web::error::ErrorNotFound("User not found")),
+                _ => Err(actix_web::error::ErrorInternalServerError("Failed to get user"))
+            }
         }
     }
 }
@@ -103,6 +118,12 @@ pub async fn delete_user(
     }
 }
 
-pub async fn refresh_token() -> impl Responder {
-    HttpResponse::Ok().body("Refresh token")
+use actix_web::http::header::AUTHORIZATION;
+
+pub async fn refresh_token(pool: web::Data<DbPool>, token: web::Json<String>) -> impl Responder {
+    match UserService::refresh_token(&pool, &token.into_inner()) {
+        Ok(new_token) => HttpResponse::Ok().json(serde_json::json!({ "token": new_token })),
+        Err(_) => HttpResponse::Unauthorized().json(serde_json::json!({ "error": "Invalid token" })),
+    }
 }
+

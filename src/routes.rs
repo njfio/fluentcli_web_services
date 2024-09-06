@@ -13,6 +13,7 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}", web::delete().to(user::delete_user))
                 .route("/login", web::post().to(user::login))
                 .route("/refresh", web::post().to(user::refresh_token))
+                
         )
         // API Key routes
         .service(

@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use actix_web::HttpMessage;
 use chrono::Utc;
 use crate::db::DbPool;
 use crate::error::AppError;
@@ -6,6 +7,7 @@ use crate::utils::auth::{hash_password, verify_password};
 use crate::models::user::{NewUser, User, UpdateUser, NewUserDB};
 use diesel::prelude::*;
 use uuid::Uuid;
+use crate::utils::jwt;
 
 pub struct UserService;
 
@@ -15,14 +17,14 @@ impl UserService {
         let conn = &mut pool.get()?;
     
         let hashed_password = hash_password(&new_user.password)?;
-        let new_user = NewUserDB {
+        let new_user_db = NewUserDB {
             username: new_user.username,
             email: new_user.email,
-            password_hash: hashed_password,
+            password_hash: hashed_password, // Use password_hash field
         };
     
         diesel::insert_into(users::table)
-            .values(&new_user)
+            .values(&new_user_db) // Use new_user_db for insertion
             .get_result(conn)
             .map_err(AppError::DatabaseError)
     }
@@ -65,6 +67,7 @@ impl UserService {
     pub fn get_user(pool: &DbPool, user_id: Uuid) -> Result<User, AppError> {
         use crate::schema::users::dsl::*;
         let conn = &mut pool.get()?;
+        log::info!("Received GET user request. User ID: {:?},", user_id);
         users.find(user_id)
             .first(conn)
             .map_err(AppError::DatabaseError)
@@ -99,4 +102,17 @@ impl UserService {
         Ok(count > 0)
     }
 
+    pub fn list_users(pool: &DbPool) -> Result<Vec<User>, AppError> {
+        use crate::schema::users::dsl::*; // Add this line to import users
+        let conn = &mut pool.get()?;
+        users.load::<User>(conn).map_err(AppError::DatabaseError)
+    }
+
+    pub fn refresh_token(pool: &DbPool, token: &str) -> Result<String, AppError> {
+        let user_id = jwt::validate_token(token)?;
+        let user = Self::get_user(pool, user_id)?;
+        jwt::generate_token(user.id)
+    }
+
+    
 }
