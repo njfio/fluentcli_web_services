@@ -1,4 +1,5 @@
 use actix_web::{web, HttpResponse, Scope};
+use crate::utils::auth::Auth;
 use crate::handlers::{user, job, api_key, amber_store, vault_store, configuration, pipeline, docker_file, worker};
 
 pub fn configure_routes() -> Scope {
@@ -39,12 +40,14 @@ pub fn configure_routes() -> Scope {
         // Amber Store routes
         .service(
             web::scope("/amber_store")
-                .route("", web::post().to(amber_store::create_amber_store))
-                .route("", web::get().to(amber_store::list_amber_stores))
-                .route("/{id}", web::get().to(amber_store::get_amber_store))
-                .route("/{id}", web::put().to(amber_store::update_amber_store))
-                .route("/{id}", web::delete().to(amber_store::delete_amber_store))
+            .wrap(Auth)
+            .route("", web::post().to(amber_store::create_amber_store))
+            .route("", web::get().to(amber_store::list_amber_stores))
+            .route("/{id}", web::get().to(amber_store::get_amber_store))
+            .route("/{id}", web::put().to(amber_store::update_amber_store))
+            .route("/{id}", web::delete().to(amber_store::delete_amber_store))
         )
+
         // Vault Store routes
         .service(
             web::scope("/vault_store")

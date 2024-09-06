@@ -10,7 +10,24 @@ use uuid::Uuid;
 pub struct AmberStore {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub data: Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub data: serde_json::Value,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+}
+#[derive(Insertable, Debug)]
+#[table_name = "amber_store"]
+pub struct NewAmberStore {
+    pub user_id: Uuid,
+    pub data: serde_json::Value,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NewAmberStorePayload {
+    pub data: serde_json::Value,
+}
+
+#[derive(AsChangeset, Deserialize)]
+#[table_name = "amber_store"]
+pub struct UpdateAmberStore {
+    pub data: Option<serde_json::Value>,
 }
