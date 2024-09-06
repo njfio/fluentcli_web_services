@@ -15,3 +15,25 @@ pub struct Configuration {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+
+#[derive(Insertable, Debug)]
+#[table_name = "configurations"]
+pub struct NewConfiguration {
+    pub user_id: Uuid,
+    pub name: String,
+    pub data: serde_json::Value,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NewConfigurationPayload {
+    pub name: String,
+    pub data: serde_json::Value,
+}
+
+#[derive(AsChangeset, Deserialize)]
+#[table_name = "configurations"]
+pub struct UpdateConfiguration {
+    pub name: Option<String>,
+    pub data: Option<serde_json::Value>,
+}

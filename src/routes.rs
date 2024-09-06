@@ -60,6 +60,7 @@ pub fn configure_routes() -> Scope {
         // Configuration routes
         .service(
             web::scope("/configurations")
+                .wrap(Auth)
                 .route("", web::post().to(configuration::create_configuration))
                 .route("", web::get().to(configuration::list_configurations))
                 .route("/{id}", web::get().to(configuration::get_configuration))
