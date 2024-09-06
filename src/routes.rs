@@ -70,6 +70,7 @@ pub fn configure_routes() -> Scope {
         // Pipeline routes
         .service(
             web::scope("/pipelines")
+                .wrap(Auth)
                 .route("", web::post().to(pipeline::create_pipeline))
                 .route("", web::get().to(pipeline::list_pipelines))
                 .route("/{id}", web::get().to(pipeline::get_pipeline))

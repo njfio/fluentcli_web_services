@@ -15,3 +15,24 @@ pub struct Pipeline {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+#[derive(Insertable, Debug)]
+#[table_name = "pipelines"]
+pub struct NewPipeline {
+    pub user_id: Uuid,
+    pub name: String,
+    pub data: Value,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NewPipelinePayload {
+    pub name: String,
+    pub data: Value,
+}
+
+#[derive(AsChangeset, Deserialize)]
+#[table_name = "pipelines"]
+pub struct UpdatePipeline {
+    pub name: Option<String>,
+    pub data: Option<Value>,
+}
