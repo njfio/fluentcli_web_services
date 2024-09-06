@@ -14,3 +14,24 @@ pub struct DockerFile {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+#[derive(Insertable, Debug)]
+#[table_name = "docker_files"]
+pub struct NewDockerFile {
+    pub user_id: Uuid,
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NewDockerFilePayload {
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(AsChangeset, Deserialize)]
+#[table_name = "docker_files"]
+pub struct UpdateDockerFile {
+    pub name: Option<String>,
+    pub content: Option<String>,
+}

@@ -79,6 +79,7 @@ pub fn configure_routes() -> Scope {
         // Docker File routes
         .service(
             web::scope("/docker_files")
+            .wrap(Auth)
                 .route("", web::post().to(docker_file::create_docker_file))
                 .route("", web::get().to(docker_file::list_docker_files))
                 .route("/{id}", web::get().to(docker_file::get_docker_file))
