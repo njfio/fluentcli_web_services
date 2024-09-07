@@ -2,7 +2,7 @@ pub mod user;
 pub mod job;
 pub mod api_key;
 pub mod amber_store;
-pub mod vault_store;
+pub mod secure_vault;
 pub mod configuration;
 pub mod pipeline;
 pub mod docker_file;

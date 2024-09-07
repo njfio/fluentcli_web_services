@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Scope};
 use crate::utils::auth::Auth;
-use crate::handlers::{user, job, api_key, amber_store, vault_store, configuration, pipeline, docker_file, worker};
+use crate::handlers::{user, job, api_key, amber_store, secure_vault, configuration, pipeline, docker_file, worker};
 
 pub fn configure_routes() -> Scope {
     web::scope("")
@@ -26,56 +26,58 @@ pub fn configure_routes() -> Scope {
         // Job routes
         .service(
             web::scope("/jobs")
-                .route("", web::post().to(job::create_job))
-                .route("", web::get().to(job::list_jobs))
-                .route("/{id}", web::get().to(job::get_job))
-                .route("/{id}", web::put().to(job::update_job))
-                .route("/{id}", web::delete().to(job::delete_job))
-                .route("/{id}/start", web::post().to(job::start_job))
-                .route("/{id}/stop", web::post().to(job::stop_job))
-                .route("/{id}/status", web::get().to(job::get_job_status))
-                .route("/{id}/output", web::get().to(job::get_job_output))
-                .route("/{id}/logs", web::get().to(job::get_job_logs))
+                .wrap(Auth)
+                    .route("", web::post().to(job::create_job))
+                    .route("", web::get().to(job::list_jobs))
+                    .route("/{id}", web::get().to(job::get_job))
+                    .route("/{id}", web::put().to(job::update_job))
+                    .route("/{id}", web::delete().to(job::delete_job))
+                    .route("/{id}/start", web::post().to(job::start_job))
+                    .route("/{id}/stop", web::post().to(job::stop_job))
+                    .route("/{id}/status", web::get().to(job::get_job_status))
+                    .route("/{id}/output", web::get().to(job::get_job_output))
+                    .route("/{id}/logs", web::get().to(job::get_job_logs))
         )
         // Amber Store routes
         .service(
             web::scope("/amber_store")
             .wrap(Auth)
-            .route("", web::post().to(amber_store::create_amber_store))
-            .route("", web::get().to(amber_store::list_amber_stores))
-            .route("/{id}", web::get().to(amber_store::get_amber_store))
-            .route("/{id}", web::put().to(amber_store::update_amber_store))
-            .route("/{id}", web::delete().to(amber_store::delete_amber_store))
+                .route("", web::post().to(amber_store::create_amber_store))
+                .route("", web::get().to(amber_store::list_amber_stores))
+                .route("/{id}", web::get().to(amber_store::get_amber_store))
+                .route("/{id}", web::put().to(amber_store::update_amber_store))
+                .route("/{id}", web::delete().to(amber_store::delete_amber_store))
         )
 
         // Vault Store routes
         .service(
-            web::scope("/vault_store")
-                .route("", web::post().to(vault_store::create_vault_store))
-                .route("", web::get().to(vault_store::list_vault_stores))
-                .route("/{id}", web::get().to(vault_store::get_vault_store))
-                .route("/{id}", web::put().to(vault_store::update_vault_store))
-                .route("/{id}", web::delete().to(vault_store::delete_vault_store))
+            web::scope("/secure_vaults")
+            .wrap(Auth)
+                .route("", web::post().to(secure_vault::create_secure_vault))
+                .route("", web::get().to(secure_vault::list_secure_vaults))
+                .route("/{id}", web::get().to(secure_vault::get_secure_vault))
+                .route("/{id}", web::put().to(secure_vault::update_secure_vault))
+                .route("/{id}", web::delete().to(secure_vault::delete_secure_vault))
         )
         // Configuration routes
         .service(
             web::scope("/configurations")
                 .wrap(Auth)
-                .route("", web::post().to(configuration::create_configuration))
-                .route("", web::get().to(configuration::list_configurations))
-                .route("/{id}", web::get().to(configuration::get_configuration))
-                .route("/{id}", web::put().to(configuration::update_configuration))
-                .route("/{id}", web::delete().to(configuration::delete_configuration))
+                    .route("", web::post().to(configuration::create_configuration))
+                    .route("", web::get().to(configuration::list_configurations))
+                    .route("/{id}", web::get().to(configuration::get_configuration))
+                    .route("/{id}", web::put().to(configuration::update_configuration))
+                    .route("/{id}", web::delete().to(configuration::delete_configuration))
         )
         // Pipeline routes
         .service(
             web::scope("/pipelines")
                 .wrap(Auth)
-                .route("", web::post().to(pipeline::create_pipeline))
-                .route("", web::get().to(pipeline::list_pipelines))
-                .route("/{id}", web::get().to(pipeline::get_pipeline))
-                .route("/{id}", web::put().to(pipeline::update_pipeline))
-                .route("/{id}", web::delete().to(pipeline::delete_pipeline))
+                    .route("", web::post().to(pipeline::create_pipeline))
+                    .route("", web::get().to(pipeline::list_pipelines))
+                    .route("/{id}", web::get().to(pipeline::get_pipeline))
+                    .route("/{id}", web::put().to(pipeline::update_pipeline))
+                    .route("/{id}", web::delete().to(pipeline::delete_pipeline))
         )
         // Docker File routes
         .service(

@@ -104,6 +104,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    secure_vaults (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        name -> Varchar,
+        encrypted_data -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Uuid,
         #[max_length = 255]
@@ -138,6 +150,7 @@ diesel::joinable!(jobs -> amber_store (amber_id));
 diesel::joinable!(jobs -> users (user_id));
 diesel::joinable!(pipelines -> users (user_id));
 diesel::joinable!(secure_vault -> users (user_id));
+diesel::joinable!(secure_vaults -> users (user_id));
 diesel::joinable!(workers -> docker_files (worker_type));
 
 diesel::allow_tables_to_appear_in_same_query!(
@@ -149,6 +162,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     jobs,
     pipelines,
     secure_vault,
+    secure_vaults,
     users,
     workers,
 );

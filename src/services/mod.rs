@@ -6,3 +6,4 @@ pub mod configuration_service;
 pub mod docker_file_service;
 pub mod pipeline_service;
 pub mod worker_service;
+pub mod secure_vault_service;
