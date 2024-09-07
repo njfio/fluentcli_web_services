@@ -119,6 +119,16 @@ CREATE TABLE jobs (
     completed_at TIMESTAMPTZ
 );
 
+CREATE TABLE workers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL,
+    name VARCHAR NOT NULL,
+    worker_type UUID NOT NULL REFERENCES docker_files(id),
+    active BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Create indexes for foreign keys
 CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
 CREATE INDEX idx_amber_store_user_id ON amber_store(user_id);

@@ -104,6 +104,18 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    workers (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Varchar,
+        worker_type -> Uuid, // Reference to docker_file ID
+        active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
 diesel::joinable!(api_keys -> users (user_id));
 diesel::joinable!(amber_store -> users (user_id));
 diesel::joinable!(secure_vault -> users (user_id));

@@ -87,10 +87,16 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}", web::put().to(docker_file::update_docker_file))
                 .route("/{id}", web::delete().to(docker_file::delete_docker_file))
         )
+
         // Worker routes
         .service(
             web::scope("/workers")
+            .wrap(Auth)
+                .route("", web::post().to(worker::create_worker))
                 .route("", web::get().to(worker::list_workers))
+                .route("/{id}", web::get().to(worker::get_worker))
+                .route("/{id}", web::put().to(worker::update_worker))
+                .route("/{id}", web::delete().to(worker::delete_worker))
                 .route("/{id}/activate", web::post().to(worker::activate_worker))
                 .route("/{id}/deactivate", web::post().to(worker::deactivate_worker))
         )
