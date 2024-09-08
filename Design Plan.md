@@ -266,31 +266,35 @@ impl FluentCLIService {
 ### 10.1 Project Structure
 
 ```
-fluentcli-web-services-ui/
+fluentcli_web_services/
+├── src/
+│   ├── db/
+│   ├── error.rs
+│   ├── handlers/
+│   ├── main.rs
+│   ├── models/
+│   ├── routes.rs
+│   ├── schema.rs
+│   ├── services/
+│   └── utils/
 ├── src-tauri/
 │   ├── src/
 │   │   └── main.rs
 │   ├── Cargo.toml
 │   └── tauri.conf.json
-├── src/
-│   ├── components/
-│   │   ├── AdminPanel.vue
-│   │   ├── Studio.vue
-│   │   ├── JobList.vue
-│   │   └── PipelineEditor.vue
-│   ├── views/
-│   │   ├── Home.vue
-│   │   ├── Admin.vue
-│   │   └── Studio.vue
-│   ├── store/
-│   │   └── index.js
-│   ├── router/
-│   │   └── index.js
-│   ├── App.vue
-│   └── main.js
-├── public/
-│   └── index.html
-└── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── views/
+│   │   ├── store/
+│   │   ├── router/
+│   │   ├── App.vue
+│   │   └── main.ts
+│   ├── public/
+│   │   └── index.html
+│   └── package.json
+├── Cargo.toml
+└── Dockerfile
 ```
 
 ### 10.2 Key Frontend Technologies
