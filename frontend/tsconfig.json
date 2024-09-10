@@ -5,6 +5,10 @@
     "module": "ESNext",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
+    "types": ["vite/client"],
+    "paths": {
+      "vuex": ["./node_modules/vuex/types"]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",
