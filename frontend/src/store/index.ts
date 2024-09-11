@@ -1,5 +1,6 @@
 import { createStore, CommitOptions } from 'vuex';
 
+
 export interface State {
   exampleProperty: string;
 }

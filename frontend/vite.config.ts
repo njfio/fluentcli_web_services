@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
+
 export default defineConfig({
   plugins: [vue()],
   server: {
@@ -13,7 +14,5 @@ export default defineConfig({
     assetsDir: 'assets',
   },
   resolve: {
-    alias: {
-    }
   }
 });

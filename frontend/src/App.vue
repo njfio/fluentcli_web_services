@@ -2,6 +2,10 @@
 
 </script>
 
+<style scoped>
+/* Your scoped styles here */
+</style>
+
 <template>
   <div class="container">
     <router-view></router-view>

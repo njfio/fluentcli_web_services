@@ -1,12 +1,16 @@
 <template>
     <div>
       <h1>Admin</h1>
-      <!-- Add your component content here -->
+      <nav>
+        <RouterLink to="/admin/jobs">Job List</RouterLink> |
+        <RouterLink to="/admin/jobs/create">Create Job</RouterLink> 
+      </nav>
+      <RouterView />
     </div>
   </template>
   
   <script setup lang="ts">
-    // Add your script logic here
+    import { RouterLink, RouterView } from 'vue-router';
   </script>
   
   <style scoped>
