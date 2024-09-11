@@ -1,14 +1,14 @@
 <template>
-    <div>
-      <h1>Home</h1>
-      <!-- Add your component content here -->
+    <div class="home">
+      <h1>Welcome to FluentCLI Web Services</h1>
+      <p>This is the home page.</p>
     </div>
   </template>
   
-  <script setup lang="ts">
-    // Add your script logic here
-  </script>
+  <script lang="ts">
+  import { defineComponent } from 'vue';
   
-  <style scoped>
-    /* Add your styles here */
-  </style>
+  export default defineComponent({
+    name: 'Home'
+  });
+  </script>

@@ -1,0 +1,6050 @@
+==== START OF FILE: Design Plan.md ====
+FluentCLI Web Services
+
+Rust Based Backend and webserver
+Unknown FrontEnd but should be dynamic and sexy something like a visual studio code interface.
+Postgres data store
+
+
+- User Account
+    - ID
+    - Secure API Keys
+    - Secure Amber Store
+        - Amber Store CRUD
+    - Secure Vault Store
+        - Secure Vault CRUD
+    - Configuration Store
+        - Configuration CRUD
+    - Pipeline Store
+        - Pipeline CRUD
+    - Docker Files
+        - Docker Files CRUD
+    - ActiveWorkers
+        - Activate/Deactivate Workers 
+- Job Store
+    - ID
+    - URI
+    - Config
+    - AmberID
+    - StateFileContent
+    - DataPath
+    - WorkerType (Docker File)
+    - Triggers?
+    - Timers?
+
+- User Interface
+    - Admin
+        - API Keys and Secure Vault Stores
+    - Studio
+        - WorkerType (ActiveWorkers)
+        - Config - Load, Create, Delete, Save
+        - Engine
+            - Expanding Fields For Values and Flags
+        - Input Request
+        - Pipeline - Load, Create, Delete, Save
+            - Flags
+        - Job List
+            - Expandable
+            - Parameterizable
+            - URI
+            - Status
+            - Data Outputs
+
+
+
+# FluentCLI Web Services: Revised Design Specification
+
+## 1. Project Overview
+
+FluentCLI Web Services is a platform designed to provide a user-friendly interface for managing and executing FluentCLI commands. It consists of a Rust-based backend, a PostgreSQL database for data storage, and a Tauri-based frontend for both desktop and web applications.
+
+## 2. Project Goals
+
+- Create a dynamic and intuitive user interface similar to Visual Studio Code.
+- Provide secure storage and management of user data, including API keys and configurations.
+- Enable flexible job configuration and pipeline management.
+- Facilitate easy monitoring and management of FluentCLI jobs.
+- Support both desktop and web-based access through Tauri.
+
+## 3. Architecture Overview
+
+### 3.1 Backend (Rust)
+- Web Server: Handles API requests from the frontend.
+- Data Access Layer: Interacts with the PostgreSQL database.
+- FluentCLI Integration: Executes FluentCLI commands and manages job execution.
+
+### 3.2 Database (PostgreSQL)
+Stores user data, job configurations, and execution history.
+
+### 3.3 Frontend (Tauri)
+- User Interface: HTML, CSS, JavaScript
+- Tauri API: Enables communication with the backend and access to native desktop features.
+
+## 4. Data Model
+
+### 4.1 User Account
+- ID: UUID
+- Secure API Keys: String Array
+- Secure Amber Store: JSON (Encrypted)
+- Secure Vault Store: JSON (Encrypted)
+- Configuration Store: JSON
+- Pipeline Store: JSON Array
+- Docker Files: String Array
+- ActiveWorkers: Boolean Array
+
+### 4.2 Job Store
+- ID: UUID
+- URI: String
+- Config: JSON
+- AmberID: UUID
+- StateFileContent: String
+- DataPath: String
+- WorkerType: String (Docker File reference)
+- Triggers: JSON (Optional)
+- Timers: JSON (Optional)
+
+## 5. API Endpoints
+
+### 5.1 User Management
+- POST /users: Create a new user account
+- GET /users/{id}: Retrieve user details
+- PUT /users/{id}: Update user account
+- DELETE /users/{id}: Delete user account
+
+- POST /users/{id}/api_keys: Add new API key
+- GET /users/{id}/api_keys: List all API keys
+- DELETE /users/{id}/api_keys/{key_id}: Remove an API key
+
+- CRUD operations for Amber Store, Vault Store, Configurations, Pipelines, Docker Files, and Workers
+
+### 5.2 Job Management
+- POST /jobs: Create a new job
+- GET /jobs: List all jobs (with filtering options)
+- GET /jobs/{id}: Retrieve job details
+- PUT /jobs/{id}: Update job configuration
+- DELETE /jobs/{id}: Delete a job
+
+- POST /jobs/{id}/start: Start a job
+- POST /jobs/{id}/stop: Stop a running job
+- GET /jobs/{id}/status: Get job status
+- GET /jobs/{id}/output: Retrieve job output data
+
+## 6. Frontend User Interface
+
+### 6.1 Admin Panel
+- API Keys Management
+- Secure Vault Management
+
+### 6.2 Studio
+- WorkerType Selection (ActiveWorkers)
+- Configuration Editor
+    - Load, Create, Delete, Save configurations
+    - Expanding fields for values and flags
+- Engine Settings
+- Input Request Builder
+- Pipeline Editor
+    - Load, Create, Delete, Save pipelines
+    - Define pipeline stages and flags
+- Job List
+    - Expandable job details
+    - Parameterizable job configurations
+    - Display URI, status, and data outputs
+    - Sorting and filtering options
+
+## 7. Technology Stack
+
+- Backend: Rust (Actix Web, Diesel ORM)
+- Database: PostgreSQL
+- Frontend: Tauri (HTML, CSS, JavaScript)
+- Containerization: Docker
+
+## 8. Security Considerations
+
+- Implement robust API authentication using API keys
+- Encrypt sensitive data in Amber Store and Secure Vault
+- Use secure protocols (HTTPS) for all communications
+- Implement proper access controls and input validation
+
+## 9. Rust Implementation Details
+
+### 9.1 Backend Structure
+
+```rust
+fluentcli_web_services/
+├── Cargo.toml
+├── src/
+│   ├── main.rs
+│   ├── config.rs
+│   ├── models/
+│   │   ├── user.rs
+│   │   ├── job.rs
+│   │   └── pipeline.rs
+│   ├── handlers/
+│   │   ├── user.rs
+│   │   ├── job.rs
+│   │   └── pipeline.rs
+│   ├── services/
+│   │   ├── user_service.rs
+│   │   ├── job_service.rs
+│   │   └── fluentcli_service.rs
+│   ├── db/
+│   │   ├── mod.rs
+│   │   └── schema.rs
+│   └── utils/
+│       ├── error.rs
+│       └── auth.rs
+```
+
+### 9.2 Key Rust Features and Libraries
+
+- Actix Web: For building the RESTful API
+- Diesel: ORM for database interactions
+- Serde: For serialization and deserialization
+- Tokio: Asynchronous runtime for concurrent operations
+- jsonwebtoken: For handling JWT authentication
+- bcrypt: For password hashing
+
+### 9.3 Error Handling
+
+Implement a custom error type for the application:
+
+```rust
+use std::fmt;
+
+#[derive(Debug)]
+pub enum AppError {
+    DatabaseError(diesel::result::Error),
+    ValidationError(String),
+    AuthenticationError,
+    FluentCLIError(String),
+    NotFound,
+    InternalServerError,
+}
+
+impl std::error::Error for AppError {}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AppError::DatabaseError(e) => write!(f, "Database error: {}", e),
+            AppError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
+            AppError::AuthenticationError => write!(f, "Authentication failed"),
+            AppError::FluentCLIError(msg) => write!(f, "FluentCLI error: {}", msg),
+            AppError::NotFound => write!(f, "Resource not found"),
+            AppError::InternalServerError => write!(f, "Internal server error"),
+        }
+    }
+}
+```
+
+### 9.4 FluentCLI Integration
+
+Create a service to interact with FluentCLI:
+
+```rust
+use std::process::Command;
+
+pub struct FluentCLIService;
+
+impl FluentCLIService {
+    pub fn execute_command(&self, command: &str) -> Result<String, AppError> {
+        let output = Command::new("fluentcli")
+            .args(command.split_whitespace())
+            .output()
+            .map_err(|e| AppError::FluentCLIError(e.to_string()))?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        } else {
+            Err(AppError::FluentCLIError(String::from_utf8_lossy(&output.stderr).to_string()))
+        }
+    }
+}
+```
+
+## 10. Frontend Implementation (Tauri)
+
+### 10.1 Project Structure
+
+```
+fluentcli_web_services/
+├── src/
+│   ├── db/
+│   ├── error.rs
+│   ├── handlers/
+│   ├── main.rs
+│   ├── models/
+│   ├── routes.rs
+│   ├── schema.rs
+│   ├── services/
+│   └── utils/
+├── src-tauri/
+│   ├── src/
+│   │   └── main.rs
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── views/
+│   │   ├── store/
+│   │   ├── router/
+│   │   ├── App.vue
+│   │   └── main.ts
+│   ├── public/
+│   │   └── index.html
+│   └── package.json
+├── Cargo.toml
+└── Dockerfile
+```
+
+### 10.2 Key Frontend Technologies
+
+- Vue.js: For building the user interface
+- Vuex: For state management
+- Vue Router: For navigation
+- Axios: For making API requests to the backend
+- CodeMirror: For code editing functionality in configuration and pipeline editors
+
+## 11. Development Roadmap
+
+1. Set up the Rust backend project structure and implement basic API endpoints.
+2. Create the PostgreSQL database schema and implement data access layer.
+3. Implement user authentication and authorization.
+4. Develop the FluentCLI integration service.
+5. Set up the Tauri project and implement the basic UI structure.
+6. Implement the Admin Panel functionality.
+7. Develop the Studio components (WorkerType selection, Configuration Editor, etc.).
+8. Implement job management and monitoring features.
+9. Integrate frontend with backend API.
+10. Implement error handling and logging throughout the application.
+11. Conduct thorough testing (unit tests, integration tests, and end-to-end tests).
+12. Optimize performance and refine the user interface.
+13. Prepare documentation and deployment instructions.
+
+## 12. Conclusion
+
+This revised specification provides a comprehensive plan for developing the FluentCLI Web Services platform. It focuses on creating a user-friendly interface around FluentCLI functionality, with a robust backend for data management and job execution. The use of Rust for the backend and Tauri for the frontend ensures high performance and cross-platform compatibility.==== END OF FILE: Design Plan.md ====
+
+==== START OF FILE: docker-compose.yaml ====
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - fws_network
+
+  worker:
+    image: alpine:latest
+    command: sh -c "while true; do echo 'Worker node running'; sleep 60; done"
+    networks:
+      - fws_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      neo4j:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/fws_db
+      - NEO4J_URL=bolt://neo4j:7687
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    networks:
+      - fws_network
+
+  management:
+    build:
+      context: .
+      dockerfile: Dockerfile.management
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./migrations:/app/migrations
+      - ./diesel.toml:/app/diesel.toml
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PG_HOST: db
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    networks:
+      - fws_network
+    tty: true
+    stdin_open: true
+
+  db:
+    image: postgres:13-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PG_HOST: db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fws_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d fws_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:4.4-community
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/system2024!
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - fws_network
+
+volumes:
+  postgres_data:
+  neo4j_data:
+
+networks:
+  fws_network:
+    driver: bridge==== END OF FILE: docker-compose.yaml ====
+
+==== START OF FILE: frontend/README.md ====
+# Tauri + Vue + TypeScript
+
+This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+
+## Recommended IDE Setup
+
+- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+
+## Type Support For `.vue` Imports in TS
+
+Since TypeScript cannot handle type information for `.vue` imports, they are shimmed to be a generic Vue component type by default. In most cases this is fine if you don't really care about component prop types outside of templates. However, if you wish to get actual prop types in `.vue` imports (for example to get props validation when using manual `h(...)` calls), you can enable Volar's Take Over mode by following these steps:
+
+1. Run `Extensions: Show Built-in Extensions` from VS Code's command palette, look for `TypeScript and JavaScript Language Features`, then right click and select `Disable (Workspace)`. By default, Take Over mode will enable itself if the default TypeScript extension is disabled.
+2. Reload the VS Code window by running `Developer: Reload Window` from the command palette.
+
+You can learn more about Take Over mode [here](https://github.com/johnsoncodehk/volar/discussions/471).
+==== END OF FILE: frontend/README.md ====
+
+==== START OF FILE: frontend/package-lock.json ====
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "frontend",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tauri-apps/api": "^1.5.2",
+        "axios": "^1.6.2",
+        "vue": "^3.3.9",
+        "vue-router": "^4.2.5",
+        "vuex": "^4.1.0"
+      },
+      "devDependencies": {
+        "@tauri-apps/cli": "^1.5.7",
+        "@types/node": "^22.5.4",
+        "@vitejs/plugin-vue": "^5.0.5",
+        "typescript": "^5.2.2",
+        "vite": "^5.3.1",
+        "vue-tsc": "^2.0.22"
+      }
+    },
+    "node_modules/@babel/helper-string-parser": {
+      "version": "7.24.8",
+      "resolved": "https://registry.npmjs.org/@babel/helper-string-parser/-/helper-string-parser-7.24.8.tgz",
+      "integrity": "sha512-pO9KhhRcuUyGnJWwyEgnRJTSIZHiT+vMD0kPeD+so0l7mxkMT19g3pjY9GTnHySck/hDzq+dtW/4VgnMkippsQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=6.9.0"
+      }
+    },
+    "node_modules/@babel/helper-validator-identifier": {
+      "version": "7.24.7",
+      "resolved": "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.24.7.tgz",
+      "integrity": "sha512-rR+PBcQ1SMQDDyF6X0wxtG8QyLCgUB0eRAGguqRLfkCA87l7yAP7ehq8SNj96OOGTO8OBV70KhuFYcIkHXOg0w==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=6.9.0"
+      }
+    },
+    "node_modules/@babel/parser": {
+      "version": "7.25.6",
+      "resolved": "https://registry.npmjs.org/@babel/parser/-/parser-7.25.6.tgz",
+      "integrity": "sha512-trGdfBdbD0l1ZPmcJ83eNxB9rbEax4ALFTF7fN386TMYbeCQbyme5cOEXQhbGXKebwGaB/J52w1mrklMcbgy6Q==",
+      "license": "MIT",
+      "dependencies": {
+        "@babel/types": "^7.25.6"
+      },
+      "bin": {
+        "parser": "bin/babel-parser.js"
+      },
+      "engines": {
+        "node": ">=6.0.0"
+      }
+    },
+    "node_modules/@babel/types": {
+      "version": "7.25.6",
+      "resolved": "https://registry.npmjs.org/@babel/types/-/types-7.25.6.tgz",
+      "integrity": "sha512-/l42B1qxpG6RdfYf343Uw1vmDjeNhneUXtzhojE7pDgfpEypmRhI6j1kr17XCVv4Cgl9HdAiQY2x0GwKm7rWCw==",
+      "license": "MIT",
+      "dependencies": {
+        "@babel/helper-string-parser": "^7.24.8",
+        "@babel/helper-validator-identifier": "^7.24.7",
+        "to-fast-properties": "^2.0.0"
+      },
+      "engines": {
+        "node": ">=6.9.0"
+      }
+    },
+    "node_modules/@esbuild/aix-ppc64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.21.5.tgz",
+      "integrity": "sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==",
+      "cpu": [
+        "ppc64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "aix"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/android-arm": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-arm/-/android-arm-0.21.5.tgz",
+      "integrity": "sha512-vCPvzSjpPHEi1siZdlvAlsPxXl7WbOVUBBAowWug4rJHb68Ox8KualB+1ocNvT5fjv6wpkX6o/iEpbDrf68zcg==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/android-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-arm64/-/android-arm64-0.21.5.tgz",
+      "integrity": "sha512-c0uX9VAUBQ7dTDCjq+wdyGLowMdtR/GoC2U5IYk/7D1H1JYC0qseD7+11iMP2mRLN9RcCMRcjC4YMclCzGwS/A==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/android-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-x64/-/android-x64-0.21.5.tgz",
+      "integrity": "sha512-D7aPRUUNHRBwHxzxRvp856rjUHRFW1SdQATKXH2hqA0kAZb1hKmi02OpYRacl0TxIGz/ZmXWlbZgjwWYaCakTA==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/darwin-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.21.5.tgz",
+      "integrity": "sha512-DwqXqZyuk5AiWWf3UfLiRDJ5EDd49zg6O9wclZ7kUMv2WRFr4HKjXp/5t8JZ11QbQfUS6/cRCKGwYhtNAY88kQ==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/darwin-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/darwin-x64/-/darwin-x64-0.21.5.tgz",
+      "integrity": "sha512-se/JjF8NlmKVG4kNIuyWMV/22ZaerB+qaSi5MdrXtd6R08kvs2qCN4C09miupktDitvh8jRFflwGFBQcxZRjbw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/freebsd-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-arm64/-/freebsd-arm64-0.21.5.tgz",
+      "integrity": "sha512-5JcRxxRDUJLX8JXp/wcBCy3pENnCgBR9bN6JsY4OmhfUtIHe3ZW0mawA7+RDAcMLrMIZaf03NlQiX9DGyB8h4g==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "freebsd"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/freebsd-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-x64/-/freebsd-x64-0.21.5.tgz",
+      "integrity": "sha512-J95kNBj1zkbMXtHVH29bBriQygMXqoVQOQYA+ISs0/2l3T9/kj42ow2mpqerRBxDJnmkUDCaQT/dfNXWX/ZZCQ==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "freebsd"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-arm": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm/-/linux-arm-0.21.5.tgz",
+      "integrity": "sha512-bPb5AHZtbeNGjCKVZ9UGqGwo8EUu4cLq68E95A53KlxAPRmUyYv2D6F0uUI65XisGOL1hBP5mTronbgo+0bFcA==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm64/-/linux-arm64-0.21.5.tgz",
+      "integrity": "sha512-ibKvmyYzKsBeX8d8I7MH/TMfWDXBF3db4qM6sy+7re0YXya+K1cem3on9XgdT2EQGMu4hQyZhan7TeQ8XkGp4Q==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-ia32": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-ia32/-/linux-ia32-0.21.5.tgz",
+      "integrity": "sha512-YvjXDqLRqPDl2dvRODYmmhz4rPeVKYvppfGYKSNGdyZkA01046pLWyRKKI3ax8fbJoK5QbxblURkwK/MWY18Tg==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-loong64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-loong64/-/linux-loong64-0.21.5.tgz",
+      "integrity": "sha512-uHf1BmMG8qEvzdrzAqg2SIG/02+4/DHB6a9Kbya0XDvwDEKCoC8ZRWI5JJvNdUjtciBGFQ5PuBlpEOXQj+JQSg==",
+      "cpu": [
+        "loong64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-mips64el": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.21.5.tgz",
+      "integrity": "sha512-IajOmO+KJK23bj52dFSNCMsz1QP1DqM6cwLUv3W1QwyxkyIWecfafnI555fvSGqEKwjMXVLokcV5ygHW5b3Jbg==",
+      "cpu": [
+        "mips64el"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-ppc64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-ppc64/-/linux-ppc64-0.21.5.tgz",
+      "integrity": "sha512-1hHV/Z4OEfMwpLO8rp7CvlhBDnjsC3CttJXIhBi+5Aj5r+MBvy4egg7wCbe//hSsT+RvDAG7s81tAvpL2XAE4w==",
+      "cpu": [
+        "ppc64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-riscv64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-riscv64/-/linux-riscv64-0.21.5.tgz",
+      "integrity": "sha512-2HdXDMd9GMgTGrPWnJzP2ALSokE/0O5HhTUvWIbD3YdjME8JwvSCnNGBnTThKGEB91OZhzrJ4qIIxk/SBmyDDA==",
+      "cpu": [
+        "riscv64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-s390x": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-s390x/-/linux-s390x-0.21.5.tgz",
+      "integrity": "sha512-zus5sxzqBJD3eXxwvjN1yQkRepANgxE9lgOW2qLnmr8ikMTphkjgXu1HR01K4FJg8h1kEEDAqDcZQtbrRnB41A==",
+      "cpu": [
+        "s390x"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.21.5.tgz",
+      "integrity": "sha512-1rYdTpyv03iycF1+BhzrzQJCdOuAOtaqHTWJZCWvijKD2N5Xu0TtVC8/+1faWqcP9iBCWOmjmhoH94dH82BxPQ==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/netbsd-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/netbsd-x64/-/netbsd-x64-0.21.5.tgz",
+      "integrity": "sha512-Woi2MXzXjMULccIwMnLciyZH4nCIMpWQAs049KEeMvOcNADVxo0UBIQPfSmxB3CWKedngg7sWZdLvLczpe0tLg==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "netbsd"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/openbsd-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/openbsd-x64/-/openbsd-x64-0.21.5.tgz",
+      "integrity": "sha512-HLNNw99xsvx12lFBUwoT8EVCsSvRNDVxNpjZ7bPn947b8gJPzeHWyNVhFsaerc0n3TsbOINvRP2byTZ5LKezow==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "openbsd"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/sunos-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/sunos-x64/-/sunos-x64-0.21.5.tgz",
+      "integrity": "sha512-6+gjmFpfy0BHU5Tpptkuh8+uw3mnrvgs+dSPQXQOv3ekbordwnzTVEb4qnIvQcYXq6gzkyTnoZ9dZG+D4garKg==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "sunos"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/win32-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-arm64/-/win32-arm64-0.21.5.tgz",
+      "integrity": "sha512-Z0gOTd75VvXqyq7nsl93zwahcTROgqvuAcYDUr+vOv8uHhNSKROyU961kgtCD1e95IqPKSQKH7tBTslnS3tA8A==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/win32-ia32": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-ia32/-/win32-ia32-0.21.5.tgz",
+      "integrity": "sha512-SWXFF1CL2RVNMaVs+BBClwtfZSvDgtL//G/smwAc5oVK/UPu2Gu9tIaRgFmYFFKrmg3SyAjSrElf0TiJ1v8fYA==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/win32-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.21.5.tgz",
+      "integrity": "sha512-tQd/1efJuzPC6rCFwEvLtci/xNFcTZknmXs98FYDfGE4wP9ClFV98nyKrzJKVPMhdDnjzLhdUyMX4PsQAPjwIw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@jridgewell/sourcemap-codec": {
+      "version": "1.5.0",
+      "resolved": "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.0.tgz",
+      "integrity": "sha512-gv3ZRaISU3fjPAgNsriBRqGWQL6quFx04YMPW/zD8XMLsU32mhCCbfbO6KZFLjvYpCZ8zyDEgqsgf+PwPaM7GQ==",
+      "license": "MIT"
+    },
+    "node_modules/@rollup/rollup-android-arm-eabi": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-android-arm-eabi/-/rollup-android-arm-eabi-4.21.2.tgz",
+      "integrity": "sha512-fSuPrt0ZO8uXeS+xP3b+yYTCBUd05MoSp2N/MFOgjhhUhMmchXlpTQrTpI8T+YAwAQuK7MafsCOxW7VrPMrJcg==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ]
+    },
+    "node_modules/@rollup/rollup-android-arm64": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-android-arm64/-/rollup-android-arm64-4.21.2.tgz",
+      "integrity": "sha512-xGU5ZQmPlsjQS6tzTTGwMsnKUtu0WVbl0hYpTPauvbRAnmIvpInhJtgjj3mcuJpEiuUw4v1s4BimkdfDWlh7gA==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ]
+    },
+    "node_modules/@rollup/rollup-darwin-arm64": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.21.2.tgz",
+      "integrity": "sha512-99AhQ3/ZMxU7jw34Sq8brzXqWH/bMnf7ZVhvLk9QU2cOepbQSVTns6qoErJmSiAvU3InRqC2RRZ5ovh1KN0d0Q==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ]
+    },
+    "node_modules/@rollup/rollup-darwin-x64": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-darwin-x64/-/rollup-darwin-x64-4.21.2.tgz",
+      "integrity": "sha512-ZbRaUvw2iN/y37x6dY50D8m2BnDbBjlnMPotDi/qITMJ4sIxNY33HArjikDyakhSv0+ybdUxhWxE6kTI4oX26w==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-arm-gnueabihf": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm-gnueabihf/-/rollup-linux-arm-gnueabihf-4.21.2.tgz",
+      "integrity": "sha512-ztRJJMiE8nnU1YFcdbd9BcH6bGWG1z+jP+IPW2oDUAPxPjo9dverIOyXz76m6IPA6udEL12reYeLojzW2cYL7w==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-arm-musleabihf": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm-musleabihf/-/rollup-linux-arm-musleabihf-4.21.2.tgz",
+      "integrity": "sha512-flOcGHDZajGKYpLV0JNc0VFH361M7rnV1ee+NTeC/BQQ1/0pllYcFmxpagltANYt8FYf9+kL6RSk80Ziwyhr7w==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-arm64-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm64-gnu/-/rollup-linux-arm64-gnu-4.21.2.tgz",
+      "integrity": "sha512-69CF19Kp3TdMopyteO/LJbWufOzqqXzkrv4L2sP8kfMaAQ6iwky7NoXTp7bD6/irKgknDKM0P9E/1l5XxVQAhw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-arm64-musl": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm64-musl/-/rollup-linux-arm64-musl-4.21.2.tgz",
+      "integrity": "sha512-48pD/fJkTiHAZTnZwR0VzHrao70/4MlzJrq0ZsILjLW/Ab/1XlVUStYyGt7tdyIiVSlGZbnliqmult/QGA2O2w==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-powerpc64le-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-powerpc64le-gnu/-/rollup-linux-powerpc64le-gnu-4.21.2.tgz",
+      "integrity": "sha512-cZdyuInj0ofc7mAQpKcPR2a2iu4YM4FQfuUzCVA2u4HI95lCwzjoPtdWjdpDKyHxI0UO82bLDoOaLfpZ/wviyQ==",
+      "cpu": [
+        "ppc64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-riscv64-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-riscv64-gnu/-/rollup-linux-riscv64-gnu-4.21.2.tgz",
+      "integrity": "sha512-RL56JMT6NwQ0lXIQmMIWr1SW28z4E4pOhRRNqwWZeXpRlykRIlEpSWdsgNWJbYBEWD84eocjSGDu/XxbYeCmwg==",
+      "cpu": [
+        "riscv64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-s390x-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-s390x-gnu/-/rollup-linux-s390x-gnu-4.21.2.tgz",
+      "integrity": "sha512-PMxkrWS9z38bCr3rWvDFVGD6sFeZJw4iQlhrup7ReGmfn7Oukrr/zweLhYX6v2/8J6Cep9IEA/SmjXjCmSbrMQ==",
+      "cpu": [
+        "s390x"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-x64-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.21.2.tgz",
+      "integrity": "sha512-B90tYAUoLhU22olrafY3JQCFLnT3NglazdwkHyxNDYF/zAxJt5fJUB/yBoWFoIQ7SQj+KLe3iL4BhOMa9fzgpw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-x64-musl": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.21.2.tgz",
+      "integrity": "sha512-7twFizNXudESmC9oneLGIUmoHiiLppz/Xs5uJQ4ShvE6234K0VB1/aJYU3f/4g7PhssLGKBVCC37uRkkOi8wjg==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-win32-arm64-msvc": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-arm64-msvc/-/rollup-win32-arm64-msvc-4.21.2.tgz",
+      "integrity": "sha512-9rRero0E7qTeYf6+rFh3AErTNU1VCQg2mn7CQcI44vNUWM9Ze7MSRS/9RFuSsox+vstRt97+x3sOhEey024FRQ==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ]
+    },
+    "node_modules/@rollup/rollup-win32-ia32-msvc": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-ia32-msvc/-/rollup-win32-ia32-msvc-4.21.2.tgz",
+      "integrity": "sha512-5rA4vjlqgrpbFVVHX3qkrCo/fZTj1q0Xxpg+Z7yIo3J2AilW7t2+n6Q8Jrx+4MrYpAnjttTYF8rr7bP46BPzRw==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ]
+    },
+    "node_modules/@rollup/rollup-win32-x64-msvc": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.21.2.tgz",
+      "integrity": "sha512-6UUxd0+SKomjdzuAcp+HAmxw1FlGBnl1v2yEPSabtx4lBfdXHDVsW7+lQkgz9cNFJGY3AWR7+V8P5BqkD9L9nA==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ]
+    },
+    "node_modules/@tauri-apps/api": {
+      "version": "1.6.0",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/api/-/api-1.6.0.tgz",
+      "integrity": "sha512-rqI++FWClU5I2UBp4HXFvl+sBWkdigBkxnpJDQUWttNyG7IZP4FwQGhTNL5EOw0vI8i6eSAJ5frLqO7n7jbJdg==",
+      "license": "Apache-2.0 OR MIT",
+      "engines": {
+        "node": ">= 14.6.0",
+        "npm": ">= 6.6.0",
+        "yarn": ">= 1.19.1"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/tauri"
+      }
+    },
+    "node_modules/@tauri-apps/cli": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli/-/cli-1.6.1.tgz",
+      "integrity": "sha512-2S8WGmkz54Z9WxpaFVbUYsTiwx5OIEmdD5DDWRygX9VhaWwZg0y6DctsUtCRVre9I/Un/hTnmqkhZqPamCEx8A==",
+      "dev": true,
+      "license": "Apache-2.0 OR MIT",
+      "bin": {
+        "tauri": "tauri.js"
+      },
+      "engines": {
+        "node": ">= 10"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/tauri"
+      },
+      "optionalDependencies": {
+        "@tauri-apps/cli-darwin-arm64": "1.6.1",
+        "@tauri-apps/cli-darwin-x64": "1.6.1",
+        "@tauri-apps/cli-linux-arm-gnueabihf": "1.6.1",
+        "@tauri-apps/cli-linux-arm64-gnu": "1.6.1",
+        "@tauri-apps/cli-linux-arm64-musl": "1.6.1",
+        "@tauri-apps/cli-linux-x64-gnu": "1.6.1",
+        "@tauri-apps/cli-linux-x64-musl": "1.6.1",
+        "@tauri-apps/cli-win32-arm64-msvc": "1.6.1",
+        "@tauri-apps/cli-win32-ia32-msvc": "1.6.1",
+        "@tauri-apps/cli-win32-x64-msvc": "1.6.1"
+      }
+    },
+    "node_modules/@tauri-apps/cli-darwin-arm64": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-darwin-arm64/-/cli-darwin-arm64-1.6.1.tgz",
+      "integrity": "sha512-n+16Z9qQksBmY55Xwful8GGrw2dlyeqKPsjuNcwKUgVB5a4gIq6K6uUsbhwMUMUA3gqewQMBn44QXbSe5qNKfA==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-darwin-x64": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-darwin-x64/-/cli-darwin-x64-1.6.1.tgz",
+      "integrity": "sha512-OHzm6qiywv0GEwBDowlzLSuztKE85NMxp2loVynQ4vDoVk6V0jMtQy/N9YvYA0BetvfNTuuAiz3hsTkMHMYm+g==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-arm-gnueabihf": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm-gnueabihf/-/cli-linux-arm-gnueabihf-1.6.1.tgz",
+      "integrity": "sha512-ZA4ByaiZbrXUbhaoWUVab4lHI2yI1/ucrRO6b9pky6ytgqx37hA/YOWoctD0yaf5giQJQZw160euaBIUOKzRXA==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-arm64-gnu": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm64-gnu/-/cli-linux-arm64-gnu-1.6.1.tgz",
+      "integrity": "sha512-VBU4GRJPU9jzzeqaEGLHAJzqQhpl7WnRFyHPR8Qby0D17av3CClJ7nBa+CI3ob3JbIERfJM9kwFHdY9eQpfxnw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-arm64-musl": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm64-musl/-/cli-linux-arm64-musl-1.6.1.tgz",
+      "integrity": "sha512-gyMgNZ8fwQFYzrIiHwhmKECkbuAZtzsRyl+bi1Ua11XVWYVUpY8+cNp7Y5ilMJ9AwNFI/HFKjzzua9r+e9FNzw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-x64-gnu": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-x64-gnu/-/cli-linux-x64-gnu-1.6.1.tgz",
+      "integrity": "sha512-aYLjLXEBcOf4GUrLBZRQcoLSL3KgCKHwfAyGmTilH4juAw42ZaAYWIZwa59hp2kC4w1XrlmwAzGpi1RESBr5Mw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-x64-musl": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-x64-musl/-/cli-linux-x64-musl-1.6.1.tgz",
+      "integrity": "sha512-j1M7ovICUrBDbrH8CNUwbMe0zk0/IAR7MXRv5PEanktAZ1w/LG3nlO/AhY5/Cbqqo3ziKTcMpe6x0j3aE8jYOA==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-win32-arm64-msvc": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-win32-arm64-msvc/-/cli-win32-arm64-msvc-1.6.1.tgz",
+      "integrity": "sha512-yCGT1jXHvZtu+yYPDmDOJDfgsj5EKdBPvya+kmN03BmLfOF+8EWHA9s6yXUdk9pSr6M9OQS0SXocbGDOu5AkMw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-win32-ia32-msvc": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-win32-ia32-msvc/-/cli-win32-ia32-msvc-1.6.1.tgz",
+      "integrity": "sha512-klAt+KNcczC4gxz9vm6tSvFB4iyXVj4r+TtDVhStLCKkAZOVm0ZsFym1kDzltxrB/3xSjgzsgIiEJydN2cP7xw==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-win32-x64-msvc": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-win32-x64-msvc/-/cli-win32-x64-msvc-1.6.1.tgz",
+      "integrity": "sha512-WEzQzBgcaqjZoA5M/KOupHmt8W3QQ20vwETXpGEMPd7spj4eZsRv/2ZDuCz4ELbai1XlIsTITFNe2LlJjzqISA==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@types/estree": {
+      "version": "1.0.5",
+      "resolved": "https://registry.npmjs.org/@types/estree/-/estree-1.0.5.tgz",
+      "integrity": "sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/@types/node": {
+      "version": "22.5.4",
+      "resolved": "https://registry.npmjs.org/@types/node/-/node-22.5.4.tgz",
+      "integrity": "sha512-FDuKUJQm/ju9fT/SeX/6+gBzoPzlVCzfzmGkwKvRHQVxi4BntVbyIwf6a4Xn62mrvndLiml6z/UBXIdEVjQLXg==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "undici-types": "~6.19.2"
+      }
+    },
+    "node_modules/@vitejs/plugin-vue": {
+      "version": "5.1.3",
+      "resolved": "https://registry.npmjs.org/@vitejs/plugin-vue/-/plugin-vue-5.1.3.tgz",
+      "integrity": "sha512-3xbWsKEKXYlmX82aOHufFQVnkbMC/v8fLpWwh6hWOUrK5fbbtBh9Q/WWse27BFgSy2/e2c0fz5Scgya9h2GLhw==",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": "^18.0.0 || >=20.0.0"
+      },
+      "peerDependencies": {
+        "vite": "^5.0.0",
+        "vue": "^3.2.25"
+      }
+    },
+    "node_modules/@volar/language-core": {
+      "version": "2.4.2",
+      "resolved": "https://registry.npmjs.org/@volar/language-core/-/language-core-2.4.2.tgz",
+      "integrity": "sha512-sONt5RLvLL1SlBdhyUSthZzuKePbJ7DwFFB9zT0eyWpDl+v7GXGh/RkPxxWaR22bIhYtTzp4Ka1MWatl/53Riw==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@volar/source-map": "2.4.2"
+      }
+    },
+    "node_modules/@volar/source-map": {
+      "version": "2.4.2",
+      "resolved": "https://registry.npmjs.org/@volar/source-map/-/source-map-2.4.2.tgz",
+      "integrity": "sha512-qiGfGgeZ5DEarPX3S+HcFktFCjfDrFPCXKeXNbrlB7v8cvtPRm8YVwoXOdGG1NhaL5rMlv5BZPVQyu4EdWWIvA==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/@volar/typescript": {
+      "version": "2.4.2",
+      "resolved": "https://registry.npmjs.org/@volar/typescript/-/typescript-2.4.2.tgz",
+      "integrity": "sha512-m2uZduhaHO1SZuagi30OsjI/X1gwkaEAC+9wT/nCNAtJ5FqXEkKvUncHmffG7ESDZPlFFUBK4vJ0D9Hfr+f2EA==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@volar/language-core": "2.4.2",
+        "path-browserify": "^1.0.1",
+        "vscode-uri": "^3.0.8"
+      }
+    },
+    "node_modules/@vue/compiler-core": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-core/-/compiler-core-3.5.4.tgz",
+      "integrity": "sha512-oNwn+BAt3n9dK9uAYvI+XGlutwuTq/wfj4xCBaZCqwwVIGtD7D6ViihEbyYZrDHIHTDE3Q6oL3/hqmAyFEy9DQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@babel/parser": "^7.25.3",
+        "@vue/shared": "3.5.4",
+        "entities": "^4.5.0",
+        "estree-walker": "^2.0.2",
+        "source-map-js": "^1.2.0"
+      }
+    },
+    "node_modules/@vue/compiler-dom": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-dom/-/compiler-dom-3.5.4.tgz",
+      "integrity": "sha512-yP9RRs4BDLOLfldn6ah+AGCNovGjMbL9uHvhDHf5wan4dAHLnFGOkqtfE7PPe4HTXIqE7l/NILdYw53bo1C8jw==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/compiler-core": "3.5.4",
+        "@vue/shared": "3.5.4"
+      }
+    },
+    "node_modules/@vue/compiler-sfc": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-sfc/-/compiler-sfc-3.5.4.tgz",
+      "integrity": "sha512-P+yiPhL+NYH7m0ZgCq7AQR2q7OIE+mpAEgtkqEeH9oHSdIRvUO+4X6MPvblJIWcoe4YC5a2Gdf/RsoyP8FFiPQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@babel/parser": "^7.25.3",
+        "@vue/compiler-core": "3.5.4",
+        "@vue/compiler-dom": "3.5.4",
+        "@vue/compiler-ssr": "3.5.4",
+        "@vue/shared": "3.5.4",
+        "estree-walker": "^2.0.2",
+        "magic-string": "^0.30.11",
+        "postcss": "^8.4.44",
+        "source-map-js": "^1.2.0"
+      }
+    },
+    "node_modules/@vue/compiler-ssr": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-ssr/-/compiler-ssr-3.5.4.tgz",
+      "integrity": "sha512-acESdTXsxPnYr2C4Blv0ggx5zIFMgOzZmYU2UgvIff9POdRGbRNBHRyzHAnizcItvpgerSKQbllUc9USp3V7eg==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/compiler-dom": "3.5.4",
+        "@vue/shared": "3.5.4"
+      }
+    },
+    "node_modules/@vue/compiler-vue2": {
+      "version": "2.7.16",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-vue2/-/compiler-vue2-2.7.16.tgz",
+      "integrity": "sha512-qYC3Psj9S/mfu9uVi5WvNZIzq+xnXMhOwbTFKKDD7b1lhpnn71jXSFdTQ+WsIEk0ONCd7VV2IMm7ONl6tbQ86A==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "de-indent": "^1.0.2",
+        "he": "^1.2.0"
+      }
+    },
+    "node_modules/@vue/devtools-api": {
+      "version": "6.6.4",
+      "resolved": "https://registry.npmjs.org/@vue/devtools-api/-/devtools-api-6.6.4.tgz",
+      "integrity": "sha512-sGhTPMuXqZ1rVOk32RylztWkfXTRhuS7vgAKv0zjqk8gbsHkJ7xfFf+jbySxt7tWObEJwyKaHMikV/WGDiQm8g==",
+      "license": "MIT"
+    },
+    "node_modules/@vue/language-core": {
+      "version": "2.1.6",
+      "resolved": "https://registry.npmjs.org/@vue/language-core/-/language-core-2.1.6.tgz",
+      "integrity": "sha512-MW569cSky9R/ooKMh6xa2g1D0AtRKbL56k83dzus/bx//RDJk24RHWkMzbAlXjMdDNyxAaagKPRquBIxkxlCkg==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@volar/language-core": "~2.4.1",
+        "@vue/compiler-dom": "^3.4.0",
+        "@vue/compiler-vue2": "^2.7.16",
+        "@vue/shared": "^3.4.0",
+        "computeds": "^0.0.1",
+        "minimatch": "^9.0.3",
+        "muggle-string": "^0.4.1",
+        "path-browserify": "^1.0.1"
+      },
+      "peerDependencies": {
+        "typescript": "*"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@vue/reactivity": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.4.tgz",
+      "integrity": "sha512-HKKbEuP7tYSGCq4e4nK6ZW6l5hyG66OUetefBp4budUyjvAYsnQDf+bgFzg2RAgnH0CInyqXwD9y47jwJEHrQw==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/shared": "3.5.4"
+      }
+    },
+    "node_modules/@vue/runtime-core": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/runtime-core/-/runtime-core-3.5.4.tgz",
+      "integrity": "sha512-f3ek2sTA0AFu0n+w+kCtz567Euqqa3eHewvo4klwS7mWfSj/A+UmYTwsnUFo35KeyAFY60JgrCGvEBsu1n/3LA==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/reactivity": "3.5.4",
+        "@vue/shared": "3.5.4"
+      }
+    },
+    "node_modules/@vue/runtime-dom": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/runtime-dom/-/runtime-dom-3.5.4.tgz",
+      "integrity": "sha512-ofyc0w6rbD5KtjhP1i9hGOKdxGpvmuB1jprP7Djlj0X7R5J/oLwuNuE98GJ8WW31Hu2VxQHtk/LYTAlW8xrJdw==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/reactivity": "3.5.4",
+        "@vue/runtime-core": "3.5.4",
+        "@vue/shared": "3.5.4",
+        "csstype": "^3.1.3"
+      }
+    },
+    "node_modules/@vue/server-renderer": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/server-renderer/-/server-renderer-3.5.4.tgz",
+      "integrity": "sha512-FbjV6DJLgKRetMYFBA1UXCroCiED/Ckr53/ba9wivyd7D/Xw9fpo0T6zXzCnxQwyvkyrL7y6plgYhWhNjGxY5g==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/compiler-ssr": "3.5.4",
+        "@vue/shared": "3.5.4"
+      },
+      "peerDependencies": {
+        "vue": "3.5.4"
+      }
+    },
+    "node_modules/@vue/shared": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/shared/-/shared-3.5.4.tgz",
+      "integrity": "sha512-L2MCDD8l7yC62Te5UUyPVpmexhL9ipVnYRw9CsWfm/BGRL5FwDX4a25bcJ/OJSD3+Hx+k/a8LDKcG2AFdJV3BA==",
+      "license": "MIT"
+    },
+    "node_modules/asynckit": {
+      "version": "0.4.0",
+      "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
+      "integrity": "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==",
+      "license": "MIT"
+    },
+    "node_modules/axios": {
+      "version": "1.7.7",
+      "resolved": "https://registry.npmjs.org/axios/-/axios-1.7.7.tgz",
+      "integrity": "sha512-S4kL7XrjgBmvdGut0sN3yJxqYzrDOnivkBiN0OFs6hLiUam3UPvswUo0kqGyhqUZGEOytHyumEdXsAkgCOUf3Q==",
+      "license": "MIT",
+      "dependencies": {
+        "follow-redirects": "^1.15.6",
+        "form-data": "^4.0.0",
+        "proxy-from-env": "^1.1.0"
+      }
+    },
+    "node_modules/balanced-match": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+      "integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/brace-expansion": {
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.0.1.tgz",
+      "integrity": "sha512-XnAIvQ8eM+kC6aULx6wuQiwVsnzsi9d3WxzV3FpWTGA19F621kwdbsAcFKXgKUHZWsy+mY6iL1sHTxWEFCytDA==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "balanced-match": "^1.0.0"
+      }
+    },
+    "node_modules/combined-stream": {
+      "version": "1.0.8",
+      "resolved": "https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz",
+      "integrity": "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==",
+      "license": "MIT",
+      "dependencies": {
+        "delayed-stream": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/computeds": {
+      "version": "0.0.1",
+      "resolved": "https://registry.npmjs.org/computeds/-/computeds-0.0.1.tgz",
+      "integrity": "sha512-7CEBgcMjVmitjYo5q8JTJVra6X5mQ20uTThdK+0kR7UEaDrAWEQcRiBtWJzga4eRpP6afNwwLsX2SET2JhVB1Q==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/csstype": {
+      "version": "3.1.3",
+      "resolved": "https://registry.npmjs.org/csstype/-/csstype-3.1.3.tgz",
+      "integrity": "sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==",
+      "license": "MIT"
+    },
+    "node_modules/de-indent": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/de-indent/-/de-indent-1.0.2.tgz",
+      "integrity": "sha512-e/1zu3xH5MQryN2zdVaF0OrdNLUbvWxzMbi+iNA6Bky7l1RoP8a2fIbRocyHclXt/arDrrR6lL3TqFD9pMQTsg==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/delayed-stream": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz",
+      "integrity": "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.4.0"
+      }
+    },
+    "node_modules/entities": {
+      "version": "4.5.0",
+      "resolved": "https://registry.npmjs.org/entities/-/entities-4.5.0.tgz",
+      "integrity": "sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==",
+      "license": "BSD-2-Clause",
+      "engines": {
+        "node": ">=0.12"
+      },
+      "funding": {
+        "url": "https://github.com/fb55/entities?sponsor=1"
+      }
+    },
+    "node_modules/esbuild": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.21.5.tgz",
+      "integrity": "sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw==",
+      "dev": true,
+      "hasInstallScript": true,
+      "license": "MIT",
+      "bin": {
+        "esbuild": "bin/esbuild"
+      },
+      "engines": {
+        "node": ">=12"
+      },
+      "optionalDependencies": {
+        "@esbuild/aix-ppc64": "0.21.5",
+        "@esbuild/android-arm": "0.21.5",
+        "@esbuild/android-arm64": "0.21.5",
+        "@esbuild/android-x64": "0.21.5",
+        "@esbuild/darwin-arm64": "0.21.5",
+        "@esbuild/darwin-x64": "0.21.5",
+        "@esbuild/freebsd-arm64": "0.21.5",
+        "@esbuild/freebsd-x64": "0.21.5",
+        "@esbuild/linux-arm": "0.21.5",
+        "@esbuild/linux-arm64": "0.21.5",
+        "@esbuild/linux-ia32": "0.21.5",
+        "@esbuild/linux-loong64": "0.21.5",
+        "@esbuild/linux-mips64el": "0.21.5",
+        "@esbuild/linux-ppc64": "0.21.5",
+        "@esbuild/linux-riscv64": "0.21.5",
+        "@esbuild/linux-s390x": "0.21.5",
+        "@esbuild/linux-x64": "0.21.5",
+        "@esbuild/netbsd-x64": "0.21.5",
+        "@esbuild/openbsd-x64": "0.21.5",
+        "@esbuild/sunos-x64": "0.21.5",
+        "@esbuild/win32-arm64": "0.21.5",
+        "@esbuild/win32-ia32": "0.21.5",
+        "@esbuild/win32-x64": "0.21.5"
+      }
+    },
+    "node_modules/estree-walker": {
+      "version": "2.0.2",
+      "resolved": "https://registry.npmjs.org/estree-walker/-/estree-walker-2.0.2.tgz",
+      "integrity": "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w==",
+      "license": "MIT"
+    },
+    "node_modules/follow-redirects": {
+      "version": "1.15.9",
+      "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.9.tgz",
+      "integrity": "sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==",
+      "funding": [
+        {
+          "type": "individual",
+          "url": "https://github.com/sponsors/RubenVerborgh"
+        }
+      ],
+      "license": "MIT",
+      "engines": {
+        "node": ">=4.0"
+      },
+      "peerDependenciesMeta": {
+        "debug": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/form-data": {
+      "version": "4.0.0",
+      "resolved": "https://registry.npmjs.org/form-data/-/form-data-4.0.0.tgz",
+      "integrity": "sha512-ETEklSGi5t0QMZuiXoA/Q6vcnxcLQP5vdugSpuAyi6SVGi2clPPp+xgEhuMaHC+zGgn31Kd235W35f7Hykkaww==",
+      "license": "MIT",
+      "dependencies": {
+        "asynckit": "^0.4.0",
+        "combined-stream": "^1.0.8",
+        "mime-types": "^2.1.12"
+      },
+      "engines": {
+        "node": ">= 6"
+      }
+    },
+    "node_modules/fsevents": {
+      "version": "2.3.3",
+      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
+      "dev": true,
+      "hasInstallScript": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
+      }
+    },
+    "node_modules/he": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/he/-/he-1.2.0.tgz",
+      "integrity": "sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==",
+      "dev": true,
+      "license": "MIT",
+      "bin": {
+        "he": "bin/he"
+      }
+    },
+    "node_modules/magic-string": {
+      "version": "0.30.11",
+      "resolved": "https://registry.npmjs.org/magic-string/-/magic-string-0.30.11.tgz",
+      "integrity": "sha512-+Wri9p0QHMy+545hKww7YAu5NyzF8iomPL/RQazugQ9+Ez4Ic3mERMd8ZTX5rfK944j+560ZJi8iAwgak1Ac7A==",
+      "license": "MIT",
+      "dependencies": {
+        "@jridgewell/sourcemap-codec": "^1.5.0"
+      }
+    },
+    "node_modules/mime-db": {
+      "version": "1.52.0",
+      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
+      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/mime-types": {
+      "version": "2.1.35",
+      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
+      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
+      "license": "MIT",
+      "dependencies": {
+        "mime-db": "1.52.0"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/minimatch": {
+      "version": "9.0.5",
+      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-9.0.5.tgz",
+      "integrity": "sha512-G6T0ZX48xgozx7587koeX9Ys2NYy6Gmv//P89sEte9V9whIapMNF4idKxnW2QtCcLiTWlb/wfCabAtAFWhhBow==",
+      "dev": true,
+      "license": "ISC",
+      "dependencies": {
+        "brace-expansion": "^2.0.1"
+      },
+      "engines": {
+        "node": ">=16 || 14 >=14.17"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/isaacs"
+      }
+    },
+    "node_modules/muggle-string": {
+      "version": "0.4.1",
+      "resolved": "https://registry.npmjs.org/muggle-string/-/muggle-string-0.4.1.tgz",
+      "integrity": "sha512-VNTrAak/KhO2i8dqqnqnAHOa3cYBwXEZe9h+D5h/1ZqFSTEFHdM65lR7RoIqq3tBBYavsOXV84NoHXZ0AkPyqQ==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/nanoid": {
+      "version": "3.3.7",
+      "resolved": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.7.tgz",
+      "integrity": "sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==",
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/ai"
+        }
+      ],
+      "license": "MIT",
+      "bin": {
+        "nanoid": "bin/nanoid.cjs"
+      },
+      "engines": {
+        "node": "^10 || ^12 || ^13.7 || ^14 || >=15.0.1"
+      }
+    },
+    "node_modules/path-browserify": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/path-browserify/-/path-browserify-1.0.1.tgz",
+      "integrity": "sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/picocolors": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.0.tgz",
+      "integrity": "sha512-TQ92mBOW0l3LeMeyLV6mzy/kWr8lkd/hp3mTg7wYK7zJhuBStmGMBG0BdeDZS/dZx1IukaX6Bk11zcln25o1Aw==",
+      "license": "ISC"
+    },
+    "node_modules/postcss": {
+      "version": "8.4.45",
+      "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.4.45.tgz",
+      "integrity": "sha512-7KTLTdzdZZYscUc65XmjFiB73vBhBfbPztCYdUNvlaso9PrzjzcmjqBPR0lNGkcVlcO4BjiO5rK/qNz+XAen1Q==",
+      "funding": [
+        {
+          "type": "opencollective",
+          "url": "https://opencollective.com/postcss/"
+        },
+        {
+          "type": "tidelift",
+          "url": "https://tidelift.com/funding/github/npm/postcss"
+        },
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/ai"
+        }
+      ],
+      "license": "MIT",
+      "dependencies": {
+        "nanoid": "^3.3.7",
+        "picocolors": "^1.0.1",
+        "source-map-js": "^1.2.0"
+      },
+      "engines": {
+        "node": "^10 || ^12 || >=14"
+      }
+    },
+    "node_modules/proxy-from-env": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-1.1.0.tgz",
+      "integrity": "sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==",
+      "license": "MIT"
+    },
+    "node_modules/rollup": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/rollup/-/rollup-4.21.2.tgz",
+      "integrity": "sha512-e3TapAgYf9xjdLvKQCkQTnbTKd4a6jwlpQSJJFokHGaX2IVjoEqkIIhiQfqsi0cdwlOD+tQGuOd5AJkc5RngBw==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/estree": "1.0.5"
+      },
+      "bin": {
+        "rollup": "dist/bin/rollup"
+      },
+      "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=8.0.0"
+      },
+      "optionalDependencies": {
+        "@rollup/rollup-android-arm-eabi": "4.21.2",
+        "@rollup/rollup-android-arm64": "4.21.2",
+        "@rollup/rollup-darwin-arm64": "4.21.2",
+        "@rollup/rollup-darwin-x64": "4.21.2",
+        "@rollup/rollup-linux-arm-gnueabihf": "4.21.2",
+        "@rollup/rollup-linux-arm-musleabihf": "4.21.2",
+        "@rollup/rollup-linux-arm64-gnu": "4.21.2",
+        "@rollup/rollup-linux-arm64-musl": "4.21.2",
+        "@rollup/rollup-linux-powerpc64le-gnu": "4.21.2",
+        "@rollup/rollup-linux-riscv64-gnu": "4.21.2",
+        "@rollup/rollup-linux-s390x-gnu": "4.21.2",
+        "@rollup/rollup-linux-x64-gnu": "4.21.2",
+        "@rollup/rollup-linux-x64-musl": "4.21.2",
+        "@rollup/rollup-win32-arm64-msvc": "4.21.2",
+        "@rollup/rollup-win32-ia32-msvc": "4.21.2",
+        "@rollup/rollup-win32-x64-msvc": "4.21.2",
+        "fsevents": "~2.3.2"
+      }
+    },
+    "node_modules/semver": {
+      "version": "7.6.3",
+      "resolved": "https://registry.npmjs.org/semver/-/semver-7.6.3.tgz",
+      "integrity": "sha512-oVekP1cKtI+CTDvHWYFUcMtsK/00wmAEfyqKfNdARm8u1wNVhSgaX7A8d4UuIlUI5e84iEwOhs7ZPYRmzU9U6A==",
+      "dev": true,
+      "license": "ISC",
+      "bin": {
+        "semver": "bin/semver.js"
+      },
+      "engines": {
+        "node": ">=10"
+      }
+    },
+    "node_modules/source-map-js": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.0.tgz",
+      "integrity": "sha512-itJW8lvSA0TXEphiRoawsCksnlf8SyvmFzIhltqAHluXd88pkCd+cXJVHTDwdCr0IzwptSm035IHQktUu1QUMg==",
+      "license": "BSD-3-Clause",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/to-fast-properties": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/to-fast-properties/-/to-fast-properties-2.0.0.tgz",
+      "integrity": "sha512-/OaKK0xYrs3DmxRYqL/yDc+FxFUVYhDlXMhRmv3z915w2HF1tnN1omB354j8VUGO/hbRzyD6Y3sA7v7GS/ceog==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=4"
+      }
+    },
+    "node_modules/typescript": {
+      "version": "5.5.4",
+      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.5.4.tgz",
+      "integrity": "sha512-Mtq29sKDAEYP7aljRgtPOpTvOfbwRWlS6dPRzwjdE+C0R4brX/GUyhHSecbHMFLNBLcJIPt9nl9yG5TZ1weH+Q==",
+      "devOptional": true,
+      "license": "Apache-2.0",
+      "bin": {
+        "tsc": "bin/tsc",
+        "tsserver": "bin/tsserver"
+      },
+      "engines": {
+        "node": ">=14.17"
+      }
+    },
+    "node_modules/undici-types": {
+      "version": "6.19.8",
+      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.19.8.tgz",
+      "integrity": "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/vite": {
+      "version": "5.4.3",
+      "resolved": "https://registry.npmjs.org/vite/-/vite-5.4.3.tgz",
+      "integrity": "sha512-IH+nl64eq9lJjFqU+/yrRnrHPVTlgy42/+IzbOdaFDVlyLgI/wDlf+FCobXLX1cT0X5+7LMyH1mIy2xJdLfo8Q==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "esbuild": "^0.21.3",
+        "postcss": "^8.4.43",
+        "rollup": "^4.20.0"
+      },
+      "bin": {
+        "vite": "bin/vite.js"
+      },
+      "engines": {
+        "node": "^18.0.0 || >=20.0.0"
+      },
+      "funding": {
+        "url": "https://github.com/vitejs/vite?sponsor=1"
+      },
+      "optionalDependencies": {
+        "fsevents": "~2.3.3"
+      },
+      "peerDependencies": {
+        "@types/node": "^18.0.0 || >=20.0.0",
+        "less": "*",
+        "lightningcss": "^1.21.0",
+        "sass": "*",
+        "sass-embedded": "*",
+        "stylus": "*",
+        "sugarss": "*",
+        "terser": "^5.4.0"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        },
+        "less": {
+          "optional": true
+        },
+        "lightningcss": {
+          "optional": true
+        },
+        "sass": {
+          "optional": true
+        },
+        "sass-embedded": {
+          "optional": true
+        },
+        "stylus": {
+          "optional": true
+        },
+        "sugarss": {
+          "optional": true
+        },
+        "terser": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/vscode-uri": {
+      "version": "3.0.8",
+      "resolved": "https://registry.npmjs.org/vscode-uri/-/vscode-uri-3.0.8.tgz",
+      "integrity": "sha512-AyFQ0EVmsOZOlAnxoFOGOq1SQDWAB7C6aqMGS23svWAllfOaxbuFvcT8D1i8z3Gyn8fraVeZNNmN6e9bxxXkKw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/vue": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/vue/-/vue-3.5.4.tgz",
+      "integrity": "sha512-3yAj2gkmiY+i7+22A1PWM+kjOVXjU74UPINcTiN7grIVPyFFI0lpGwHlV/4xydDmobaBn7/xmi+YG8HeSlCTcg==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/compiler-dom": "3.5.4",
+        "@vue/compiler-sfc": "3.5.4",
+        "@vue/runtime-dom": "3.5.4",
+        "@vue/server-renderer": "3.5.4",
+        "@vue/shared": "3.5.4"
+      },
+      "peerDependencies": {
+        "typescript": "*"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/vue-router": {
+      "version": "4.4.4",
+      "resolved": "https://registry.npmjs.org/vue-router/-/vue-router-4.4.4.tgz",
+      "integrity": "sha512-3MlnDqwRwZwCQVbtVfpsU+nrNymNjnXSsQtXName5925NVC1+326VVfYH9vSrA0N13teGEo8z5x7gbRnGjCDiQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/devtools-api": "^6.6.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/posva"
+      },
+      "peerDependencies": {
+        "vue": "^3.2.0"
+      }
+    },
+    "node_modules/vue-tsc": {
+      "version": "2.1.6",
+      "resolved": "https://registry.npmjs.org/vue-tsc/-/vue-tsc-2.1.6.tgz",
+      "integrity": "sha512-f98dyZp5FOukcYmbFpuSCJ4Z0vHSOSmxGttZJCsFeX0M4w/Rsq0s4uKXjcSRsZqsRgQa6z7SfuO+y0HVICE57Q==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@volar/typescript": "~2.4.1",
+        "@vue/language-core": "2.1.6",
+        "semver": "^7.5.4"
+      },
+      "bin": {
+        "vue-tsc": "bin/vue-tsc.js"
+      },
+      "peerDependencies": {
+        "typescript": ">=5.0.0"
+      }
+    },
+    "node_modules/vuex": {
+      "version": "4.1.0",
+      "resolved": "https://registry.npmjs.org/vuex/-/vuex-4.1.0.tgz",
+      "integrity": "sha512-hmV6UerDrPcgbSy9ORAtNXDr9M4wlNP4pEFKye4ujJF8oqgFFuxDCdOLS3eNoRTtq5O3hoBDh9Doj1bQMYHRbQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/devtools-api": "^6.0.0-beta.11"
+      },
+      "peerDependencies": {
+        "vue": "^3.2.0"
+      }
+    }
+  }
+}
+==== END OF FILE: frontend/package-lock.json ====
+
+==== START OF FILE: frontend/package.json ====
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^1.5.2",
+    "axios": "^1.6.2",
+    "vue": "^3.3.9",
+    "vue-router": "^4.2.5",
+    "vuex": "^4.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.7",
+    "@types/node": "^22.5.4",
+    "@vitejs/plugin-vue": "^5.0.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.3.1",
+    "vue-tsc": "^2.0.22"
+  }
+}
+==== END OF FILE: frontend/package.json ====
+
+==== START OF FILE: frontend/src/App.vue ====
+<template>
+  <div id="app">
+    <nav>
+      <router-link to="/">Home</router-link> |
+      <router-link to="/admin">Admin</router-link> |
+      <router-link to="/studio">Studio</router-link> |
+      <a href="#" @click="logout" v-if="isAuthenticated">Logout</a>
+      <router-link to="/login" v-else>Login</router-link>
+    </nav>
+    <router-view></router-view>
+  </div>
+</template>
+
+<script lang="ts">
+import { defineComponent, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import AuthService from './services/AuthService';
+
+export default defineComponent({
+  name: 'App',
+  setup() {
+    const router = useRouter();
+    const isAuthenticated = computed(() => !!AuthService.getToken());
+
+    const logout = () => {
+      AuthService.logout();
+      router.push('/login');
+    };
+
+    return { isAuthenticated, logout };
+  }
+});
+</script>==== END OF FILE: frontend/src/App.vue ====
+
+==== START OF FILE: frontend/src/main.ts ====
+import { createApp } from 'vue';
+import App from './App.vue';
+import router from './router';
+import store from './store';
+
+createApp(App).use(router).use(store).mount('#app');==== END OF FILE: frontend/src/main.ts ====
+
+==== START OF FILE: frontend/src/vite-env.d.ts ====
+/// <reference types="vite/client" />
+
+declare module "*.vue" {
+  import type { DefineComponent } from "vue";
+  const component: DefineComponent<{}, {}, any>;
+  export default component;
+}
+==== END OF FILE: frontend/src/vite-env.d.ts ====
+
+==== START OF FILE: frontend/src-tauri/build.rs ====
+fn main() {
+    tauri_build::build()
+}
+==== END OF FILE: frontend/src-tauri/build.rs ====
+
+==== START OF FILE: frontend/src-tauri/src/main.rs ====
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+fn main() {
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![greet])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+==== END OF FILE: frontend/src-tauri/src/main.rs ====
+
+==== START OF FILE: frontend/src-tauri/tauri.conf.json ====
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "frontend",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "http": {
+      "all": true,
+      "request": true,
+      "scope": ["http://localhost:8000/*"]
+    }
+    },
+    "windows": [
+      {
+        "title": "frontend",
+        "width": 800,
+        "height": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.frontend.app",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ]
+    }
+  }
+}==== END OF FILE: frontend/src-tauri/tauri.conf.json ====
+
+==== START OF FILE: frontend/tsconfig.json ====
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "node",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "preserve",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Additional settings for Vuex and Tauri */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["vite/client", "node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "vite.config.ts"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}==== END OF FILE: frontend/tsconfig.json ====
+
+==== START OF FILE: frontend/tsconfig.node.json ====
+{
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}==== END OF FILE: frontend/tsconfig.node.json ====
+
+==== START OF FILE: frontend/vite.config.ts ====
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+
+
+export default defineConfig({
+  plugins: [vue()],
+  server: {
+    host: '0.0.0.0',
+    port: 1420,
+    strictPort: true,
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+  },
+  resolve: {
+  }
+});==== END OF FILE: frontend/vite.config.ts ====
+
+==== START OF FILE: fws-env/start-combined.sh ====
+#!/bin/bash
+
+# Start Neo4j in the background
+neo4j start &
+
+gunicorn -w 2 -b 0.0.0.0:5000 --worker-class gevent --timeout 9000 app:app &
+
+echo "started neo4j and web server"
+
+wait
+==== END OF FILE: fws-env/start-combined.sh ====
+
+==== START OF FILE: fws-env/start-flask.sh ====
+#!/bin/bash
+
+# Start the web server
+screen -d -m flask python /app/app.py
+
+echo "started web server"==== END OF FILE: fws-env/start-flask.sh ====
+
+==== START OF FILE: fws-env/start-neo4j.sh ====
+#!/bin/bash
+
+# Start Neo4j in the background
+neo4j start &
+
+echo "started neo4j server"==== END OF FILE: fws-env/start-neo4j.sh ====
+
+==== START OF FILE: generate_migrations.sh ====
+
+#!/bin/bash
+set -e
+
+# Use environment variables for database connection
+export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${PG_HOST}:5432/${POSTGRES_DB}"
+
+# Function to convert Rust types to SQL types
+rust_to_sql_type() {
+    local type=$1
+    case $type in
+        "Uuid") echo "UUID";;
+        "Varchar") echo "VARCHAR(255)";;
+        "Text") echo "TEXT";;
+        "Timestamptz") echo "TIMESTAMP WITH TIME ZONE";;
+        "Bool") echo "BOOLEAN";;
+        "Jsonb") echo "JSONB";;
+        *) 
+            if [[ $type == Nullable* ]]; then
+                inner_type=$(echo $type | sed -E 's/Nullable<(.*)>/\1/')
+                echo "$(rust_to_sql_type $inner_type)"
+            else
+                echo "UNKNOWN_TYPE"
+            fi
+            ;;
+    esac
+}
+# Read the migration.rs file and generate migrations
+while IFS= read -r line
+do
+    if [[ $line =~ diesel::table\!\ *\{\ *([a-z_]+) ]]; then
+        table_name=${BASH_REMATCH[1]}
+        migration_name="create_${table_name}"
+        
+        # Check if migration already exists
+        if ! ls -d migrations/*_${migration_name} > /dev/null 2>&1; then
+            diesel migration generate $migration_name
+
+            # Get the latest migration directory
+            migration_dir=$(ls -d migrations/*_${migration_name} | tail -n 1)
+            up_sql="${migration_dir}/up.sql"
+            down_sql="${migration_dir}/down.sql"
+
+            echo "CREATE TABLE ${table_name} (" > "$up_sql"
+            echo "DROP TABLE ${table_name};" > "$down_sql"
+
+            # Read table definition
+            while IFS= read -r def_line
+            do
+                if [[ $def_line =~ ([a-z_]+)\ *-\>\ *([A-Za-z<>]+), ]]; then
+                    column_name=${BASH_REMATCH[1]}
+                    rust_type=${BASH_REMATCH[2]}
+                    sql_type=$(rust_to_sql_type "$rust_type")
+                    
+                    if [[ $column_name == "id" ]]; then
+                        echo "    $column_name $sql_type PRIMARY KEY," >> "$up_sql"
+                    elif [[ $rust_type == Nullable* ]]; then
+                        echo "    $column_name $sql_type," >> "$up_sql"
+                    else
+                        echo "    $column_name $sql_type NOT NULL," >> "$up_sql"
+                    fi
+                elif [[ $def_line == "}" ]]; then
+                    break
+                fi
+            done
+            # Remove the trailing comma and close the parenthesis
+            sed -i '$ s/,$//' "$up_sql"
+            echo ");" >> "$up_sql"
+            echo "Migration generated for table: ${table_name}"
+        else
+            echo "Migration already exists for table: ${table_name}"
+        fi
+    fi
+done < migrations/migration.rs
+
+
+# Run migrations and update schema
+diesel setup
+diesel migration run
+diesel print-schema > src/schema.rs.new
+if [ -s src/schema.rs.new ]; then
+    if [ -s src/schema.rs ]; then
+        # Merge the new schema with the existing one
+        cat src/schema.rs.new >> src/schema.rs
+        sort -u src/schema.rs -o src/schema.rs
+    else
+        mv src/schema.rs.new src/schema.rs
+    fi
+else
+    rm src/schema.rs.new
+fi
+
+echo "Migrations generated and applied successfully. Schema updated."
+==== END OF FILE: generate_migrations.sh ====
+
+==== START OF FILE: migrations/migration.rs ====
+diesel::table! {
+    users (id) {
+        id -> Uuid,
+        username -> Varchar,
+        email -> Varchar,
+        password_hash -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    api_keys (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        key_value -> Varchar,
+        description -> Nullable<Text>,
+        created_at -> Timestamptz,
+        expires_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    amber_store (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    secure_vault (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    configurations (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Varchar,
+        data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    pipelines (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Varchar,
+        data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    docker_files (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Varchar,
+        content -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    active_workers (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        worker_type -> Varchar,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    jobs (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        uri -> Text,
+        config -> Jsonb,
+        amber_id -> Nullable<Uuid>,
+        state_file_content -> Nullable<Text>,
+        data_path -> Nullable<Text>,
+        worker_type -> Varchar,
+        triggers -> Nullable<Jsonb>,
+        timers -> Nullable<Jsonb>,
+        status -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        started_at -> Nullable<Timestamptz>,
+        completed_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    workers (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Varchar,
+        worker_type -> Uuid, // Reference to docker_file ID
+        active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    secure_vaults (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Varchar,
+        encrypted_data -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::joinable!(api_keys -> users (user_id));
+diesel::joinable!(amber_store -> users (user_id));
+diesel::joinable!(secure_vault -> users (user_id));
+diesel::joinable!(configurations -> users (user_id));
+diesel::joinable!(pipelines -> users (user_id));
+diesel::joinable!(docker_files -> users (user_id));
+diesel::joinable!(active_workers -> users (user_id));
+diesel::joinable!(jobs -> users (user_id));
+diesel::joinable!(jobs -> amber_store (amber_id));
+
+diesel::allow_tables_to_appear_in_same_query!(
+    users,
+    api_keys,
+    amber_store,
+    secure_vault,
+    configurations,
+    pipelines,
+    docker_files,
+    active_workers,
+    jobs,
+);==== END OF FILE: migrations/migration.rs ====
+
+==== START OF FILE: source_collector.sh ====
+#!/bin/bash
+
+# Output file
+output_file="compiled_output.txt"
+
+# Function to check if file has allowed extension
+has_allowed_extension() {
+    local file="$1"
+    local allowed_extensions=(".md" "dockerfile*" ".yaml" ".rs" ".sh" ".ts" ".json" ".sql" ".vue")
+    for ext in "${allowed_extensions[@]}"; do
+        if [[ "$file" == *"$ext" ]]; then
+            return 0  # File has an allowed extension
+        fi
+    done
+    return 1  # File does not have an allowed extension
+}
+
+# Function to process files
+process_files() {
+    local dir="$1"
+    local prefix="$2"
+    
+    # Check if directory is empty or doesn't exist
+    if [ ! -d "$dir" ] || [ -z "$(ls -A "$dir")" ]; then
+        return
+    fi
+
+    for file in "$dir"/*; do
+        # Check if file exists (in case it was deleted during execution)
+        if [ ! -e "$file" ]; then
+            continue
+        fi
+
+        if [ -f "$file" ]; then
+            # Check if file has an allowed extension
+            if has_allowed_extension "$file"; then
+                echo "==== START OF FILE: $prefix$(basename "$file") ====" >> "$output_file"
+                cat "$file" >> "$output_file"
+                echo "==== END OF FILE: $prefix$(basename "$file") ====" >> "$output_file"
+                echo "" >> "$output_file"
+            fi
+        elif [ -d "$file" ]; then
+            local new_prefix="$prefix$(basename "$file")/"
+            if [ "$(basename "$file")" = "src" ] || [ "$prefix" = "" ] || [ "$prefix" = "frontend/" ]; then
+                process_files "$file" "$new_prefix"
+            fi
+        fi
+    done
+}
+
+# Clear or create the output file
+> "$output_file"
+
+# Process current directory
+process_files "." ""
+
+# Process frontend directory if it exists
+if [ -d "frontend" ]; then
+    process_files "frontend" "frontend/"
+fi
+
+echo "Compilation complete. Output saved to $output_file"==== END OF FILE: source_collector.sh ====
+
+==== START OF FILE: src/config.rs ====
+==== END OF FILE: src/config.rs ====
+
+==== START OF FILE: src/error.rs ====
+// src/error.rs
+
+use thiserror::Error;
+use std::error::Error as StdError;
+use diesel::r2d2;
+use actix_web;
+use actix_web::ResponseError;
+use actix_web::http::StatusCode;
+
+#[derive(Error, Debug)]
+pub enum AppError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] diesel::result::Error),
+
+    #[error("Environment variable not found: {0}")]
+    EnvVarError(#[from] std::env::VarError),
+
+    #[error("Not found")]
+    NotFound,
+
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+
+    #[error("R2D2 error: {0}")]
+    R2D2Error(#[from] r2d2::PoolError),
+
+    #[error("Unauthorized")]
+    Unauthorized,
+
+    #[error("Internal server error")]
+    InternalServerError,
+
+    #[error("Generic error: {0}")]
+    GenericError(Box<dyn StdError + Send + Sync>),
+
+    #[error("Migration error: {0}")]
+    MigrationError(#[from] diesel_migrations::MigrationError),
+
+    #[error("Authentication error")]
+    AuthenticationError,
+
+    #[error("Fluent CLI error: {0}")]
+    FluentCLIError(String),
+}
+
+impl From<Box<dyn StdError + Send + Sync>> for AppError {
+    fn from(error: Box<dyn StdError + Send + Sync>) -> Self {
+        AppError::GenericError(error)
+    }
+}
+
+impl ResponseError for AppError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            AppError::NotFound => StatusCode::NOT_FOUND,
+            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::Unauthorized => StatusCode::UNAUTHORIZED,
+            AppError::AuthenticationError => StatusCode::UNAUTHORIZED,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn error_response(&self) -> actix_web::HttpResponse {
+        actix_web::HttpResponse::build(self.status_code())
+            .json(serde_json::json!({ "error": self.to_string() }))
+    }
+}
+==== END OF FILE: src/error.rs ====
+
+==== START OF FILE: src/lib.rs ====
+pub mod error;
+mod db;
+mod models;
+pub mod schema;
+pub mod handlers;
+pub mod routes;
+pub mod services;
+pub mod utils;
+==== END OF FILE: src/lib.rs ====
+
+==== START OF FILE: src/main.rs ====
+mod db;
+mod error;
+mod models;
+mod schema;
+mod routes;
+mod handlers;
+mod services;
+mod utils;
+use dotenv::dotenv;
+
+use actix_web::{App, HttpServer, http, middleware, web};
+use actix_cors::Cors;
+
+use db::{create_db_pool, setup_database};
+use routes::configure_routes;
+
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(move || {
+        let cors = Cors::default()
+            .allowed_origin("http://localhost:1420")
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(3600);
+
+        App::new()
+            .wrap(cors)
+            .wrap(middleware::Logger::default())
+            .service(configure_routes())
+    })
+    .bind("0.0.0.0:8000")?
+    .run()
+    .await
+}==== END OF FILE: src/main.rs ====
+
+==== START OF FILE: src/routes.rs ====
+use actix_web::{web, HttpResponse, Scope};
+use crate::utils::auth::Auth;
+use crate::handlers::{user, job, api_key, amber_store, secure_vault, configuration, pipeline, docker_file, worker};
+
+pub fn configure_routes() -> Scope {
+    web::scope("")
+        // User routes
+        .service(
+            web::scope("/users")
+                .route("", web::post().to(user::create_user))
+                .route("", web::get().to(user::list_users))
+                .route("/{id}", web::get().to(user::get_user))
+                .route("/{id}", web::put().to(user::update_user))
+                .route("/{id}", web::delete().to(user::delete_user))
+                .route("/login", web::post().to(user::login))
+                .route("/refresh", web::post().to(user::refresh_token))
+                
+        )
+        // API Key routes
+        .service(
+            web::scope("/api_keys")
+                .route("", web::post().to(api_key::create_api_key))
+                .route("", web::get().to(api_key::list_api_keys))
+                .route("/{id}", web::delete().to(api_key::delete_api_key))
+        )
+        // Job routes
+        .service(
+            web::scope("/jobs")
+                .wrap(Auth)
+                    .route("", web::post().to(job::create_job))
+                    .route("", web::get().to(job::list_jobs))
+                    .route("/{id}", web::get().to(job::get_job))
+                    .route("/{id}", web::put().to(job::update_job))
+                    .route("/{id}", web::delete().to(job::delete_job))
+                    .route("/{id}/start", web::post().to(job::start_job))
+                    .route("/{id}/stop", web::post().to(job::stop_job))
+                    .route("/{id}/status", web::get().to(job::get_job_status))
+                    .route("/{id}/output", web::get().to(job::get_job_output))
+                    .route("/{id}/logs", web::get().to(job::get_job_logs))
+        )
+        // Amber Store routes
+        .service(
+            web::scope("/amber_store")
+            .wrap(Auth)
+                .route("", web::post().to(amber_store::create_amber_store))
+                .route("", web::get().to(amber_store::list_amber_stores))
+                .route("/{id}", web::get().to(amber_store::get_amber_store))
+                .route("/{id}", web::put().to(amber_store::update_amber_store))
+                .route("/{id}", web::delete().to(amber_store::delete_amber_store))
+        )
+
+        // Vault Store routes
+        .service(
+            web::scope("/secure_vaults")
+            .wrap(Auth)
+                .route("", web::post().to(secure_vault::create_secure_vault))
+                .route("", web::get().to(secure_vault::list_secure_vaults))
+                .route("/{id}", web::get().to(secure_vault::get_secure_vault))
+                .route("/{id}", web::put().to(secure_vault::update_secure_vault))
+                .route("/{id}", web::delete().to(secure_vault::delete_secure_vault))
+        )
+        // Configuration routes
+        .service(
+            web::scope("/configurations")
+                .wrap(Auth)
+                    .route("", web::post().to(configuration::create_configuration))
+                    .route("", web::get().to(configuration::list_configurations))
+                    .route("/{id}", web::get().to(configuration::get_configuration))
+                    .route("/{id}", web::put().to(configuration::update_configuration))
+                    .route("/{id}", web::delete().to(configuration::delete_configuration))
+        )
+        // Pipeline routes
+        .service(
+            web::scope("/pipelines")
+                .wrap(Auth)
+                    .route("", web::post().to(pipeline::create_pipeline))
+                    .route("", web::get().to(pipeline::list_pipelines))
+                    .route("/{id}", web::get().to(pipeline::get_pipeline))
+                    .route("/{id}", web::put().to(pipeline::update_pipeline))
+                    .route("/{id}", web::delete().to(pipeline::delete_pipeline))
+        )
+        // Docker File routes
+        .service(
+            web::scope("/docker_files")
+            .wrap(Auth)
+                .route("", web::post().to(docker_file::create_docker_file))
+                .route("", web::get().to(docker_file::list_docker_files))
+                .route("/{id}", web::get().to(docker_file::get_docker_file))
+                .route("/{id}", web::put().to(docker_file::update_docker_file))
+                .route("/{id}", web::delete().to(docker_file::delete_docker_file))
+        )
+
+        // Worker routes
+        .service(
+            web::scope("/workers")
+            .wrap(Auth)
+                .route("", web::post().to(worker::create_worker))
+                .route("", web::get().to(worker::list_workers))
+                .route("/{id}", web::get().to(worker::get_worker))
+                .route("/{id}", web::put().to(worker::update_worker))
+                .route("/{id}", web::delete().to(worker::delete_worker))
+                .route("/{id}/activate", web::post().to(worker::activate_worker))
+                .route("/{id}/deactivate", web::post().to(worker::deactivate_worker))
+        )
+}
+
+==== END OF FILE: src/routes.rs ====
+
+==== START OF FILE: src/schema.rs ====
+// @generated automatically by Diesel CLI.
+
+diesel::table! {
+    active_workers (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        worker_type -> Varchar,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    amber_store (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    api_keys (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        key_value -> Varchar,
+        description -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        expires_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    configurations (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        name -> Varchar,
+        data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    docker_files (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        name -> Varchar,
+        content -> Text,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    jobs (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        uri -> Text,
+        config -> Jsonb,
+        amber_id -> Nullable<Uuid>,
+        state_file_content -> Nullable<Text>,
+        data_path -> Nullable<Text>,
+        #[max_length = 255]
+        worker_type -> Varchar,
+        triggers -> Nullable<Jsonb>,
+        timers -> Nullable<Jsonb>,
+        #[max_length = 255]
+        status -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+        started_at -> Nullable<Timestamptz>,
+        completed_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
+    pipelines (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        name -> Varchar,
+        data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    secure_vault (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    secure_vaults (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        name -> Varchar,
+        encrypted_data -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    users (id) {
+        id -> Uuid,
+        #[max_length = 255]
+        username -> Varchar,
+        #[max_length = 255]
+        email -> Varchar,
+        #[max_length = 255]
+        password_hash -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    workers (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Varchar,
+        worker_type -> Uuid,
+        active -> Bool,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::joinable!(active_workers -> users (user_id));
+diesel::joinable!(amber_store -> users (user_id));
+diesel::joinable!(api_keys -> users (user_id));
+diesel::joinable!(configurations -> users (user_id));
+diesel::joinable!(docker_files -> users (user_id));
+diesel::joinable!(jobs -> amber_store (amber_id));
+diesel::joinable!(jobs -> users (user_id));
+diesel::joinable!(pipelines -> users (user_id));
+diesel::joinable!(secure_vault -> users (user_id));
+diesel::joinable!(secure_vaults -> users (user_id));
+diesel::joinable!(workers -> docker_files (worker_type));
+
+diesel::allow_tables_to_appear_in_same_query!(
+    active_workers,
+    amber_store,
+    api_keys,
+    configurations,
+    docker_files,
+    jobs,
+    pipelines,
+    secure_vault,
+    secure_vaults,
+    users,
+    workers,
+);
+==== END OF FILE: src/schema.rs ====
+
+==== START OF FILE: start.sh ====
+#!/bin/bash
+set -e
+
+# Wait for the database to be ready
+until PGPASSWORD=$POSTGRES_PASSWORD psql -h "db" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q'; do
+  >&2 echo "Postgres is unavailable - sleeping"
+  sleep 1
+done
+
+>&2 echo "Postgres is up - executing command"
+
+# Generate and run migrations
+#./generate_migrations.sh
+
+# Run migrations
+diesel migration run
+
+# Start the application
+#exec "/app/fws"==== END OF FILE: start.sh ====
+
+==== START OF FILE: test_amber_service.sh ====
+#!/bin/bash
+
+BASE_URL="http://localhost:8000"
+TOTAL_TESTS=0
+PASSED_TESTS=0
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    local token=$4
+    local expected_status=$5
+    
+    echo "==== Request Details ===="
+    echo "Method: $method"
+    echo "Endpoint: $endpoint"
+    echo "Data: $data"
+    echo "Token: $token"
+    echo "Expected Status: $expected_status"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    headers=(-H "Accept: application/json")
+    if [ -n "$data" ]; then
+        headers+=(-H "Content-Type: application/json")
+    fi
+    if [ -n "$token" ]; then
+        headers+=(-H "Authorization: Bearer $token")
+    fi
+    
+    echo "==== Request Headers ===="
+    printf '%s\n' "${headers[@]}"
+
+    echo "==== Curl Command ===="
+    if [ -n "$data" ]; then
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" -d "$data" "$BASE_URL$endpoint")
+    else
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" "$BASE_URL$endpoint")
+    fi
+    
+    status_code=$(echo "$response" | tail -n 1)
+    body=$(echo "$response" | sed '$d')
+    
+    echo "==== Status Code ===="
+    echo "$status_code"
+    
+    if [ "$status_code" = "$expected_status" ]; then
+        echo -e "\nTest passed: $method $endpoint (Status: $status_code)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\nTest failed: $method $endpoint (Expected: $expected_status, Got: $status_code)"
+    fi
+    
+    echo "==== Response Body ===="
+    echo "$body"
+    echo "======================="
+    echo "$body"
+}
+
+# Create a new user
+echo "Creating a new user"
+response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "User ID: $user_id"
+
+# Login with the new user
+echo "Logging in with the new user"
+login_response=$(make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}' "" "200")
+token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Token: $token"
+
+# Create a new amber store entry
+# Create a new amber store entry
+echo "Creating a new amber store entry"
+response=$(make_request POST "/amber_store" '{"data": {"key": "value"}}' "$token" "201")
+amber_store_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Amber Store ID: $amber_store_id"
+echo "$response"
+
+# # List amber store entries
+ echo -e "\n\n\nListing amber store entries"
+ make_request GET "/amber_store" "" "$token" "200"
+
+# # Get amber store entry details
+ echo -e "\n\n\nGet amber store entry details"
+ make_request GET "/amber_store/$amber_store_id" "" "$token" "200"
+
+# # Update amber store entry
+ echo -e "\n\n\nUpdate amber store entry"
+ make_request PUT "/amber_store/$amber_store_id" '{"data": {"key": "updated_value"}}' "$token" "200"
+
+# # Verify the update
+ echo -e "\n\n\nVerify amber store entry update"
+ make_request GET "/amber_store/$amber_store_id" "" "$token" "200"
+
+# # Delete amber store entry
+ echo -e "\n\n\nDelete amber store entry"
+ make_request DELETE "/amber_store/$amber_store_id" "" "$token" "204"
+
+# # Verify the deletion
+ echo -e "\n\n\nVerify amber store entry deletion"
+make_request GET "/amber_store/$amber_store_id" "" "$token" "500"
+
+# # Delete the user
+echo -e "\n\n\nDeleting the user"
+make_request DELETE "/users/$user_id" "" "$token" "204"
+
+# # Print summary
+ echo "\n\nTest Summary:"
+ echo "Total tests: $TOTAL_TESTS"
+ echo "Passed tests: $PASSED_TESTS"
+ echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+ echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
+
+ echo "Amber store testing completed."==== END OF FILE: test_amber_service.sh ====
+
+==== START OF FILE: test_configuration_service.sh ====
+#!/bin/bash
+
+BASE_URL="http://localhost:8000"
+TOTAL_TESTS=0
+PASSED_TESTS=0
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    local token=$4
+    local expected_status=$5
+    
+    echo "==== Request Details ===="
+    echo "Method: $method"
+    echo "Endpoint: $endpoint"
+    echo "Data: $data"
+    echo "Token: $token"
+    echo "Expected Status: $expected_status"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    headers=(-H "Accept: application/json")
+    if [ -n "$data" ]; then
+        headers+=(-H "Content-Type: application/json")
+    fi
+    if [ -n "$token" ]; then
+        headers+=(-H "Authorization: Bearer $token")
+    fi
+    
+    echo "==== Request Headers ===="
+    printf '%s\n' "${headers[@]}"
+
+    echo "==== Curl Command ===="
+    if [ -n "$data" ]; then
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" -d "$data" "$BASE_URL$endpoint")
+    else
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" "$BASE_URL$endpoint")
+    fi
+    
+    status_code=$(echo "$response" | tail -n 1)
+    body=$(echo "$response" | sed '$d')
+    
+    echo "==== Status Code ===="
+    echo "$status_code"
+    
+    if [ "$status_code" = "$expected_status" ]; then
+        echo -e "\nTest passed: $method $endpoint (Status: $status_code)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\nTest failed: $method $endpoint (Expected: $expected_status, Got: $status_code)"
+    fi
+    
+    echo "==== Response Body ===="
+    echo "$body"
+    echo "======================="
+    echo "$body"
+}
+
+# Create a new user
+echo "Creating a new user"
+response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "User ID: $user_id"
+
+# Login with the new user
+echo "Logging in with the new user"
+login_response=$(make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}' "" "200")
+token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Token: $token"
+
+# Create a new configuration entry
+echo "Creating a new configuration entry"
+response=$(make_request POST "/configurations" '{"name": "test_config", "data": {"key": "value"}}' "$token" "201")
+configuration_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Configuration ID: $configuration_id"
+
+# List configuration entries
+echo -e "\n\n\nListing configuration entries"
+make_request GET "/configurations" "" "$token" "200"
+
+# Get configuration entry details
+echo -e "\n\n\nGet configuration entry details"
+make_request GET "/configurations/$configuration_id" "" "$token" "200"
+
+# Update configuration entry
+echo -e "\n\n\nUpdate configuration entry"
+make_request PUT "/configurations/$configuration_id" '{"name": "updated_config", "data": {"key": "updated_value"}}' "$token" "200"
+
+# Verify the update
+echo -e "\n\n\nVerify configuration entry update"
+make_request GET "/configurations/$configuration_id" "" "$token" "200"
+
+# Delete configuration entry
+echo -e "\n\n\nDelete configuration entry"
+make_request DELETE "/configurations/$configuration_id" "" "$token" "204"
+
+# Verify the deletion
+echo -e "\n\n\nVerify configuration entry deletion"
+make_request GET "/configurations/$configuration_id" "" "$token" "500"
+
+# Delete the user
+echo -e "\n\n\nDeleting the user"
+make_request DELETE "/users/$user_id" "" "$token" "204"
+
+# Print summary
+echo "\n\nTest Summary:"
+echo "Total tests: $TOTAL_TESTS"
+echo "Passed tests: $PASSED_TESTS"
+echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
+
+echo "Configuration testing completed."==== END OF FILE: test_configuration_service.sh ====
+
+==== START OF FILE: test_docker_files_service.sh ====
+#!/bin/bash
+
+BASE_URL="http://localhost:8000"
+TOTAL_TESTS=0
+PASSED_TESTS=0
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    local token=$4
+    local expected_status=$5
+    
+    echo "==== Request Details ===="
+    echo "Method: $method"
+    echo "Endpoint: $endpoint"
+    echo "Data: $data"
+    echo "Token: $token"
+    echo "Expected Status: $expected_status"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    headers=(-H "Accept: application/json")
+    if [ -n "$data" ]; then
+        headers+=(-H "Content-Type: application/json")
+    fi
+    if [ -n "$token" ]; then
+        headers+=(-H "Authorization: Bearer $token")
+    fi
+    
+    echo "==== Request Headers ===="
+    printf '%s\n' "${headers[@]}"
+
+    echo "==== Curl Command ===="
+    if [ -n "$data" ]; then
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" -d "$data" "$BASE_URL$endpoint")
+    else
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" "$BASE_URL$endpoint")
+    fi
+    
+    status_code=$(echo "$response" | tail -n 1)
+    body=$(echo "$response" | sed '$d')
+    
+    echo "==== Status Code ===="
+    echo "$status_code"
+    
+    if [ "$status_code" = "$expected_status" ]; then
+        echo -e "\nTest passed: $method $endpoint (Status: $status_code)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\nTest failed: $method $endpoint (Expected: $expected_status, Got: $status_code)"
+    fi
+    
+    echo "==== Response Body ===="
+    echo "$body"
+    echo "======================="
+    echo "$body"
+}
+
+# Create a new user
+echo "Creating a new user"
+response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "User ID: $user_id"
+
+# Login with the new user
+echo "Logging in with the new user"
+login_response=$(make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}' "" "200")
+token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Token: $token"
+
+# Create a new docker file entry
+echo "Creating a new docker file entry"
+response=$(make_request POST "/docker_files" '{"name": "test_docker_file", "content": "FROM ubuntu:latest"}' "$token" "201")
+docker_file_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Docker File ID: $docker_file_id"
+
+# List docker file entries
+echo -e "\n\n\nListing docker file entries"
+make_request GET "/docker_files" "" "$token" "200"
+
+# Get docker file entry details
+echo -e "\n\n\nGet docker file entry details"
+make_request GET "/docker_files/$docker_file_id" "" "$token" "200"
+
+# Update docker file entry
+echo -e "\n\n\nUpdate docker file entry"
+make_request PUT "/docker_files/$docker_file_id" '{"name": "updated_docker_file", "content": "FROM alpine:latest"}' "$token" "200"
+
+# Verify the update
+echo -e "\n\n\nVerify docker file entry update"
+make_request GET "/docker_files/$docker_file_id" "" "$token" "200"
+
+# Delete docker file entry
+echo -e "\n\n\nDelete docker file entry"
+make_request DELETE "/docker_files/$docker_file_id" "" "$token" "204"
+
+# Verify the deletion
+echo -e "\n\n\nVerify docker file entry deletion"
+make_request GET "/docker_files/$docker_file_id" "" "$token" "500"
+
+# Delete the user
+echo -e "\n\n\nDeleting the user"
+make_request DELETE "/users/$user_id" "" "$token" "204"
+
+# Print summary
+echo "\n\nTest Summary:"
+echo "Total tests: $TOTAL_TESTS"
+echo "Passed tests: $PASSED_TESTS"
+echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
+
+echo "Docker file testing completed."==== END OF FILE: test_docker_files_service.sh ====
+
+==== START OF FILE: test_job_service.sh ====
+#!/bin/bash
+
+BASE_URL="http://localhost:8000"
+TOTAL_TESTS=0
+PASSED_TESTS=0
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    local token=$4
+    local expected_status=$5
+    
+    echo "==== Request Details ===="
+    echo "Method: $method"
+    echo "Endpoint: $endpoint"
+    echo "Data: $data"
+    echo "Token: $token"
+    echo "Expected Status: $expected_status"
+    echo "Full URI: $BASE_URL$endpoint"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    headers=(-H "Accept: application/json")
+    if [ -n "$data" ]; then
+        headers+=(-H "Content-Type: application/json")
+    fi
+    if [ -n "$token" ]; then
+        headers+=(-H "Authorization: Bearer $token")
+    fi
+    
+    echo "==== Request Headers ===="
+    printf '%s\n' "${headers[@]}"
+
+    echo "==== Curl Command ===="
+    if [ -n "$data" ]; then
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" -d "$data" "$BASE_URL$endpoint")
+    else
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" "$BASE_URL$endpoint")
+    fi
+    
+    status_code=$(echo "$response" | tail -n 1)
+    body=$(echo "$response" | sed '$d')
+    
+    echo "==== Status Code ===="
+    echo "$status_code"
+    
+    if [ "$status_code" = "$expected_status" ]; then
+        echo -e "\nTest passed: $method $endpoint (Status: $status_code)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\nTest failed: $method $endpoint (Expected: $expected_status, Got: $status_code)"
+    fi
+    
+    echo "==== Response Body ===="
+    echo "$body"
+    echo "======================="
+    echo "$body"
+}
+
+# Create a new user
+echo "Creating a new user"
+response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "User ID: $user_id"
+
+# Login with the new user
+echo "Logging in with the new user"
+login_response=$(make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}' "" "200")
+token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Token: $token"
+
+# Create a new amber entry
+echo "Creating a new amber entry"
+amber_response=$(make_request POST "/amber_store" '{"name": "test_amber", "data": "test_data"}' "$token" "201")
+amber_id=$(echo "$amber_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Amber ID: $amber_id"
+
+# Create a new config entry
+echo "Creating a new config entry"
+config_response=$(make_request POST "/configurations" '{"name": "test_config", "data": {"key": "value"}}' "$token" "201")
+config_id=$(echo "$config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Config ID: $config_id"
+
+# Create a new docker entry
+echo "Creating a new docker entry"
+docker_response=$(make_request POST "/docker_files" '{"name": "test_docker", "content": "FROM ubuntu:latest"}' "$token" "201")
+docker_id=$(echo "$docker_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Docker ID: $docker_id"
+
+# Create a new job entry
+echo "Creating a new job entry"
+job_response=$(make_request POST "/jobs" "{\"uri\": \"some-uri\", \"config\": {\"key\": \"value\"}, \"amber_id\": \"$amber_id\", \"state_file_content\": \"some-content\", \"data_path\": \"some-path\", \"worker_type\": \"$docker_id\", \"triggers\": null, \"timers\": null, \"status\": \"pending\"}" "$token" "201")
+job_id=$(echo "$job_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Job ID: $job_id"
+
+# List job entries
+echo -e "\n\n\nListing job entries"
+make_request GET "/jobs" "" "$token" "200"
+
+# Get job entry details
+echo -e "\n\n\nGet job entry details"
+make_request GET "/jobs/$job_id" "" "$token" "200"
+
+# Update job entry
+echo -e "\n\n\nUpdate job entry"
+make_request PUT "/jobs/$job_id" "{\"status\": \"running\"}" "$token" "200"
+
+# Delete job entry
+echo -e "\n\n\nDelete job entry"
+make_request DELETE "/jobs/$job_id" "" "$token" "204"
+
+# Delete docker entry
+echo -e "\n\n\nDelete docker entry"
+make_request DELETE "/docker_files/$docker_id" "" "$token" "204"
+
+# Delete config entry
+echo -e "\n\n\nDelete config entry"
+make_request DELETE "/configurations/$config_id" "" "$token" "204"
+
+# Delete amber entry
+echo -e "\n\n\nDelete amber entry"
+make_request DELETE "/amber_store/$amber_id" "" "$token" "204"
+
+# Delete user
+echo -e "\n\n\nDelete user"
+make_request DELETE "/users/$user_id" "" "$token" "204"
+
+# Summary
+echo -e "\n\n\nTest Summary"
+echo "Total Tests: $TOTAL_TESTS"
+echo "Passed Tests: $PASSED_TESTS"
+echo "Failed Tests: $((TOTAL_TESTS - PASSED_TESTS))"==== END OF FILE: test_job_service.sh ====
+
+==== START OF FILE: test_pipeline_service.sh ====
+#!/bin/bash
+
+BASE_URL="http://localhost:8000"
+TOTAL_TESTS=0
+PASSED_TESTS=0
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    local token=$4
+    local expected_status=$5
+    
+    echo "==== Request Details ===="
+    echo "Method: $method"
+    echo "Endpoint: $endpoint"
+    echo "Data: $data"
+    echo "Token: $token"
+    echo "Expected Status: $expected_status"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    headers=(-H "Accept: application/json")
+    if [ -n "$data" ]; then
+        headers+=(-H "Content-Type: application/json")
+    fi
+    if [ -n "$token" ]; then
+        headers+=(-H "Authorization: Bearer $token")
+    fi
+    
+    echo "==== Request Headers ===="
+    printf '%s\n' "${headers[@]}"
+
+    echo "==== Curl Command ===="
+    if [ -n "$data" ]; then
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" -d "$data" "$BASE_URL$endpoint")
+    else
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" "$BASE_URL$endpoint")
+    fi
+    
+    status_code=$(echo "$response" | tail -n 1)
+    body=$(echo "$response" | sed '$d')
+    
+    echo "==== Status Code ===="
+    echo "$status_code"
+    
+    if [ "$status_code" = "$expected_status" ]; then
+        echo -e "\nTest passed: $method $endpoint (Status: $status_code)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\nTest failed: $method $endpoint (Expected: $expected_status, Got: $status_code)"
+    fi
+    
+    echo "==== Response Body ===="
+    echo "$body"
+    echo "======================="
+    echo "$body"
+}
+
+# Create a new user
+echo "Creating a new user"
+response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "User ID: $user_id"
+
+# Login with the new user
+echo "Logging in with the new user"
+login_response=$(make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}' "" "200")
+token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Token: $token"
+
+# Create a new pipeline entry
+echo "Creating a new pipeline entry"
+response=$(make_request POST "/pipelines" '{"name": "test_pipeline", "data": {"key": "value"}}' "$token" "201")
+pipeline_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Pipeline ID: $pipeline_id"
+
+# List pipeline entries
+echo -e "\n\n\nListing pipeline entries"
+make_request GET "/pipelines" "" "$token" "200"
+
+# Get pipeline entry details
+echo -e "\n\n\nGet pipeline entry details"
+make_request GET "/pipelines/$pipeline_id" "" "$token" "200"
+
+# Update pipeline entry
+echo -e "\n\n\nUpdate pipeline entry"
+make_request PUT "/pipelines/$pipeline_id" '{"name": "updated_pipeline", "data": {"key": "updated_value"}}' "$token" "200"
+
+# Verify the update
+echo -e "\n\n\nVerify pipeline entry update"
+make_request GET "/pipelines/$pipeline_id" "" "$token" "200"
+
+# Delete pipeline entry
+echo -e "\n\n\nDelete pipeline entry"
+make_request DELETE "/pipelines/$pipeline_id" "" "$token" "204"
+
+# Verify the deletion
+echo -e "\n\n\nVerify pipeline entry deletion"
+make_request GET "/pipelines/$pipeline_id" "" "$token" "500"
+
+# Delete the user
+echo -e "\n\n\nDeleting the user"
+make_request DELETE "/users/$user_id" "" "$token" "204"
+
+# Print summary
+echo "\n\nTest Summary:"
+echo "Total tests: $TOTAL_TESTS"
+echo "Passed tests: $PASSED_TESTS"
+echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
+
+echo "Pipeline testing completed."==== END OF FILE: test_pipeline_service.sh ====
+
+==== START OF FILE: test_routes_service.sh ====
+#!/bin/bash
+
+BASE_URL="http://localhost:8000"
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    
+    echo "Testing $method $endpoint"
+    if [ -n "$data" ]; then
+        curl -X $method -H "Content-Type: application/json" -d "$data" $BASE_URL$endpoint
+    else
+        curl -X $method $BASE_URL$endpoint
+    fi
+    echo -e "\n"
+}
+
+# User routes
+make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}'
+make_request POST "/users" '{"username": "newuser", "email": "newuser@example.com", "password": "newpass"}'
+make_request GET "/users"
+
+# API Key routes
+make_request POST "/users/1/api_keys" '{"name": "Test API Key"}'
+make_request GET "/users/1/api_keys"
+make_request DELETE "/users/1/api_keys/1"
+
+# Amber Store routes
+make_request POST "/users/1/amber_store" '{"key": "test_key", "value": "test_value"}'
+make_request GET "/users/1/amber_store"
+make_request GET "/users/1/amber_store/test_key"
+make_request PUT "/users/1/amber_store/test_key" '{"value": "updated_value"}'
+make_request DELETE "/users/1/amber_store/test_key"
+
+# Vault Store routes
+make_request POST "/users/1/vault_store" '{"key": "test_key", "value": "test_value"}'
+make_request GET "/users/1/vault_store"
+make_request GET "/users/1/vault_store/test_key"
+make_request PUT "/users/1/vault_store/test_key" '{"value": "updated_value"}'
+make_request DELETE "/users/1/vault_store/test_key"
+
+# Configuration routes
+make_request POST "/configurations" '{"name": "Test Config", "data": {}}'
+make_request GET "/configurations"
+make_request GET "/configurations/1"
+make_request PUT "/configurations/1" '{"name": "Updated Config", "data": {}}'
+make_request DELETE "/configurations/1"
+
+# Pipeline routes
+make_request POST "/pipelines" '{"name": "Test Pipeline", "data": {}}'
+make_request GET "/pipelines"
+make_request GET "/pipelines/1"
+make_request PUT "/pipelines/1" '{"name": "Updated Pipeline", "data": {}}'
+make_request DELETE "/pipelines/1"
+
+# Docker File routes
+make_request POST "/docker_files" '{"name": "Test Dockerfile", "content": "FROM alpine:latest"}'
+make_request GET "/docker_files"
+make_request GET "/docker_files/1"
+make_request PUT "/docker_files/1" '{"name": "Updated Dockerfile", "content": "FROM ubuntu:latest"}'
+make_request DELETE "/docker_files/1"
+
+# Worker routes
+make_request GET "/workers"
+make_request POST "/workers/1/activate"
+make_request POST "/workers/1/deactivate"
+
+# Job routes
+make_request POST "/jobs" '{"uri": "test://uri", "config": {}, "worker_type": "test_worker"}'
+make_request GET "/jobs"
+make_request GET "/jobs/1"
+make_request PUT "/jobs/1" '{"uri": "updated://uri", "config": {}, "worker_type": "updated_worker"}'
+make_request DELETE "/jobs/1"
+make_request POST "/jobs/1/start"
+make_request POST "/jobs/1/stop"
+make_request GET "/jobs/1/status"
+make_request GET "/jobs/1/output"
+make_request GET "/jobs/1/logs"
+
+echo "API endpoint testing completed."==== END OF FILE: test_routes_service.sh ====
+
+==== START OF FILE: test_secure_vault_service.sh ====
+BASE_URL="http://localhost:8000"
+TOTAL_TESTS=0
+PASSED_TESTS=0
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    local token=$4
+    local expected_status=$5
+    
+    echo "==== Request Details ===="
+    echo "Method: $method"
+    echo "Endpoint: $endpoint"
+    echo "Data: $data"
+    echo "Token: $token"
+    echo "Expected Status: $expected_status"
+    echo "Full URI: $BASE_URL$endpoint"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    headers=(-H "Accept: application/json")
+    if [ -n "$data" ]; then
+        headers+=(-H "Content-Type: application/json")
+    fi
+    if [ -n "$token" ]; then
+        headers+=(-H "Authorization: Bearer $token")
+    fi
+    
+    echo "==== Request Headers ===="
+    printf '%s\n' "${headers[@]}"
+
+    echo "==== Curl Command ===="
+    if [ -n "$data" ]; then
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" -d "$data" "$BASE_URL$endpoint")
+    else
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" "$BASE_URL$endpoint")
+    fi
+    
+    status_code=$(echo "$response" | tail -n 1)
+    body=$(echo "$response" | sed '$d')
+    
+    echo "==== Status Code ===="
+    echo "$status_code"
+    
+    if [ "$status_code" = "$expected_status" ]; then
+        echo -e "\nTest passed: $method $endpoint (Status: $status_code)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\nTest failed: $method $endpoint (Expected: $expected_status, Got: $status_code)"
+    fi
+    
+    echo "==== Response Body ===="
+    echo "$body"
+    echo "======================="
+    echo "$body"
+}
+
+# Create a new user
+echo "Creating a new user"
+response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "User ID: $user_id"
+
+# Login with the new user
+echo "Logging in with the new user"
+login_response=$(make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}' "" "200")
+token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Token: $token"
+
+# Create a new secure vault entry
+echo "Creating a new secure vault entry"
+response=$(make_request POST "/secure_vaults" '{"name": "test_secure_vault", "data": "sensitive_data"}' "$token" "201")
+secure_vault_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Secure Vault ID: $secure_vault_id"
+
+# List secure vault entries
+echo -e "\n\n\nListing secure vault entries"
+make_request GET "/secure_vaults" "" "$token" "200"
+
+# Get secure vault entry details
+echo -e "\n\n\nGet secure vault entry details"
+make_request GET "/secure_vaults/$secure_vault_id" "" "$token" "200"
+
+# Update secure vault entry
+echo -e "\n\n\nUpdate secure vault entry"
+make_request PUT "/secure_vaults/$secure_vault_id" '{"name": "updated_secure_vault", "data": "updated_sensitive_data"}' "$token" "200"
+
+# Verify the update
+echo -e "\n\n\nVerify secure vault entry update"
+make_request GET "/secure_vaults/$secure_vault_id" "" "$token" "200"
+
+# Delete secure vault entry
+echo -e "\n\n\nDelete secure vault entry"
+make_request DELETE "/secure_vaults/$secure_vault_id" "" "$token" "204"
+
+# Verify the deletion
+echo -e "\n\n\nVerify secure vault entry deletion"
+make_request GET "/secure_vaults/$secure_vault_id" "" "$token" "500"
+
+# Delete the user
+echo -e "\n\n\nDeleting the user"
+make_request DELETE "/users/$user_id" "" "$token" "204"
+
+# Print summary
+echo "\n\nTest Summary:"
+echo "Total tests: $TOTAL_TESTS"
+echo "Passed tests: $PASSED_TESTS"
+echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
+
+echo "Secure Vault testing completed."==== END OF FILE: test_secure_vault_service.sh ====
+
+==== START OF FILE: test_user_auth_service.sh ====
+#!/bin/bash
+
+BASE_URL="http://localhost:8000"
+TOTAL_TESTS=0
+PASSED_TESTS=0
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    local token=$4
+    local expected_status=$5
+    
+    echo "==== Request Details ===="
+    echo "Method: $method"
+    echo "Endpoint: $endpoint"
+    echo "Data: $data"
+    echo "Token: $token"
+    echo "Expected Status: $expected_status"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    headers=(-H "Accept: application/json")
+    if [ -n "$data" ]; then
+        headers+=(-H "Content-Type: application/json")
+    fi
+    if [ -n "$token" ]; then
+        headers+=(-H "Authorization: Bearer $token")
+    fi
+    
+    echo "==== Request Headers ===="
+    printf '%s\n' "${headers[@]}"
+
+    echo "==== Curl Command ===="
+    if [ -n "$data" ]; then
+        echo "curl -v -X $method ${headers[@]} -d '$data' $BASE_URL$endpoint"
+        response=$(curl -v -X $method "${headers[@]}" -d "$data" "$BASE_URL$endpoint" 2>&1)
+    else
+        echo "curl -v -X $method ${headers[@]} $BASE_URL$endpoint"
+        response=$(curl -v -X $method "${headers[@]}" "$BASE_URL$endpoint" 2>&1)
+    fi
+    
+    echo "==== Response ===="
+    echo "$response"
+    
+    status_code=$(echo "$response" | grep -i "< HTTP" | awk '{print $3}')
+    body=$(echo "$response" | sed -n '/^{/,/^}/p')
+    
+    echo "==== Status Code ===="
+    echo "$status_code"
+    
+    if [ "$status_code" = "$expected_status" ]; then
+        echo -e "\nTest passed: $method $endpoint (Status: $status_code)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\nTest failed: $method $endpoint (Expected: $expected_status, Got: $status_code)"
+    fi
+    
+    echo "==== Response Body ===="
+    echo "$body"
+    echo "======================="
+}
+
+# Create a new user
+echo "Creating a new user"
+response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "User ID: $user_id"
+
+# Login with the new user
+echo "Logging in with the new user"
+login_response=$(make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}' "" "200")
+token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Token: $token"
+
+# List users
+echo -e "\n\n\nListing users"
+make_request GET "/users" "" "" "200"
+
+# Get user details
+echo -e "\n\n\n Get user Details"
+make_request GET "/users/$user_id" "" "$token" "200"
+
+# Update user details
+echo "Update User Details"
+make_request PUT "/users/$user_id" '{"email": "updated@example.com"}' "$token" "200"
+
+# Verify the update
+echo "Verify User Update"
+make_request GET "/users/$user_id" "" "$token" "200"
+
+# Attempt to create a user with the same email
+echo "Attempt creation of duplicate user"
+make_request POST "/users" '{"username": "testuser2", "email": "updated@example.com", "password": "testpass2"}' "" "400"
+
+# Refresh token
+echo "Refresh Token"
+refresh_response=$(make_request POST "/users/refresh" "" "$token" "200")
+new_token=$(echo "$refresh_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "New token: $new_token"
+
+# Use the new token to get user details
+echo "Get user with new token"
+make_request GET "/users/$user_id" "" "$new_token" "200"
+
+# Delete user
+echo -e "\n\n\n delete user"
+make_request DELETE "/users/$user_id" "" "$token" "204"
+
+# Verify the deletion
+echo "Verify delete user"
+make_request GET "/users/$user_id" "" "$token" "500"
+
+# Print summary
+echo "\n\nTest Summary:"
+echo "Total tests: $TOTAL_TESTS"
+echo "Passed tests: $PASSED_TESTS"
+echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
+
+echo "User authentication testing completed."==== END OF FILE: test_user_auth_service.sh ====
+
+==== START OF FILE: test_worker_service.sh ====
+BASE_URL="http://localhost:8000"
+TOTAL_TESTS=0
+PASSED_TESTS=0
+
+# Function to make API requests
+make_request() {
+    local method=$1
+    local endpoint=$2
+    local data=$3
+    local token=$4
+    local expected_status=$5
+    
+    echo "==== Request Details ===="
+    echo "Method: $method"
+    echo "Endpoint: $endpoint"
+    echo "Data: $data"
+    echo "Token: $token"
+    echo "Expected Status: $expected_status"
+    echo "Full URI: $BASE_URL$endpoint"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    headers=(-H "Accept: application/json")
+    if [ -n "$data" ]; then
+        headers+=(-H "Content-Type: application/json")
+    fi
+    if [ -n "$token" ]; then
+        headers+=(-H "Authorization: Bearer $token")
+    fi
+    
+    echo "==== Request Headers ===="
+    printf '%s\n' "${headers[@]}"
+
+    echo "==== Curl Command ===="
+    if [ -n "$data" ]; then
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" -d "$data" "$BASE_URL$endpoint")
+    else
+        response=$(curl -s -w "\n%{http_code}" -X $method "${headers[@]}" "$BASE_URL$endpoint")
+    fi
+    
+    status_code=$(echo "$response" | tail -n 1)
+    body=$(echo "$response" | sed '$d')
+    
+    echo "==== Status Code ===="
+    echo "$status_code"
+    
+    if [ "$status_code" = "$expected_status" ]; then
+        echo -e "\nTest passed: $method $endpoint (Status: $status_code)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\nTest failed: $method $endpoint (Expected: $expected_status, Got: $status_code)"
+    fi
+    
+    echo "==== Response Body ===="
+    echo "$body"
+    echo "======================="
+    echo "$body"
+}
+
+# Create a new user
+echo "Creating a new user"
+response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "User ID: $user_id"
+
+# Login with the new user
+echo "Logging in with the new user"
+login_response=$(make_request POST "/users/login" '{"username": "testuser", "password": "testpass"}' "" "200")
+token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Token: $token"
+
+# Create a new docker file entry
+echo "Creating a new docker file entry"
+response=$(make_request POST "/docker_files" '{"name": "test_docker_file", "content": "FROM ubuntu:latest"}' "$token" "201")
+docker_file_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Docker File ID: $docker_file_id"
+
+# Create a new worker entry
+echo "Creating a new worker entry"
+response=$(make_request POST "/workers" '{"name": "test_worker", "worker_type": "'$docker_file_id'"}' "$token" "201")
+worker_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Worker ID: $worker_id"
+echo "$response"
+
+
+# # List worker entries
+echo -e "\n\n\nListing worker entries"
+make_request GET "/workers" "" "$token" "200"
+
+# # Get worker entry details
+echo -e "\n\n\nGet worker entry details"
+make_request GET "/workers/$worker_id" "" "$token" "200"
+
+# # Update worker entry
+echo -e "\n\n\nUpdate worker entry"
+make_request PUT "/workers/$worker_id" '{"name": "updated_worker", "worker_type": "'$docker_file_id'"}' "$token" "200"
+
+# # Verify the update
+echo -e "\n\n\nVerify worker entry update"
+make_request GET "/workers/$worker_id" "" "$token" "200"
+
+# # Activate worker entry
+echo -e "\n\n\nActivate worker entry"
+make_request POST "/workers/$worker_id/activate" "" "$token" "200"
+
+# # Deactivate worker entry
+echo -e "\n\n\nDeactivate worker entry"
+make_request POST "/workers/$worker_id/deactivate" "" "$token" "200"
+
+# Delete worker entry
+echo -e "\n\n\nDelete worker entry"
+make_request DELETE "/workers/$worker_id" "" "$token" "204"
+
+# Verify the deletion
+echo -e "\n\n\nVerify worker entry deletion"
+make_request GET "/workers/$worker_id" "" "$token" "500"
+
+# Delete the docker file entry
+echo -e "\n\n\nDelete the docker file entry"
+make_request DELETE "/docker_files/$docker_file_id" "" "$token" "204"
+
+# Verify the docker file deletion
+echo -e "\n\n\nVerify docker file entry deletion"
+make_request GET "/docker_files/$docker_file_id" "" "$token" "500"
+
+# Delete the user
+echo -e "\n\n\nDeleting the user"
+make_request DELETE "/users/$user_id" "" "$token" "204"
+
+# Print summary
+echo "\n\nTest Summary:"
+echo "Total tests: $TOTAL_TESTS"
+echo "Passed tests: $PASSED_TESTS"
+echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
+
+echo "Worker testing completed."==== END OF FILE: test_worker_service.sh ====
+
+==== START OF FILE: frontend/README.md ====
+# Tauri + Vue + TypeScript
+
+This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+
+## Recommended IDE Setup
+
+- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+
+## Type Support For `.vue` Imports in TS
+
+Since TypeScript cannot handle type information for `.vue` imports, they are shimmed to be a generic Vue component type by default. In most cases this is fine if you don't really care about component prop types outside of templates. However, if you wish to get actual prop types in `.vue` imports (for example to get props validation when using manual `h(...)` calls), you can enable Volar's Take Over mode by following these steps:
+
+1. Run `Extensions: Show Built-in Extensions` from VS Code's command palette, look for `TypeScript and JavaScript Language Features`, then right click and select `Disable (Workspace)`. By default, Take Over mode will enable itself if the default TypeScript extension is disabled.
+2. Reload the VS Code window by running `Developer: Reload Window` from the command palette.
+
+You can learn more about Take Over mode [here](https://github.com/johnsoncodehk/volar/discussions/471).
+==== END OF FILE: frontend/README.md ====
+
+==== START OF FILE: frontend/package-lock.json ====
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "frontend",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tauri-apps/api": "^1.5.2",
+        "axios": "^1.6.2",
+        "vue": "^3.3.9",
+        "vue-router": "^4.2.5",
+        "vuex": "^4.1.0"
+      },
+      "devDependencies": {
+        "@tauri-apps/cli": "^1.5.7",
+        "@types/node": "^22.5.4",
+        "@vitejs/plugin-vue": "^5.0.5",
+        "typescript": "^5.2.2",
+        "vite": "^5.3.1",
+        "vue-tsc": "^2.0.22"
+      }
+    },
+    "node_modules/@babel/helper-string-parser": {
+      "version": "7.24.8",
+      "resolved": "https://registry.npmjs.org/@babel/helper-string-parser/-/helper-string-parser-7.24.8.tgz",
+      "integrity": "sha512-pO9KhhRcuUyGnJWwyEgnRJTSIZHiT+vMD0kPeD+so0l7mxkMT19g3pjY9GTnHySck/hDzq+dtW/4VgnMkippsQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=6.9.0"
+      }
+    },
+    "node_modules/@babel/helper-validator-identifier": {
+      "version": "7.24.7",
+      "resolved": "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.24.7.tgz",
+      "integrity": "sha512-rR+PBcQ1SMQDDyF6X0wxtG8QyLCgUB0eRAGguqRLfkCA87l7yAP7ehq8SNj96OOGTO8OBV70KhuFYcIkHXOg0w==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=6.9.0"
+      }
+    },
+    "node_modules/@babel/parser": {
+      "version": "7.25.6",
+      "resolved": "https://registry.npmjs.org/@babel/parser/-/parser-7.25.6.tgz",
+      "integrity": "sha512-trGdfBdbD0l1ZPmcJ83eNxB9rbEax4ALFTF7fN386TMYbeCQbyme5cOEXQhbGXKebwGaB/J52w1mrklMcbgy6Q==",
+      "license": "MIT",
+      "dependencies": {
+        "@babel/types": "^7.25.6"
+      },
+      "bin": {
+        "parser": "bin/babel-parser.js"
+      },
+      "engines": {
+        "node": ">=6.0.0"
+      }
+    },
+    "node_modules/@babel/types": {
+      "version": "7.25.6",
+      "resolved": "https://registry.npmjs.org/@babel/types/-/types-7.25.6.tgz",
+      "integrity": "sha512-/l42B1qxpG6RdfYf343Uw1vmDjeNhneUXtzhojE7pDgfpEypmRhI6j1kr17XCVv4Cgl9HdAiQY2x0GwKm7rWCw==",
+      "license": "MIT",
+      "dependencies": {
+        "@babel/helper-string-parser": "^7.24.8",
+        "@babel/helper-validator-identifier": "^7.24.7",
+        "to-fast-properties": "^2.0.0"
+      },
+      "engines": {
+        "node": ">=6.9.0"
+      }
+    },
+    "node_modules/@esbuild/aix-ppc64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.21.5.tgz",
+      "integrity": "sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==",
+      "cpu": [
+        "ppc64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "aix"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/android-arm": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-arm/-/android-arm-0.21.5.tgz",
+      "integrity": "sha512-vCPvzSjpPHEi1siZdlvAlsPxXl7WbOVUBBAowWug4rJHb68Ox8KualB+1ocNvT5fjv6wpkX6o/iEpbDrf68zcg==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/android-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-arm64/-/android-arm64-0.21.5.tgz",
+      "integrity": "sha512-c0uX9VAUBQ7dTDCjq+wdyGLowMdtR/GoC2U5IYk/7D1H1JYC0qseD7+11iMP2mRLN9RcCMRcjC4YMclCzGwS/A==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/android-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-x64/-/android-x64-0.21.5.tgz",
+      "integrity": "sha512-D7aPRUUNHRBwHxzxRvp856rjUHRFW1SdQATKXH2hqA0kAZb1hKmi02OpYRacl0TxIGz/ZmXWlbZgjwWYaCakTA==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/darwin-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.21.5.tgz",
+      "integrity": "sha512-DwqXqZyuk5AiWWf3UfLiRDJ5EDd49zg6O9wclZ7kUMv2WRFr4HKjXp/5t8JZ11QbQfUS6/cRCKGwYhtNAY88kQ==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/darwin-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/darwin-x64/-/darwin-x64-0.21.5.tgz",
+      "integrity": "sha512-se/JjF8NlmKVG4kNIuyWMV/22ZaerB+qaSi5MdrXtd6R08kvs2qCN4C09miupktDitvh8jRFflwGFBQcxZRjbw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/freebsd-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-arm64/-/freebsd-arm64-0.21.5.tgz",
+      "integrity": "sha512-5JcRxxRDUJLX8JXp/wcBCy3pENnCgBR9bN6JsY4OmhfUtIHe3ZW0mawA7+RDAcMLrMIZaf03NlQiX9DGyB8h4g==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "freebsd"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/freebsd-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-x64/-/freebsd-x64-0.21.5.tgz",
+      "integrity": "sha512-J95kNBj1zkbMXtHVH29bBriQygMXqoVQOQYA+ISs0/2l3T9/kj42ow2mpqerRBxDJnmkUDCaQT/dfNXWX/ZZCQ==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "freebsd"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-arm": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm/-/linux-arm-0.21.5.tgz",
+      "integrity": "sha512-bPb5AHZtbeNGjCKVZ9UGqGwo8EUu4cLq68E95A53KlxAPRmUyYv2D6F0uUI65XisGOL1hBP5mTronbgo+0bFcA==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm64/-/linux-arm64-0.21.5.tgz",
+      "integrity": "sha512-ibKvmyYzKsBeX8d8I7MH/TMfWDXBF3db4qM6sy+7re0YXya+K1cem3on9XgdT2EQGMu4hQyZhan7TeQ8XkGp4Q==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-ia32": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-ia32/-/linux-ia32-0.21.5.tgz",
+      "integrity": "sha512-YvjXDqLRqPDl2dvRODYmmhz4rPeVKYvppfGYKSNGdyZkA01046pLWyRKKI3ax8fbJoK5QbxblURkwK/MWY18Tg==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-loong64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-loong64/-/linux-loong64-0.21.5.tgz",
+      "integrity": "sha512-uHf1BmMG8qEvzdrzAqg2SIG/02+4/DHB6a9Kbya0XDvwDEKCoC8ZRWI5JJvNdUjtciBGFQ5PuBlpEOXQj+JQSg==",
+      "cpu": [
+        "loong64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-mips64el": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.21.5.tgz",
+      "integrity": "sha512-IajOmO+KJK23bj52dFSNCMsz1QP1DqM6cwLUv3W1QwyxkyIWecfafnI555fvSGqEKwjMXVLokcV5ygHW5b3Jbg==",
+      "cpu": [
+        "mips64el"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-ppc64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-ppc64/-/linux-ppc64-0.21.5.tgz",
+      "integrity": "sha512-1hHV/Z4OEfMwpLO8rp7CvlhBDnjsC3CttJXIhBi+5Aj5r+MBvy4egg7wCbe//hSsT+RvDAG7s81tAvpL2XAE4w==",
+      "cpu": [
+        "ppc64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-riscv64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-riscv64/-/linux-riscv64-0.21.5.tgz",
+      "integrity": "sha512-2HdXDMd9GMgTGrPWnJzP2ALSokE/0O5HhTUvWIbD3YdjME8JwvSCnNGBnTThKGEB91OZhzrJ4qIIxk/SBmyDDA==",
+      "cpu": [
+        "riscv64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-s390x": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-s390x/-/linux-s390x-0.21.5.tgz",
+      "integrity": "sha512-zus5sxzqBJD3eXxwvjN1yQkRepANgxE9lgOW2qLnmr8ikMTphkjgXu1HR01K4FJg8h1kEEDAqDcZQtbrRnB41A==",
+      "cpu": [
+        "s390x"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/linux-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.21.5.tgz",
+      "integrity": "sha512-1rYdTpyv03iycF1+BhzrzQJCdOuAOtaqHTWJZCWvijKD2N5Xu0TtVC8/+1faWqcP9iBCWOmjmhoH94dH82BxPQ==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/netbsd-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/netbsd-x64/-/netbsd-x64-0.21.5.tgz",
+      "integrity": "sha512-Woi2MXzXjMULccIwMnLciyZH4nCIMpWQAs049KEeMvOcNADVxo0UBIQPfSmxB3CWKedngg7sWZdLvLczpe0tLg==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "netbsd"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/openbsd-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/openbsd-x64/-/openbsd-x64-0.21.5.tgz",
+      "integrity": "sha512-HLNNw99xsvx12lFBUwoT8EVCsSvRNDVxNpjZ7bPn947b8gJPzeHWyNVhFsaerc0n3TsbOINvRP2byTZ5LKezow==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "openbsd"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/sunos-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/sunos-x64/-/sunos-x64-0.21.5.tgz",
+      "integrity": "sha512-6+gjmFpfy0BHU5Tpptkuh8+uw3mnrvgs+dSPQXQOv3ekbordwnzTVEb4qnIvQcYXq6gzkyTnoZ9dZG+D4garKg==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "sunos"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/win32-arm64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-arm64/-/win32-arm64-0.21.5.tgz",
+      "integrity": "sha512-Z0gOTd75VvXqyq7nsl93zwahcTROgqvuAcYDUr+vOv8uHhNSKROyU961kgtCD1e95IqPKSQKH7tBTslnS3tA8A==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/win32-ia32": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-ia32/-/win32-ia32-0.21.5.tgz",
+      "integrity": "sha512-SWXFF1CL2RVNMaVs+BBClwtfZSvDgtL//G/smwAc5oVK/UPu2Gu9tIaRgFmYFFKrmg3SyAjSrElf0TiJ1v8fYA==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@esbuild/win32-x64": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.21.5.tgz",
+      "integrity": "sha512-tQd/1efJuzPC6rCFwEvLtci/xNFcTZknmXs98FYDfGE4wP9ClFV98nyKrzJKVPMhdDnjzLhdUyMX4PsQAPjwIw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/@jridgewell/sourcemap-codec": {
+      "version": "1.5.0",
+      "resolved": "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.0.tgz",
+      "integrity": "sha512-gv3ZRaISU3fjPAgNsriBRqGWQL6quFx04YMPW/zD8XMLsU32mhCCbfbO6KZFLjvYpCZ8zyDEgqsgf+PwPaM7GQ==",
+      "license": "MIT"
+    },
+    "node_modules/@rollup/rollup-android-arm-eabi": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-android-arm-eabi/-/rollup-android-arm-eabi-4.21.2.tgz",
+      "integrity": "sha512-fSuPrt0ZO8uXeS+xP3b+yYTCBUd05MoSp2N/MFOgjhhUhMmchXlpTQrTpI8T+YAwAQuK7MafsCOxW7VrPMrJcg==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ]
+    },
+    "node_modules/@rollup/rollup-android-arm64": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-android-arm64/-/rollup-android-arm64-4.21.2.tgz",
+      "integrity": "sha512-xGU5ZQmPlsjQS6tzTTGwMsnKUtu0WVbl0hYpTPauvbRAnmIvpInhJtgjj3mcuJpEiuUw4v1s4BimkdfDWlh7gA==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ]
+    },
+    "node_modules/@rollup/rollup-darwin-arm64": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.21.2.tgz",
+      "integrity": "sha512-99AhQ3/ZMxU7jw34Sq8brzXqWH/bMnf7ZVhvLk9QU2cOepbQSVTns6qoErJmSiAvU3InRqC2RRZ5ovh1KN0d0Q==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ]
+    },
+    "node_modules/@rollup/rollup-darwin-x64": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-darwin-x64/-/rollup-darwin-x64-4.21.2.tgz",
+      "integrity": "sha512-ZbRaUvw2iN/y37x6dY50D8m2BnDbBjlnMPotDi/qITMJ4sIxNY33HArjikDyakhSv0+ybdUxhWxE6kTI4oX26w==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-arm-gnueabihf": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm-gnueabihf/-/rollup-linux-arm-gnueabihf-4.21.2.tgz",
+      "integrity": "sha512-ztRJJMiE8nnU1YFcdbd9BcH6bGWG1z+jP+IPW2oDUAPxPjo9dverIOyXz76m6IPA6udEL12reYeLojzW2cYL7w==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-arm-musleabihf": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm-musleabihf/-/rollup-linux-arm-musleabihf-4.21.2.tgz",
+      "integrity": "sha512-flOcGHDZajGKYpLV0JNc0VFH361M7rnV1ee+NTeC/BQQ1/0pllYcFmxpagltANYt8FYf9+kL6RSk80Ziwyhr7w==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-arm64-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm64-gnu/-/rollup-linux-arm64-gnu-4.21.2.tgz",
+      "integrity": "sha512-69CF19Kp3TdMopyteO/LJbWufOzqqXzkrv4L2sP8kfMaAQ6iwky7NoXTp7bD6/irKgknDKM0P9E/1l5XxVQAhw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-arm64-musl": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm64-musl/-/rollup-linux-arm64-musl-4.21.2.tgz",
+      "integrity": "sha512-48pD/fJkTiHAZTnZwR0VzHrao70/4MlzJrq0ZsILjLW/Ab/1XlVUStYyGt7tdyIiVSlGZbnliqmult/QGA2O2w==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-powerpc64le-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-powerpc64le-gnu/-/rollup-linux-powerpc64le-gnu-4.21.2.tgz",
+      "integrity": "sha512-cZdyuInj0ofc7mAQpKcPR2a2iu4YM4FQfuUzCVA2u4HI95lCwzjoPtdWjdpDKyHxI0UO82bLDoOaLfpZ/wviyQ==",
+      "cpu": [
+        "ppc64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-riscv64-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-riscv64-gnu/-/rollup-linux-riscv64-gnu-4.21.2.tgz",
+      "integrity": "sha512-RL56JMT6NwQ0lXIQmMIWr1SW28z4E4pOhRRNqwWZeXpRlykRIlEpSWdsgNWJbYBEWD84eocjSGDu/XxbYeCmwg==",
+      "cpu": [
+        "riscv64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-s390x-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-s390x-gnu/-/rollup-linux-s390x-gnu-4.21.2.tgz",
+      "integrity": "sha512-PMxkrWS9z38bCr3rWvDFVGD6sFeZJw4iQlhrup7ReGmfn7Oukrr/zweLhYX6v2/8J6Cep9IEA/SmjXjCmSbrMQ==",
+      "cpu": [
+        "s390x"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-x64-gnu": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.21.2.tgz",
+      "integrity": "sha512-B90tYAUoLhU22olrafY3JQCFLnT3NglazdwkHyxNDYF/zAxJt5fJUB/yBoWFoIQ7SQj+KLe3iL4BhOMa9fzgpw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-linux-x64-musl": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.21.2.tgz",
+      "integrity": "sha512-7twFizNXudESmC9oneLGIUmoHiiLppz/Xs5uJQ4ShvE6234K0VB1/aJYU3f/4g7PhssLGKBVCC37uRkkOi8wjg==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ]
+    },
+    "node_modules/@rollup/rollup-win32-arm64-msvc": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-arm64-msvc/-/rollup-win32-arm64-msvc-4.21.2.tgz",
+      "integrity": "sha512-9rRero0E7qTeYf6+rFh3AErTNU1VCQg2mn7CQcI44vNUWM9Ze7MSRS/9RFuSsox+vstRt97+x3sOhEey024FRQ==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ]
+    },
+    "node_modules/@rollup/rollup-win32-ia32-msvc": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-ia32-msvc/-/rollup-win32-ia32-msvc-4.21.2.tgz",
+      "integrity": "sha512-5rA4vjlqgrpbFVVHX3qkrCo/fZTj1q0Xxpg+Z7yIo3J2AilW7t2+n6Q8Jrx+4MrYpAnjttTYF8rr7bP46BPzRw==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ]
+    },
+    "node_modules/@rollup/rollup-win32-x64-msvc": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.21.2.tgz",
+      "integrity": "sha512-6UUxd0+SKomjdzuAcp+HAmxw1FlGBnl1v2yEPSabtx4lBfdXHDVsW7+lQkgz9cNFJGY3AWR7+V8P5BqkD9L9nA==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ]
+    },
+    "node_modules/@tauri-apps/api": {
+      "version": "1.6.0",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/api/-/api-1.6.0.tgz",
+      "integrity": "sha512-rqI++FWClU5I2UBp4HXFvl+sBWkdigBkxnpJDQUWttNyG7IZP4FwQGhTNL5EOw0vI8i6eSAJ5frLqO7n7jbJdg==",
+      "license": "Apache-2.0 OR MIT",
+      "engines": {
+        "node": ">= 14.6.0",
+        "npm": ">= 6.6.0",
+        "yarn": ">= 1.19.1"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/tauri"
+      }
+    },
+    "node_modules/@tauri-apps/cli": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli/-/cli-1.6.1.tgz",
+      "integrity": "sha512-2S8WGmkz54Z9WxpaFVbUYsTiwx5OIEmdD5DDWRygX9VhaWwZg0y6DctsUtCRVre9I/Un/hTnmqkhZqPamCEx8A==",
+      "dev": true,
+      "license": "Apache-2.0 OR MIT",
+      "bin": {
+        "tauri": "tauri.js"
+      },
+      "engines": {
+        "node": ">= 10"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/tauri"
+      },
+      "optionalDependencies": {
+        "@tauri-apps/cli-darwin-arm64": "1.6.1",
+        "@tauri-apps/cli-darwin-x64": "1.6.1",
+        "@tauri-apps/cli-linux-arm-gnueabihf": "1.6.1",
+        "@tauri-apps/cli-linux-arm64-gnu": "1.6.1",
+        "@tauri-apps/cli-linux-arm64-musl": "1.6.1",
+        "@tauri-apps/cli-linux-x64-gnu": "1.6.1",
+        "@tauri-apps/cli-linux-x64-musl": "1.6.1",
+        "@tauri-apps/cli-win32-arm64-msvc": "1.6.1",
+        "@tauri-apps/cli-win32-ia32-msvc": "1.6.1",
+        "@tauri-apps/cli-win32-x64-msvc": "1.6.1"
+      }
+    },
+    "node_modules/@tauri-apps/cli-darwin-arm64": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-darwin-arm64/-/cli-darwin-arm64-1.6.1.tgz",
+      "integrity": "sha512-n+16Z9qQksBmY55Xwful8GGrw2dlyeqKPsjuNcwKUgVB5a4gIq6K6uUsbhwMUMUA3gqewQMBn44QXbSe5qNKfA==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-darwin-x64": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-darwin-x64/-/cli-darwin-x64-1.6.1.tgz",
+      "integrity": "sha512-OHzm6qiywv0GEwBDowlzLSuztKE85NMxp2loVynQ4vDoVk6V0jMtQy/N9YvYA0BetvfNTuuAiz3hsTkMHMYm+g==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-arm-gnueabihf": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm-gnueabihf/-/cli-linux-arm-gnueabihf-1.6.1.tgz",
+      "integrity": "sha512-ZA4ByaiZbrXUbhaoWUVab4lHI2yI1/ucrRO6b9pky6ytgqx37hA/YOWoctD0yaf5giQJQZw160euaBIUOKzRXA==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-arm64-gnu": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm64-gnu/-/cli-linux-arm64-gnu-1.6.1.tgz",
+      "integrity": "sha512-VBU4GRJPU9jzzeqaEGLHAJzqQhpl7WnRFyHPR8Qby0D17av3CClJ7nBa+CI3ob3JbIERfJM9kwFHdY9eQpfxnw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-arm64-musl": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-arm64-musl/-/cli-linux-arm64-musl-1.6.1.tgz",
+      "integrity": "sha512-gyMgNZ8fwQFYzrIiHwhmKECkbuAZtzsRyl+bi1Ua11XVWYVUpY8+cNp7Y5ilMJ9AwNFI/HFKjzzua9r+e9FNzw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-x64-gnu": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-x64-gnu/-/cli-linux-x64-gnu-1.6.1.tgz",
+      "integrity": "sha512-aYLjLXEBcOf4GUrLBZRQcoLSL3KgCKHwfAyGmTilH4juAw42ZaAYWIZwa59hp2kC4w1XrlmwAzGpi1RESBr5Mw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-linux-x64-musl": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-linux-x64-musl/-/cli-linux-x64-musl-1.6.1.tgz",
+      "integrity": "sha512-j1M7ovICUrBDbrH8CNUwbMe0zk0/IAR7MXRv5PEanktAZ1w/LG3nlO/AhY5/Cbqqo3ziKTcMpe6x0j3aE8jYOA==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-win32-arm64-msvc": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-win32-arm64-msvc/-/cli-win32-arm64-msvc-1.6.1.tgz",
+      "integrity": "sha512-yCGT1jXHvZtu+yYPDmDOJDfgsj5EKdBPvya+kmN03BmLfOF+8EWHA9s6yXUdk9pSr6M9OQS0SXocbGDOu5AkMw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-win32-ia32-msvc": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-win32-ia32-msvc/-/cli-win32-ia32-msvc-1.6.1.tgz",
+      "integrity": "sha512-klAt+KNcczC4gxz9vm6tSvFB4iyXVj4r+TtDVhStLCKkAZOVm0ZsFym1kDzltxrB/3xSjgzsgIiEJydN2cP7xw==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@tauri-apps/cli-win32-x64-msvc": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/cli-win32-x64-msvc/-/cli-win32-x64-msvc-1.6.1.tgz",
+      "integrity": "sha512-WEzQzBgcaqjZoA5M/KOupHmt8W3QQ20vwETXpGEMPd7spj4eZsRv/2ZDuCz4ELbai1XlIsTITFNe2LlJjzqISA==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "node_modules/@types/estree": {
+      "version": "1.0.5",
+      "resolved": "https://registry.npmjs.org/@types/estree/-/estree-1.0.5.tgz",
+      "integrity": "sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/@types/node": {
+      "version": "22.5.4",
+      "resolved": "https://registry.npmjs.org/@types/node/-/node-22.5.4.tgz",
+      "integrity": "sha512-FDuKUJQm/ju9fT/SeX/6+gBzoPzlVCzfzmGkwKvRHQVxi4BntVbyIwf6a4Xn62mrvndLiml6z/UBXIdEVjQLXg==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "undici-types": "~6.19.2"
+      }
+    },
+    "node_modules/@vitejs/plugin-vue": {
+      "version": "5.1.3",
+      "resolved": "https://registry.npmjs.org/@vitejs/plugin-vue/-/plugin-vue-5.1.3.tgz",
+      "integrity": "sha512-3xbWsKEKXYlmX82aOHufFQVnkbMC/v8fLpWwh6hWOUrK5fbbtBh9Q/WWse27BFgSy2/e2c0fz5Scgya9h2GLhw==",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": "^18.0.0 || >=20.0.0"
+      },
+      "peerDependencies": {
+        "vite": "^5.0.0",
+        "vue": "^3.2.25"
+      }
+    },
+    "node_modules/@volar/language-core": {
+      "version": "2.4.2",
+      "resolved": "https://registry.npmjs.org/@volar/language-core/-/language-core-2.4.2.tgz",
+      "integrity": "sha512-sONt5RLvLL1SlBdhyUSthZzuKePbJ7DwFFB9zT0eyWpDl+v7GXGh/RkPxxWaR22bIhYtTzp4Ka1MWatl/53Riw==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@volar/source-map": "2.4.2"
+      }
+    },
+    "node_modules/@volar/source-map": {
+      "version": "2.4.2",
+      "resolved": "https://registry.npmjs.org/@volar/source-map/-/source-map-2.4.2.tgz",
+      "integrity": "sha512-qiGfGgeZ5DEarPX3S+HcFktFCjfDrFPCXKeXNbrlB7v8cvtPRm8YVwoXOdGG1NhaL5rMlv5BZPVQyu4EdWWIvA==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/@volar/typescript": {
+      "version": "2.4.2",
+      "resolved": "https://registry.npmjs.org/@volar/typescript/-/typescript-2.4.2.tgz",
+      "integrity": "sha512-m2uZduhaHO1SZuagi30OsjI/X1gwkaEAC+9wT/nCNAtJ5FqXEkKvUncHmffG7ESDZPlFFUBK4vJ0D9Hfr+f2EA==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@volar/language-core": "2.4.2",
+        "path-browserify": "^1.0.1",
+        "vscode-uri": "^3.0.8"
+      }
+    },
+    "node_modules/@vue/compiler-core": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-core/-/compiler-core-3.5.4.tgz",
+      "integrity": "sha512-oNwn+BAt3n9dK9uAYvI+XGlutwuTq/wfj4xCBaZCqwwVIGtD7D6ViihEbyYZrDHIHTDE3Q6oL3/hqmAyFEy9DQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@babel/parser": "^7.25.3",
+        "@vue/shared": "3.5.4",
+        "entities": "^4.5.0",
+        "estree-walker": "^2.0.2",
+        "source-map-js": "^1.2.0"
+      }
+    },
+    "node_modules/@vue/compiler-dom": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-dom/-/compiler-dom-3.5.4.tgz",
+      "integrity": "sha512-yP9RRs4BDLOLfldn6ah+AGCNovGjMbL9uHvhDHf5wan4dAHLnFGOkqtfE7PPe4HTXIqE7l/NILdYw53bo1C8jw==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/compiler-core": "3.5.4",
+        "@vue/shared": "3.5.4"
+      }
+    },
+    "node_modules/@vue/compiler-sfc": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-sfc/-/compiler-sfc-3.5.4.tgz",
+      "integrity": "sha512-P+yiPhL+NYH7m0ZgCq7AQR2q7OIE+mpAEgtkqEeH9oHSdIRvUO+4X6MPvblJIWcoe4YC5a2Gdf/RsoyP8FFiPQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@babel/parser": "^7.25.3",
+        "@vue/compiler-core": "3.5.4",
+        "@vue/compiler-dom": "3.5.4",
+        "@vue/compiler-ssr": "3.5.4",
+        "@vue/shared": "3.5.4",
+        "estree-walker": "^2.0.2",
+        "magic-string": "^0.30.11",
+        "postcss": "^8.4.44",
+        "source-map-js": "^1.2.0"
+      }
+    },
+    "node_modules/@vue/compiler-ssr": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-ssr/-/compiler-ssr-3.5.4.tgz",
+      "integrity": "sha512-acESdTXsxPnYr2C4Blv0ggx5zIFMgOzZmYU2UgvIff9POdRGbRNBHRyzHAnizcItvpgerSKQbllUc9USp3V7eg==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/compiler-dom": "3.5.4",
+        "@vue/shared": "3.5.4"
+      }
+    },
+    "node_modules/@vue/compiler-vue2": {
+      "version": "2.7.16",
+      "resolved": "https://registry.npmjs.org/@vue/compiler-vue2/-/compiler-vue2-2.7.16.tgz",
+      "integrity": "sha512-qYC3Psj9S/mfu9uVi5WvNZIzq+xnXMhOwbTFKKDD7b1lhpnn71jXSFdTQ+WsIEk0ONCd7VV2IMm7ONl6tbQ86A==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "de-indent": "^1.0.2",
+        "he": "^1.2.0"
+      }
+    },
+    "node_modules/@vue/devtools-api": {
+      "version": "6.6.4",
+      "resolved": "https://registry.npmjs.org/@vue/devtools-api/-/devtools-api-6.6.4.tgz",
+      "integrity": "sha512-sGhTPMuXqZ1rVOk32RylztWkfXTRhuS7vgAKv0zjqk8gbsHkJ7xfFf+jbySxt7tWObEJwyKaHMikV/WGDiQm8g==",
+      "license": "MIT"
+    },
+    "node_modules/@vue/language-core": {
+      "version": "2.1.6",
+      "resolved": "https://registry.npmjs.org/@vue/language-core/-/language-core-2.1.6.tgz",
+      "integrity": "sha512-MW569cSky9R/ooKMh6xa2g1D0AtRKbL56k83dzus/bx//RDJk24RHWkMzbAlXjMdDNyxAaagKPRquBIxkxlCkg==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@volar/language-core": "~2.4.1",
+        "@vue/compiler-dom": "^3.4.0",
+        "@vue/compiler-vue2": "^2.7.16",
+        "@vue/shared": "^3.4.0",
+        "computeds": "^0.0.1",
+        "minimatch": "^9.0.3",
+        "muggle-string": "^0.4.1",
+        "path-browserify": "^1.0.1"
+      },
+      "peerDependencies": {
+        "typescript": "*"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@vue/reactivity": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.4.tgz",
+      "integrity": "sha512-HKKbEuP7tYSGCq4e4nK6ZW6l5hyG66OUetefBp4budUyjvAYsnQDf+bgFzg2RAgnH0CInyqXwD9y47jwJEHrQw==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/shared": "3.5.4"
+      }
+    },
+    "node_modules/@vue/runtime-core": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/runtime-core/-/runtime-core-3.5.4.tgz",
+      "integrity": "sha512-f3ek2sTA0AFu0n+w+kCtz567Euqqa3eHewvo4klwS7mWfSj/A+UmYTwsnUFo35KeyAFY60JgrCGvEBsu1n/3LA==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/reactivity": "3.5.4",
+        "@vue/shared": "3.5.4"
+      }
+    },
+    "node_modules/@vue/runtime-dom": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/runtime-dom/-/runtime-dom-3.5.4.tgz",
+      "integrity": "sha512-ofyc0w6rbD5KtjhP1i9hGOKdxGpvmuB1jprP7Djlj0X7R5J/oLwuNuE98GJ8WW31Hu2VxQHtk/LYTAlW8xrJdw==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/reactivity": "3.5.4",
+        "@vue/runtime-core": "3.5.4",
+        "@vue/shared": "3.5.4",
+        "csstype": "^3.1.3"
+      }
+    },
+    "node_modules/@vue/server-renderer": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/server-renderer/-/server-renderer-3.5.4.tgz",
+      "integrity": "sha512-FbjV6DJLgKRetMYFBA1UXCroCiED/Ckr53/ba9wivyd7D/Xw9fpo0T6zXzCnxQwyvkyrL7y6plgYhWhNjGxY5g==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/compiler-ssr": "3.5.4",
+        "@vue/shared": "3.5.4"
+      },
+      "peerDependencies": {
+        "vue": "3.5.4"
+      }
+    },
+    "node_modules/@vue/shared": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/@vue/shared/-/shared-3.5.4.tgz",
+      "integrity": "sha512-L2MCDD8l7yC62Te5UUyPVpmexhL9ipVnYRw9CsWfm/BGRL5FwDX4a25bcJ/OJSD3+Hx+k/a8LDKcG2AFdJV3BA==",
+      "license": "MIT"
+    },
+    "node_modules/asynckit": {
+      "version": "0.4.0",
+      "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
+      "integrity": "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==",
+      "license": "MIT"
+    },
+    "node_modules/axios": {
+      "version": "1.7.7",
+      "resolved": "https://registry.npmjs.org/axios/-/axios-1.7.7.tgz",
+      "integrity": "sha512-S4kL7XrjgBmvdGut0sN3yJxqYzrDOnivkBiN0OFs6hLiUam3UPvswUo0kqGyhqUZGEOytHyumEdXsAkgCOUf3Q==",
+      "license": "MIT",
+      "dependencies": {
+        "follow-redirects": "^1.15.6",
+        "form-data": "^4.0.0",
+        "proxy-from-env": "^1.1.0"
+      }
+    },
+    "node_modules/balanced-match": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+      "integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/brace-expansion": {
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.0.1.tgz",
+      "integrity": "sha512-XnAIvQ8eM+kC6aULx6wuQiwVsnzsi9d3WxzV3FpWTGA19F621kwdbsAcFKXgKUHZWsy+mY6iL1sHTxWEFCytDA==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "balanced-match": "^1.0.0"
+      }
+    },
+    "node_modules/combined-stream": {
+      "version": "1.0.8",
+      "resolved": "https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz",
+      "integrity": "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==",
+      "license": "MIT",
+      "dependencies": {
+        "delayed-stream": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/computeds": {
+      "version": "0.0.1",
+      "resolved": "https://registry.npmjs.org/computeds/-/computeds-0.0.1.tgz",
+      "integrity": "sha512-7CEBgcMjVmitjYo5q8JTJVra6X5mQ20uTThdK+0kR7UEaDrAWEQcRiBtWJzga4eRpP6afNwwLsX2SET2JhVB1Q==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/csstype": {
+      "version": "3.1.3",
+      "resolved": "https://registry.npmjs.org/csstype/-/csstype-3.1.3.tgz",
+      "integrity": "sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==",
+      "license": "MIT"
+    },
+    "node_modules/de-indent": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/de-indent/-/de-indent-1.0.2.tgz",
+      "integrity": "sha512-e/1zu3xH5MQryN2zdVaF0OrdNLUbvWxzMbi+iNA6Bky7l1RoP8a2fIbRocyHclXt/arDrrR6lL3TqFD9pMQTsg==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/delayed-stream": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz",
+      "integrity": "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.4.0"
+      }
+    },
+    "node_modules/entities": {
+      "version": "4.5.0",
+      "resolved": "https://registry.npmjs.org/entities/-/entities-4.5.0.tgz",
+      "integrity": "sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==",
+      "license": "BSD-2-Clause",
+      "engines": {
+        "node": ">=0.12"
+      },
+      "funding": {
+        "url": "https://github.com/fb55/entities?sponsor=1"
+      }
+    },
+    "node_modules/esbuild": {
+      "version": "0.21.5",
+      "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.21.5.tgz",
+      "integrity": "sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw==",
+      "dev": true,
+      "hasInstallScript": true,
+      "license": "MIT",
+      "bin": {
+        "esbuild": "bin/esbuild"
+      },
+      "engines": {
+        "node": ">=12"
+      },
+      "optionalDependencies": {
+        "@esbuild/aix-ppc64": "0.21.5",
+        "@esbuild/android-arm": "0.21.5",
+        "@esbuild/android-arm64": "0.21.5",
+        "@esbuild/android-x64": "0.21.5",
+        "@esbuild/darwin-arm64": "0.21.5",
+        "@esbuild/darwin-x64": "0.21.5",
+        "@esbuild/freebsd-arm64": "0.21.5",
+        "@esbuild/freebsd-x64": "0.21.5",
+        "@esbuild/linux-arm": "0.21.5",
+        "@esbuild/linux-arm64": "0.21.5",
+        "@esbuild/linux-ia32": "0.21.5",
+        "@esbuild/linux-loong64": "0.21.5",
+        "@esbuild/linux-mips64el": "0.21.5",
+        "@esbuild/linux-ppc64": "0.21.5",
+        "@esbuild/linux-riscv64": "0.21.5",
+        "@esbuild/linux-s390x": "0.21.5",
+        "@esbuild/linux-x64": "0.21.5",
+        "@esbuild/netbsd-x64": "0.21.5",
+        "@esbuild/openbsd-x64": "0.21.5",
+        "@esbuild/sunos-x64": "0.21.5",
+        "@esbuild/win32-arm64": "0.21.5",
+        "@esbuild/win32-ia32": "0.21.5",
+        "@esbuild/win32-x64": "0.21.5"
+      }
+    },
+    "node_modules/estree-walker": {
+      "version": "2.0.2",
+      "resolved": "https://registry.npmjs.org/estree-walker/-/estree-walker-2.0.2.tgz",
+      "integrity": "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w==",
+      "license": "MIT"
+    },
+    "node_modules/follow-redirects": {
+      "version": "1.15.9",
+      "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.9.tgz",
+      "integrity": "sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==",
+      "funding": [
+        {
+          "type": "individual",
+          "url": "https://github.com/sponsors/RubenVerborgh"
+        }
+      ],
+      "license": "MIT",
+      "engines": {
+        "node": ">=4.0"
+      },
+      "peerDependenciesMeta": {
+        "debug": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/form-data": {
+      "version": "4.0.0",
+      "resolved": "https://registry.npmjs.org/form-data/-/form-data-4.0.0.tgz",
+      "integrity": "sha512-ETEklSGi5t0QMZuiXoA/Q6vcnxcLQP5vdugSpuAyi6SVGi2clPPp+xgEhuMaHC+zGgn31Kd235W35f7Hykkaww==",
+      "license": "MIT",
+      "dependencies": {
+        "asynckit": "^0.4.0",
+        "combined-stream": "^1.0.8",
+        "mime-types": "^2.1.12"
+      },
+      "engines": {
+        "node": ">= 6"
+      }
+    },
+    "node_modules/fsevents": {
+      "version": "2.3.3",
+      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
+      "dev": true,
+      "hasInstallScript": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
+      }
+    },
+    "node_modules/he": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/he/-/he-1.2.0.tgz",
+      "integrity": "sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==",
+      "dev": true,
+      "license": "MIT",
+      "bin": {
+        "he": "bin/he"
+      }
+    },
+    "node_modules/magic-string": {
+      "version": "0.30.11",
+      "resolved": "https://registry.npmjs.org/magic-string/-/magic-string-0.30.11.tgz",
+      "integrity": "sha512-+Wri9p0QHMy+545hKww7YAu5NyzF8iomPL/RQazugQ9+Ez4Ic3mERMd8ZTX5rfK944j+560ZJi8iAwgak1Ac7A==",
+      "license": "MIT",
+      "dependencies": {
+        "@jridgewell/sourcemap-codec": "^1.5.0"
+      }
+    },
+    "node_modules/mime-db": {
+      "version": "1.52.0",
+      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
+      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/mime-types": {
+      "version": "2.1.35",
+      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
+      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
+      "license": "MIT",
+      "dependencies": {
+        "mime-db": "1.52.0"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/minimatch": {
+      "version": "9.0.5",
+      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-9.0.5.tgz",
+      "integrity": "sha512-G6T0ZX48xgozx7587koeX9Ys2NYy6Gmv//P89sEte9V9whIapMNF4idKxnW2QtCcLiTWlb/wfCabAtAFWhhBow==",
+      "dev": true,
+      "license": "ISC",
+      "dependencies": {
+        "brace-expansion": "^2.0.1"
+      },
+      "engines": {
+        "node": ">=16 || 14 >=14.17"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/isaacs"
+      }
+    },
+    "node_modules/muggle-string": {
+      "version": "0.4.1",
+      "resolved": "https://registry.npmjs.org/muggle-string/-/muggle-string-0.4.1.tgz",
+      "integrity": "sha512-VNTrAak/KhO2i8dqqnqnAHOa3cYBwXEZe9h+D5h/1ZqFSTEFHdM65lR7RoIqq3tBBYavsOXV84NoHXZ0AkPyqQ==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/nanoid": {
+      "version": "3.3.7",
+      "resolved": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.7.tgz",
+      "integrity": "sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==",
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/ai"
+        }
+      ],
+      "license": "MIT",
+      "bin": {
+        "nanoid": "bin/nanoid.cjs"
+      },
+      "engines": {
+        "node": "^10 || ^12 || ^13.7 || ^14 || >=15.0.1"
+      }
+    },
+    "node_modules/path-browserify": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/path-browserify/-/path-browserify-1.0.1.tgz",
+      "integrity": "sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/picocolors": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.0.tgz",
+      "integrity": "sha512-TQ92mBOW0l3LeMeyLV6mzy/kWr8lkd/hp3mTg7wYK7zJhuBStmGMBG0BdeDZS/dZx1IukaX6Bk11zcln25o1Aw==",
+      "license": "ISC"
+    },
+    "node_modules/postcss": {
+      "version": "8.4.45",
+      "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.4.45.tgz",
+      "integrity": "sha512-7KTLTdzdZZYscUc65XmjFiB73vBhBfbPztCYdUNvlaso9PrzjzcmjqBPR0lNGkcVlcO4BjiO5rK/qNz+XAen1Q==",
+      "funding": [
+        {
+          "type": "opencollective",
+          "url": "https://opencollective.com/postcss/"
+        },
+        {
+          "type": "tidelift",
+          "url": "https://tidelift.com/funding/github/npm/postcss"
+        },
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/ai"
+        }
+      ],
+      "license": "MIT",
+      "dependencies": {
+        "nanoid": "^3.3.7",
+        "picocolors": "^1.0.1",
+        "source-map-js": "^1.2.0"
+      },
+      "engines": {
+        "node": "^10 || ^12 || >=14"
+      }
+    },
+    "node_modules/proxy-from-env": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-1.1.0.tgz",
+      "integrity": "sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==",
+      "license": "MIT"
+    },
+    "node_modules/rollup": {
+      "version": "4.21.2",
+      "resolved": "https://registry.npmjs.org/rollup/-/rollup-4.21.2.tgz",
+      "integrity": "sha512-e3TapAgYf9xjdLvKQCkQTnbTKd4a6jwlpQSJJFokHGaX2IVjoEqkIIhiQfqsi0cdwlOD+tQGuOd5AJkc5RngBw==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/estree": "1.0.5"
+      },
+      "bin": {
+        "rollup": "dist/bin/rollup"
+      },
+      "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=8.0.0"
+      },
+      "optionalDependencies": {
+        "@rollup/rollup-android-arm-eabi": "4.21.2",
+        "@rollup/rollup-android-arm64": "4.21.2",
+        "@rollup/rollup-darwin-arm64": "4.21.2",
+        "@rollup/rollup-darwin-x64": "4.21.2",
+        "@rollup/rollup-linux-arm-gnueabihf": "4.21.2",
+        "@rollup/rollup-linux-arm-musleabihf": "4.21.2",
+        "@rollup/rollup-linux-arm64-gnu": "4.21.2",
+        "@rollup/rollup-linux-arm64-musl": "4.21.2",
+        "@rollup/rollup-linux-powerpc64le-gnu": "4.21.2",
+        "@rollup/rollup-linux-riscv64-gnu": "4.21.2",
+        "@rollup/rollup-linux-s390x-gnu": "4.21.2",
+        "@rollup/rollup-linux-x64-gnu": "4.21.2",
+        "@rollup/rollup-linux-x64-musl": "4.21.2",
+        "@rollup/rollup-win32-arm64-msvc": "4.21.2",
+        "@rollup/rollup-win32-ia32-msvc": "4.21.2",
+        "@rollup/rollup-win32-x64-msvc": "4.21.2",
+        "fsevents": "~2.3.2"
+      }
+    },
+    "node_modules/semver": {
+      "version": "7.6.3",
+      "resolved": "https://registry.npmjs.org/semver/-/semver-7.6.3.tgz",
+      "integrity": "sha512-oVekP1cKtI+CTDvHWYFUcMtsK/00wmAEfyqKfNdARm8u1wNVhSgaX7A8d4UuIlUI5e84iEwOhs7ZPYRmzU9U6A==",
+      "dev": true,
+      "license": "ISC",
+      "bin": {
+        "semver": "bin/semver.js"
+      },
+      "engines": {
+        "node": ">=10"
+      }
+    },
+    "node_modules/source-map-js": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.0.tgz",
+      "integrity": "sha512-itJW8lvSA0TXEphiRoawsCksnlf8SyvmFzIhltqAHluXd88pkCd+cXJVHTDwdCr0IzwptSm035IHQktUu1QUMg==",
+      "license": "BSD-3-Clause",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/to-fast-properties": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/to-fast-properties/-/to-fast-properties-2.0.0.tgz",
+      "integrity": "sha512-/OaKK0xYrs3DmxRYqL/yDc+FxFUVYhDlXMhRmv3z915w2HF1tnN1omB354j8VUGO/hbRzyD6Y3sA7v7GS/ceog==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=4"
+      }
+    },
+    "node_modules/typescript": {
+      "version": "5.5.4",
+      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.5.4.tgz",
+      "integrity": "sha512-Mtq29sKDAEYP7aljRgtPOpTvOfbwRWlS6dPRzwjdE+C0R4brX/GUyhHSecbHMFLNBLcJIPt9nl9yG5TZ1weH+Q==",
+      "devOptional": true,
+      "license": "Apache-2.0",
+      "bin": {
+        "tsc": "bin/tsc",
+        "tsserver": "bin/tsserver"
+      },
+      "engines": {
+        "node": ">=14.17"
+      }
+    },
+    "node_modules/undici-types": {
+      "version": "6.19.8",
+      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.19.8.tgz",
+      "integrity": "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/vite": {
+      "version": "5.4.3",
+      "resolved": "https://registry.npmjs.org/vite/-/vite-5.4.3.tgz",
+      "integrity": "sha512-IH+nl64eq9lJjFqU+/yrRnrHPVTlgy42/+IzbOdaFDVlyLgI/wDlf+FCobXLX1cT0X5+7LMyH1mIy2xJdLfo8Q==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "esbuild": "^0.21.3",
+        "postcss": "^8.4.43",
+        "rollup": "^4.20.0"
+      },
+      "bin": {
+        "vite": "bin/vite.js"
+      },
+      "engines": {
+        "node": "^18.0.0 || >=20.0.0"
+      },
+      "funding": {
+        "url": "https://github.com/vitejs/vite?sponsor=1"
+      },
+      "optionalDependencies": {
+        "fsevents": "~2.3.3"
+      },
+      "peerDependencies": {
+        "@types/node": "^18.0.0 || >=20.0.0",
+        "less": "*",
+        "lightningcss": "^1.21.0",
+        "sass": "*",
+        "sass-embedded": "*",
+        "stylus": "*",
+        "sugarss": "*",
+        "terser": "^5.4.0"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        },
+        "less": {
+          "optional": true
+        },
+        "lightningcss": {
+          "optional": true
+        },
+        "sass": {
+          "optional": true
+        },
+        "sass-embedded": {
+          "optional": true
+        },
+        "stylus": {
+          "optional": true
+        },
+        "sugarss": {
+          "optional": true
+        },
+        "terser": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/vscode-uri": {
+      "version": "3.0.8",
+      "resolved": "https://registry.npmjs.org/vscode-uri/-/vscode-uri-3.0.8.tgz",
+      "integrity": "sha512-AyFQ0EVmsOZOlAnxoFOGOq1SQDWAB7C6aqMGS23svWAllfOaxbuFvcT8D1i8z3Gyn8fraVeZNNmN6e9bxxXkKw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/vue": {
+      "version": "3.5.4",
+      "resolved": "https://registry.npmjs.org/vue/-/vue-3.5.4.tgz",
+      "integrity": "sha512-3yAj2gkmiY+i7+22A1PWM+kjOVXjU74UPINcTiN7grIVPyFFI0lpGwHlV/4xydDmobaBn7/xmi+YG8HeSlCTcg==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/compiler-dom": "3.5.4",
+        "@vue/compiler-sfc": "3.5.4",
+        "@vue/runtime-dom": "3.5.4",
+        "@vue/server-renderer": "3.5.4",
+        "@vue/shared": "3.5.4"
+      },
+      "peerDependencies": {
+        "typescript": "*"
+      },
+      "peerDependenciesMeta": {
+        "typescript": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/vue-router": {
+      "version": "4.4.4",
+      "resolved": "https://registry.npmjs.org/vue-router/-/vue-router-4.4.4.tgz",
+      "integrity": "sha512-3MlnDqwRwZwCQVbtVfpsU+nrNymNjnXSsQtXName5925NVC1+326VVfYH9vSrA0N13teGEo8z5x7gbRnGjCDiQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/devtools-api": "^6.6.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/posva"
+      },
+      "peerDependencies": {
+        "vue": "^3.2.0"
+      }
+    },
+    "node_modules/vue-tsc": {
+      "version": "2.1.6",
+      "resolved": "https://registry.npmjs.org/vue-tsc/-/vue-tsc-2.1.6.tgz",
+      "integrity": "sha512-f98dyZp5FOukcYmbFpuSCJ4Z0vHSOSmxGttZJCsFeX0M4w/Rsq0s4uKXjcSRsZqsRgQa6z7SfuO+y0HVICE57Q==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@volar/typescript": "~2.4.1",
+        "@vue/language-core": "2.1.6",
+        "semver": "^7.5.4"
+      },
+      "bin": {
+        "vue-tsc": "bin/vue-tsc.js"
+      },
+      "peerDependencies": {
+        "typescript": ">=5.0.0"
+      }
+    },
+    "node_modules/vuex": {
+      "version": "4.1.0",
+      "resolved": "https://registry.npmjs.org/vuex/-/vuex-4.1.0.tgz",
+      "integrity": "sha512-hmV6UerDrPcgbSy9ORAtNXDr9M4wlNP4pEFKye4ujJF8oqgFFuxDCdOLS3eNoRTtq5O3hoBDh9Doj1bQMYHRbQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@vue/devtools-api": "^6.0.0-beta.11"
+      },
+      "peerDependencies": {
+        "vue": "^3.2.0"
+      }
+    }
+  }
+}
+==== END OF FILE: frontend/package-lock.json ====
+
+==== START OF FILE: frontend/package.json ====
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^1.5.2",
+    "axios": "^1.6.2",
+    "vue": "^3.3.9",
+    "vue-router": "^4.2.5",
+    "vuex": "^4.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.7",
+    "@types/node": "^22.5.4",
+    "@vitejs/plugin-vue": "^5.0.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.3.1",
+    "vue-tsc": "^2.0.22"
+  }
+}
+==== END OF FILE: frontend/package.json ====
+
+==== START OF FILE: frontend/src/App.vue ====
+<template>
+  <div id="app">
+    <nav>
+      <router-link to="/">Home</router-link> |
+      <router-link to="/admin">Admin</router-link> |
+      <router-link to="/studio">Studio</router-link> |
+      <a href="#" @click="logout" v-if="isAuthenticated">Logout</a>
+      <router-link to="/login" v-else>Login</router-link>
+    </nav>
+    <router-view></router-view>
+  </div>
+</template>
+
+<script lang="ts">
+import { defineComponent, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import AuthService from './services/AuthService';
+
+export default defineComponent({
+  name: 'App',
+  setup() {
+    const router = useRouter();
+    const isAuthenticated = computed(() => !!AuthService.getToken());
+
+    const logout = () => {
+      AuthService.logout();
+      router.push('/login');
+    };
+
+    return { isAuthenticated, logout };
+  }
+});
+</script>==== END OF FILE: frontend/src/App.vue ====
+
+==== START OF FILE: frontend/src/main.ts ====
+import { createApp } from 'vue';
+import App from './App.vue';
+import router from './router';
+import store from './store';
+
+createApp(App).use(router).use(store).mount('#app');==== END OF FILE: frontend/src/main.ts ====
+
+==== START OF FILE: frontend/src/vite-env.d.ts ====
+/// <reference types="vite/client" />
+
+declare module "*.vue" {
+  import type { DefineComponent } from "vue";
+  const component: DefineComponent<{}, {}, any>;
+  export default component;
+}
+==== END OF FILE: frontend/src/vite-env.d.ts ====
+
+==== START OF FILE: frontend/src-tauri/build.rs ====
+fn main() {
+    tauri_build::build()
+}
+==== END OF FILE: frontend/src-tauri/build.rs ====
+
+==== START OF FILE: frontend/src-tauri/src/main.rs ====
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+fn main() {
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![greet])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+==== END OF FILE: frontend/src-tauri/src/main.rs ====
+
+==== START OF FILE: frontend/src-tauri/tauri.conf.json ====
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "frontend",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "http": {
+      "all": true,
+      "request": true,
+      "scope": ["http://localhost:8000/*"]
+    }
+    },
+    "windows": [
+      {
+        "title": "frontend",
+        "width": 800,
+        "height": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.frontend.app",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ]
+    }
+  }
+}==== END OF FILE: frontend/src-tauri/tauri.conf.json ====
+
+==== START OF FILE: frontend/tsconfig.json ====
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "node",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "preserve",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Additional settings for Vuex and Tauri */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["vite/client", "node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "vite.config.ts"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}==== END OF FILE: frontend/tsconfig.json ====
+
+==== START OF FILE: frontend/tsconfig.node.json ====
+{
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}==== END OF FILE: frontend/tsconfig.node.json ====
+
+==== START OF FILE: frontend/vite.config.ts ====
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+
+
+export default defineConfig({
+  plugins: [vue()],
+  server: {
+    host: '0.0.0.0',
+    port: 1420,
+    strictPort: true,
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+  },
+  resolve: {
+  }
+});==== END OF FILE: frontend/vite.config.ts ====
+

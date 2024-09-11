@@ -1,14 +1,14 @@
 <template>
-    <div>
+    <div class="studio">
       <h1>Studio</h1>
-      <!-- Add your component content here -->
+      <p>This is the studio page. Only authenticated users can access this page.</p>
     </div>
   </template>
   
-  <script setup lang="ts">
-    // Add your script logic here
-  </script>
+  <script lang="ts">
+  import { defineComponent } from 'vue';
   
-  <style scoped>
-    /* Add your styles here */
-  </style>
+  export default defineComponent({
+    name: 'Studio'
+  });
+  </script>

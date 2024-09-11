@@ -8,9 +8,12 @@ mod services;
 mod utils;
 use dotenv::dotenv;
 
-use actix_web::{App, HttpServer, web};
+use actix_web::{App, HttpServer, http, middleware, web};
+use actix_cors::Cors;
+
 use db::{create_db_pool, setup_database};
 use routes::configure_routes;
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -23,12 +26,24 @@ async fn main() -> std::io::Result<()> {
     setup_database(&pool).expect("Failed to set up database");
     println!("Database setup complete");
 
-    // Start the web server
+
     HttpServer::new(move || {
+        let cors = Cors::default()
+            .allowed_origin("http://localhost:1420")
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(3600);
+
         App::new()
+            .wrap(cors)
+            .wrap(middleware::Logger::default())
             .app_data(web::Data::new(pool.clone()))
             .service(configure_routes())
     })
+
+
+
     .bind("0.0.0.0:8000")?
     .run()
     .await
