@@ -1,5 +1,5 @@
 import { createStore, CommitOptions } from 'vuex';
-
+import studioModule from './modules/studio';
 
 export interface State {
   exampleProperty: string;
@@ -30,5 +30,6 @@ export default createStore<State>({
     },
   },
   modules: {
+    studio: studioModule,
   },
 });
