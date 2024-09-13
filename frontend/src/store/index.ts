@@ -1,35 +1,30 @@
-import { createStore, CommitOptions } from 'vuex';
-import studioModule from './modules/studio';
+import { createStore } from 'vuex';
 
-export interface State {
-  exampleProperty: string;
-}
-
-export interface Mutations {
-  setExampleProperty(state: State, payload: string): void;
-}
-
-export interface Actions {
-  updateExampleProperty({ commit }: { commit: Commit }, payload: string): void;
-}
-
-type Commit = (type: string, payload?: any, options?: CommitOptions) => void;
-
-export default createStore<State>({
+export default createStore({
   state: {
-    exampleProperty: '',
+    isLoggedIn: false,
+    user: null,
   },
   mutations: {
-    setExampleProperty(state, payload: string) {
-      state.exampleProperty = payload;
+    setLoggedIn(state, value: boolean) {
+      state.isLoggedIn = value;
+    },
+    setUser(state, user: any) {
+      state.user = user;
     },
   },
   actions: {
-    updateExampleProperty({ commit }, payload: string) {
-      commit('setExampleProperty', payload);
+    login({ commit }, { user }) { // Removed 'token' since it's unused
+      commit('setLoggedIn', true);
+      commit('setUser', user);
+    },
+    logout({ commit }) {
+      commit('setLoggedIn', false);
+      commit('setUser', null);
     },
   },
-  modules: {
-    studio: studioModule,
+  getters: {
+    isLoggedIn: (state) => state.isLoggedIn,
+    user: (state) => state.user,
   },
 });

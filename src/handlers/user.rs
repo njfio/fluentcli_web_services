@@ -40,7 +40,7 @@ pub async fn login(
     match UserService::login(&pool, &login_req.username, &login_req.password) {
         Ok(user) => {
             match generate_token(user.id) {
-                Ok(token) => Ok(HttpResponse::Ok().json(json!({ "token": token }))),
+                Ok(token) => Ok(HttpResponse::Ok().json(json!({ "token": token, "user": user }))),
                 Err(e) => {
                     log::error!("Token generation error: {:?}", e);
                     Err(actix_web::error::ErrorInternalServerError("Failed to generate token"))

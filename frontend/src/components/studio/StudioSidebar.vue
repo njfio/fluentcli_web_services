@@ -1,44 +1,82 @@
 <template>
-    <div class="studio-sidebar">
-      <h3>Project Explorer</h3>
-      <TreeView :items="projectStructure" @item-click="handleItemClick" />
+    <div :class="['sidebar', { collapsed: isCollapsed }]">
+      <div class="toggle-button" @click="$emit('toggle')">
+        <span v-if="!isCollapsed">«</span>
+        <span v-else>»</span>
+      </div>
+      <nav>
+        <ul>
+          <li>
+            <router-link to="/studio/dashboard">Dashboard</router-link>
+          </li>
+          <li>
+            <router-link to="/studio/jobs">Jobs</router-link>
+          </li>
+          <li>
+            <router-link to="/studio/pipelines">Pipelines</router-link>
+          </li>
+          <li>
+            <router-link to="/studio/settings">Settings</router-link>
+          </li>
+        </ul>
+      </nav>
     </div>
   </template>
   
   <script lang="ts">
-  import { defineComponent, ref } from 'vue';
-  import TreeView from '@/components/common/TreeView.vue';
+  import { defineComponent } from 'vue';
   
   export default defineComponent({
     name: 'StudioSidebar',
-    components: { TreeView },
-    setup() {
-      const projectStructure = ref([
-        {
-          name: 'Project',
-          children: [
-            { name: 'Configurations', children: [] },
-            { name: 'Pipelines', children: [] },
-            { name: 'Docker Files', children: [] },
-          ],
-        },
-      ]);
-  
-      const handleItemClick = (item: any) => {
-        console.log('Clicked item:', item);
-        // Implement logic to open the clicked item in the workspace
-      };
-  
-      return { projectStructure, handleItemClick };
+    props: {
+      isCollapsed: {
+        type: Boolean,
+        required: true,
+      },
     },
   });
   </script>
   
   <style scoped>
-  .studio-sidebar {
+  .sidebar {
     width: 250px;
-    background-color: #f0f0f0;
-    padding: 1rem;
-    overflow-y: auto;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    transition: width 0.3s;
+    position: relative;
+  }
+  
+  .sidebar.collapsed {
+    width: 80px;
+  }
+  
+  .toggle-button {
+    position: absolute;
+    top: 10px;
+    right: -15px;
+    background-color: #34495e;
+    border-radius: 50%;
+    padding: 5px;
+    cursor: pointer;
+  }
+  
+  nav ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 50px;
+  }
+  
+  nav ul li {
+    padding: 15px 20px;
+  }
+  
+  nav ul li a {
+    color: #ecf0f1;
+    text-decoration: none;
+    display: block;
+  }
+  
+  nav ul li a.router-link-exact-active {
+    background-color: #1abc9c;
   }
   </style>

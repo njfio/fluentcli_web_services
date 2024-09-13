@@ -1,25 +1,35 @@
 <template>
     <div class="studio">
-      <StudioSidebar />
+      <StudioSidebar :isCollapsed="isSidebarCollapsed" @toggle="toggleSidebar" />
       <div class="studio-main">
-        <StudioHeader />
-        <StudioWorkspace />
+        <StudioHeader @toggleSidebar="toggleSidebar" />
+        <router-view></router-view>
       </div>
     </div>
   </template>
   
   <script lang="ts">
-  import { defineComponent } from 'vue';
+  import { defineComponent, ref } from 'vue';
   import StudioSidebar from '@/components/studio/StudioSidebar.vue';
   import StudioHeader from '@/components/studio/StudioHeader.vue';
-  import StudioWorkspace from '@/components/studio/StudioWorkspace.vue';
   
   export default defineComponent({
     name: 'Studio',
     components: {
       StudioSidebar,
       StudioHeader,
-      StudioWorkspace,
+    },
+    setup() {
+      const isSidebarCollapsed = ref(false);
+  
+      const toggleSidebar = () => {
+        isSidebarCollapsed.value = !isSidebarCollapsed.value;
+      };
+  
+      return {
+        isSidebarCollapsed,
+        toggleSidebar,
+      };
     },
   });
   </script>
@@ -34,5 +44,6 @@
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    background-color: #f5f5f5;
   }
   </style>

@@ -4,8 +4,7 @@
       <router-link to="/">Home</router-link> |
       <router-link to="/admin">Admin</router-link> |
       <router-link to="/studio">Studio</router-link> |
-      <a href="#" @click="logout" v-if="isAuthenticated">Logout</a>
-      <router-link to="/login" v-else>Login</router-link>
+      <button @click="handleAuthAction">{{ authButtonText }}</button>
     </nav>
     <router-view></router-view>
   </div>
@@ -13,25 +12,39 @@
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
+import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import AuthService from './services/AuthService';
 
 export default defineComponent({
   name: 'App',
   setup() {
+    const store = useStore();
     const router = useRouter();
-    const isAuthenticated = computed(() => !!AuthService.getToken());
 
-    const logout = () => {
-      AuthService.logout();
-      router.push('/login');
+    const isLoggedIn = computed(() => store.state.isLoggedIn);
+    const authButtonText = computed(() => (isLoggedIn.value ? 'Logout' : 'Login'));
+
+    const handleAuthAction = () => {
+      if (isLoggedIn.value) {
+        // Logout
+        AuthService.logout();
+        store.commit('setLoggedIn', false);
+        store.commit('setUser', null);
+        router.push('/');
+      } else {
+        // Navigate to Login page
+        router.push('/login');
+      }
     };
 
-    return { isAuthenticated, logout };
-  }
+    return {
+      authButtonText,
+      handleAuthAction,
+    };
+  },
 });
 </script>
-
 
 <style>
 #app {

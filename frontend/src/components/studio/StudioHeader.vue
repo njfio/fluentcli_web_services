@@ -1,58 +1,37 @@
 <template>
-    <div class="studio-header">
-      <div class="tabs">
-        <div
-          v-for="tab in openTabs"
-          :key="tab.id"
-          :class="['tab', { active: tab.id === activeTabId }]"
-          @click="setActiveTab(tab.id)"
-        >
-          {{ tab.name }}
-          <button class="close-tab" @click.stop="closeTab(tab.id)">&times;</button>
-        </div>
+    <header class="studio-header">
+      <button class="menu-button" @click="$emit('toggleSidebar')">☰</button>
+      <div class="user-info">
+        <span>Welcome, {{ userName }}</span>
+        <button @click="logout">Logout</button>
       </div>
-      <div class="actions">
-        <button @click="saveCurrentTab">Save</button>
-        <button @click="runCurrentTab">Run</button>
-      </div>
-    </div>
+    </header>
   </template>
   
   <script lang="ts">
   import { defineComponent, computed } from 'vue';
   import { useStore } from 'vuex';
+  import AuthService from '@/services/AuthService';
+  import { useRouter } from 'vue-router';
   
   export default defineComponent({
     name: 'StudioHeader',
     setup() {
       const store = useStore();
+      const router = useRouter();
   
-      const openTabs = computed(() => store.state.studio.openTabs);
-      const activeTabId = computed(() => store.state.studio.activeTabId);
+      const userName = computed(() => store.state.user?.name || 'User');
   
-      const setActiveTab = (tabId: string) => {
-        store.commit('studio/setActiveTab', tabId);
-      };
-  
-      const closeTab = (tabId: string) => {
-        store.commit('studio/closeTab', tabId);
-      };
-  
-      const saveCurrentTab = () => {
-        // Implement save logic
-      };
-  
-      const runCurrentTab = () => {
-        // Implement run logic
+      const logout = () => {
+        AuthService.logout();
+        store.commit('setLoggedIn', false);
+        store.commit('setUser', null);
+        router.push('/');
       };
   
       return {
-        openTabs,
-        activeTabId,
-        setActiveTab,
-        closeTab,
-        saveCurrentTab,
-        runCurrentTab,
+        userName,
+        logout,
       };
     },
   });
@@ -60,36 +39,33 @@
   
   <style scoped>
   .studio-header {
+    height: 60px;
+    background-color: #ecf0f1;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    background-color: #e0e0e0;
-    padding: 0.5rem;
+    padding: 0 20px;
+    justify-content: space-between;
+    border-bottom: 1px solid #bdc3c7;
   }
   
-  .tabs {
-    display: flex;
-  }
-  
-  .tab {
-    padding: 0.5rem 1rem;
-    background-color: #d0d0d0;
-    margin-right: 0.5rem;
-    cursor: pointer;
-  }
-  
-  .tab.active {
-    background-color: #ffffff;
-  }
-  
-  .close-tab {
-    margin-left: 0.5rem;
-    border: none;
+  .menu-button {
+    font-size: 24px;
     background: none;
+    border: none;
     cursor: pointer;
   }
   
-  .actions button {
-    margin-left: 0.5rem;
+  .user-info {
+    display: flex;
+    align-items: center;
+  }
+  
+  .user-info span {
+    margin-right: 15px;
+  }
+  
+  .user-info button {
+    padding: 5px 10px;
+    cursor: pointer;
   }
   </style>
