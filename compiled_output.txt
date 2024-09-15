@@ -2510,12 +2510,11 @@ impl JobService {
 ==== START OF FILE: frontend/src//App.vue ====
 <template>
   <div id="app">
-    <button @click="toggleLogin">{{ loginButtonText }}</button>
-
     <nav>
       <router-link to="/">Home</router-link> |
       <router-link to="/admin">Admin</router-link> |
-      <router-link to="/studio">Studio</router-link> 
+      <router-link to="/studio">Studio</router-link> |
+      <button @click="handleAuthAction">{{ authButtonText }}</button>
     </nav>
     <router-view></router-view>
   </div>
@@ -2523,77 +2522,39 @@ impl JobService {
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
-import { useStore } from 'vuex'
-import axios from 'axios';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import AuthService from './services/AuthService';
 
-const toggleLogin = async () => {
-  if (isLoggedIn.value) {
-    // Logout
-    AuthService.logout();
-    store.commit('setLoggedIn', false);
-    store.commit('setUser', null);
-  } else {
-    // Login
-    const credentials = {
-      username: 'testuser',
-      password: 'testpassword'
-    };
-    try {
-      const { token, user } = await AuthService.login(credentials.username, credentials.password);
-      AuthService.setToken(token);
-      store.commit('setLoggedIn', true);
-      store.commit('setUser', user);
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-  }
-};
-
-
-
 export default defineComponent({
+  name: 'App',
   setup() {
-    const store = useStore()
-    const isLoggedIn = computed(() => store.state.isLoggedIn)
-    const loginButtonText = computed(() => isLoggedIn.value ? 'Logout' : 'Login')
+    const store = useStore();
+    const router = useRouter();
 
-    const toggleLogin = async () => {
-  if (isLoggedIn.value) {
-    // Logout
-    try {
--     await axios.post('/users/logout')
-      AuthService.logout();
-      store.commit('setLoggedIn', false)
-      store.commit('setUser', null)
-    } catch (error) {
-      console.error('Logout failed:', error)
-    }
-  } else {
-        // For simplicity, we're using hardcoded credentials here.
-        // In a real app, you'd have a login form.
-        const credentials = {
-          username: 'testuser',
-          password: 'testpassword'
-        }
-        try {
-          const response = await axios.post('/api/users/login', credentials)
-          store.commit('setLoggedIn', true)
-          store.commit('setUser', response.data.user)
-        } catch (error) {
-          console.error('Login failed:', error)
-        }
+    const isLoggedIn = computed(() => store.state.isLoggedIn);
+    const authButtonText = computed(() => (isLoggedIn.value ? 'Logout' : 'Login'));
+
+    const handleAuthAction = () => {
+      if (isLoggedIn.value) {
+        // Logout
+        AuthService.logout();
+        store.commit('setLoggedIn', false);
+        store.commit('setUser', null);
+        router.push('/');
+      } else {
+        // Navigate to Login page
+        router.push('/login');
       }
-    }
+    };
 
     return {
-      loginButtonText,
-      toggleLogin
-    }
-  }
-})
+      authButtonText,
+      handleAuthAction,
+    };
+  },
+});
 </script>
-
 
 <style>
 #app {
@@ -2618,11 +2579,13 @@ nav a.router-link-exact-active {
 </style>==== END OF FILE: frontend/src//App.vue ====
 
 ==== START OF FILE: frontend/src//main.ts ====
+// frontend/src/main.ts
+
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import store from './store';
-import AuthService from './services/AuthService';
+import AuthService from '@/services/AuthService';
 
 const token = AuthService.getToken();
 if (token) {
@@ -2633,73 +2596,192 @@ if (token) {
 
 createApp(App).use(router).use(store).mount('#app');==== END OF FILE: frontend/src//main.ts ====
 
+==== START OF FILE: frontend/src//extensions/tiptap.d.ts ====
+import '@tiptap/core';
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    /**
+     * Insert a Data Pill with the given value
+     */
+    insertDataPill: (value: string) => ReturnType;
+  }
+}
+
+export {};==== END OF FILE: frontend/src//extensions/tiptap.d.ts ====
+
+==== START OF FILE: frontend/src//extensions/DataPill.ts ====
+// src/extensions/DataPill.ts
+
+import { Node, mergeAttributes } from '@tiptap/core'
+
+export interface DataPillOptions {
+  HTMLAttributes: Record<string, any>
+}
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    dataPill: {
+      insertDataPill: (value: string) => ReturnType
+    }
+  }
+}
+
+export const DataPill = Node.create<DataPillOptions>({
+  name: 'dataPill',
+
+  group: 'inline',
+
+  inline: true,
+
+  atom: true,
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
+  },
+
+  addAttributes() {
+    return {
+      value: {
+        default: null,
+      },
+    }
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-type="data-pill"]',
+      },
+    ]
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return ['span', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { 'data-type': 'data-pill' }), node.attrs.value]
+  },
+
+  addCommands() {
+    return {
+      insertDataPill: (value: string) => ({ chain }) => {
+        return chain()
+          .insertContent({
+            type: this.name,
+            attrs: { value },
+          })
+          .run()
+      },
+    }
+  },
+})==== END OF FILE: frontend/src//extensions/DataPill.ts ====
+
 ==== START OF FILE: frontend/src//components/studio/editors/PipelineEditor.vue ====
 <template>
     <div class="pipeline-editor">
       <h2>Pipeline Editor</h2>
       <form @submit.prevent="savePipeline">
-        <div>
-          <label for="name">Name:</label>
-          <input type="text" id="name" v-model="pipeline.name" required />
+        <div class="form-group">
+          <label for="name">Pipeline Name</label>
+          <input
+            type="text"
+            id="name"
+            v-model="pipeline.name"
+            required
+            class="form-control"
+          />
         </div>
-        <div>
-          <label for="stages">Stages:</label>
-          <div v-for="(stage, index) in pipeline.stages" :key="index">
-            <input type="text" v-model="stage.name" placeholder="Stage name" />
-            <textarea v-model="stage.command" placeholder="Stage command"></textarea>
-            <button type="button" @click="removeStage(index)">Remove Stage</button>
-          </div>
-          <button type="button" @click="addStage">Add Stage</button>
+        <div class="form-group">
+          <label for="editor">Pipeline Configuration</label>
+          <EditorContent :editor="editor" />
         </div>
-        <button type="submit">Save Pipeline</button>
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary">Save Pipeline</button>
+        </div>
       </form>
     </div>
   </template>
-  
+
   <script lang="ts">
-  import { defineComponent, ref } from 'vue';
-  
+  import { defineComponent, ref, watch } from 'vue';
+  import JsonEditorWithPills from '@/components/JsonEditorWithPills.vue';
+  import { useEditor, EditorContent } from '@tiptap/vue-3';
+  import StarterKit from '@tiptap/starter-kit';
+  import { DataPill } from '@/extensions/DataPill';
+
   interface Pipeline {
+    id?: string;
     name: string;
-    stages: Array<{ name: string; command: string }>;
+    data: any;
   }
-  
+
   export default defineComponent({
     name: 'PipelineEditor',
+    components: { JsonEditorWithPills, EditorContent },
     props: {
       data: {
         type: Object as () => Pipeline,
         required: true,
       },
     },
-    setup(props) {
-      const pipeline = ref<Pipeline>({ 
-        name: props.data.name || '',
-        stages: props.data.stages || []
+    setup(props, { emit }) {
+      const pipeline = ref<Pipeline>({ ...props.data });
+      const isSaving = ref(false);
+      const errorMessage = ref('');
+
+      const editor = useEditor({
+        extensions: [StarterKit, DataPill],
+        content: pipeline.value.data,
       });
-  
-      const addStage = () => {
-        pipeline.value.stages.push({ name: '', command: '' });
+
+      const insertDataPill = () => {
+        if (editor.value) {
+          editor.value.commands.insertDataPill('dynamic_value');
+        }
       };
-  
-      const removeStage = (index: number) => {
-        pipeline.value.stages.splice(index, 1);
-      };
-  
+
+      watch(
+        () => pipeline.value.data,
+        (_) => {
+          try {
+            // Assuming you want to stringify or handle changes accordingly
+            // For demonstration, not modifying pipeline.value.data
+            errorMessage.value = '';
+          } catch (e) {
+            errorMessage.value = 'Invalid JSON format.';
+          }
+        }
+      );
+
       const savePipeline = () => {
-        // Implement save logic
-        console.log('Saving pipeline:', pipeline.value);
+        if (errorMessage.value) return;
+        isSaving.value = true;
+        emit('save', pipeline.value);
       };
-  
+
       return {
         pipeline,
-        addStage,
-        removeStage,
+        isSaving,
+        errorMessage,
         savePipeline,
+        editor,
+        insertDataPill,
       };
     },
   });
-  </script>==== END OF FILE: frontend/src//components/studio/editors/PipelineEditor.vue ====
+  </script>
+
+  <style scoped>
+  .pipeline-editor {
+    padding: 20px;
+  }
+  .form-group {
+    margin-bottom: 15px;
+  }
+  .button-group {
+    margin-top: 20px;
+  }
+  </style>==== END OF FILE: frontend/src//components/studio/editors/PipelineEditor.vue ====
 
 ==== START OF FILE: frontend/src//components/studio/editors/DockerFileEditor.vue ====
 <template>
@@ -2791,6 +2873,143 @@ createApp(App).use(router).use(store).mount('#app');==== END OF FILE: frontend/s
   });
   </script>==== END OF FILE: frontend/src//components/studio/editors/ConfigurationEditor.vue ====
 
+==== START OF FILE: frontend/src//components/studio/JobList.vue ====
+<template>
+  <div class="job-list">
+    <h2>Job List</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>URI</th>
+          <th>Worker Type</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="job in jobs" :key="job.id">
+          <td>{{ job.id }}</td>
+          <td>{{ job.uri }}</td>
+          <td>{{ job.worker_type }}</td>
+          <td>
+            <router-link :to="`/admin/jobs/${job.id}`">View</router-link> |
+            <router-link :to="`/admin/jobs/${job.id}/edit`">Edit</router-link> |
+            <button @click="deleteJob(job.id)" class="delete-button">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p v-if="jobs.length === 0">No jobs available.</p>
+  </div>
+</template>
+
+<script lang="ts">
+import { defineComponent, ref, onMounted } from 'vue';
+import axios from 'axios';
+
+interface Job {
+  id: number;
+  uri: string;
+  config: any; // Replace with the actual type of your job config
+  worker_type: string;
+  // ... other properties
+}
+
+export default defineComponent({
+  name: 'JobList',
+  setup() {
+    const jobs = ref<Job[]>([]);
+    const isLoading = ref(true);
+    const errorMessage = ref('');
+
+    const fetchJobs = async () => {
+      try {
+        const response = await axios.get('/jobs'); // Adjust the endpoint as needed
+        jobs.value = response.data;
+      } catch (error) {
+        console.error('Failed to fetch jobs:', error);
+        errorMessage.value = 'Failed to load jobs.';
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    const deleteJob = async (id: number) => {
+      if (!confirm('Are you sure you want to delete this job?')) return;
+      try {
+        await axios.delete(`/api/jobs/${id}`); // Adjust the endpoint as needed
+        jobs.value = jobs.value.filter(job => job.id !== id);
+      } catch (error) {
+        console.error('Failed to delete job:', error);
+        alert('Failed to delete the job. Please try again.');
+      }
+    };
+
+    onMounted(() => {
+      fetchJobs();
+    });
+
+    return {
+      jobs,
+      isLoading,
+      errorMessage,
+      deleteJob,
+    };
+  },
+});
+</script>
+
+<style scoped>
+.job-list {
+  padding: 20px;
+}
+
+.job-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.job-list th,
+.job-list td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+.job-list th {
+  background-color: #f2f2f2;
+  text-align: left;
+}
+
+.delete-button {
+  background-color: #c0392b;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.delete-button:hover {
+  background-color: #e74c3c;
+}
+
+button {
+  background: none;
+  border: none;
+  color: #2980b9;
+  cursor: pointer;
+}
+
+button:hover {
+  text-decoration: underline;
+}
+
+p {
+  margin-top: 20px;
+  color: #7f8c8d;
+}
+</style>==== END OF FILE: frontend/src//components/studio/JobList.vue ====
+
 ==== START OF FILE: frontend/src//components/studio/StudioWorkspace.vue ====
 <template>
     <div class="studio-workspace">
@@ -2858,110 +3077,123 @@ createApp(App).use(router).use(store).mount('#app');==== END OF FILE: frontend/s
 
 ==== START OF FILE: frontend/src//components/studio/StudioSidebar.vue ====
 <template>
-    <div class="studio-sidebar">
-      <h3>Project Explorer</h3>
+    <div :class="['sidebar', { collapsed: isCollapsed }]">
+      <div class="toggle-button" @click="$emit('toggle')">
+        <span v-if="!isCollapsed">«</span>
+        <span v-else>»</span>
+      </div>
       <nav>
-        <router-link to="/studio/configurations">Configurations</router-link>
-        <router-link to="/studio/pipelines">Pipelines</router-link>
-        <router-link to="/studio/dockerfiles">Docker Files</router-link>
+        <ul>
+          <li>
+            <router-link to="/studio/dashboard">Dashboard</router-link>
+          </li>
+          <li>
+            <router-link to="/studio/jobs">Jobs</router-link>
+          </li>
+          <li>
+            <router-link to="/studio/pipelines">Pipelines</router-link>
+          </li>
+          <li>
+            <router-link to="/studio/settings">Settings</router-link>
+          </li>
+        </ul>
       </nav>
     </div>
   </template>
   
   <script lang="ts">
-  import { defineComponent, ref } from 'vue';
-  import TreeView from '@/components/common/TreeView.vue';
+  import { defineComponent } from 'vue';
   
   export default defineComponent({
     name: 'StudioSidebar',
-    components: { TreeView },
-    setup() {
-      const projectStructure = ref([
-        {
-          name: 'Project',
-          children: [
-            { name: 'Configurations', children: [] },
-            { name: 'Pipelines', children: [] },
-            { name: 'Docker Files', children: [] },
-          ],
-        },
-      ]);
-  
-      const handleItemClick = (item: any) => {
-        console.log('Clicked item:', item);
-        // Implement logic to open the clicked item in the workspace
-      };
-  
-      return { projectStructure, handleItemClick };
+    props: {
+      isCollapsed: {
+        type: Boolean,
+        required: true,
+      },
     },
   });
   </script>
   
   <style scoped>
-  .studio-sidebar {
+  .sidebar {
     width: 250px;
-    background-color: #f0f0f0;
-    padding: 1rem;
-    overflow-y: auto;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    transition: width 0.3s;
+    position: relative;
+  }
+  
+  .sidebar.collapsed {
+    width: 80px;
+  }
+  
+  .toggle-button {
+    position: absolute;
+    top: 10px;
+    right: -15px;
+    background-color: #34495e;
+    border-radius: 50%;
+    padding: 5px;
+    cursor: pointer;
+  }
+  
+  nav ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 50px;
+  }
+  
+  nav ul li {
+    padding: 15px 20px;
+  }
+  
+  nav ul li a {
+    color: #ecf0f1;
+    text-decoration: none;
+    display: block;
+  }
+  
+  nav ul li a.router-link-exact-active {
+    background-color: #1abc9c;
   }
   </style>==== END OF FILE: frontend/src//components/studio/StudioSidebar.vue ====
 
 ==== START OF FILE: frontend/src//components/studio/StudioHeader.vue ====
 <template>
-    <div class="studio-header">
-      <div class="tabs">
-        <div
-          v-for="tab in openTabs"
-          :key="tab.id"
-          :class="['tab', { active: tab.id === activeTabId }]"
-          @click="setActiveTab(tab.id)"
-        >
-          {{ tab.name }}
-          <button class="close-tab" @click.stop="closeTab(tab.id)">&times;</button>
-        </div>
+    <header class="studio-header">
+      <button class="menu-button" @click="$emit('toggleSidebar')">☰</button>
+      <div class="user-info">
+        <span>Welcome, {{ userName }}</span>
+        <button @click="logout">Logout</button>
       </div>
-      <div class="actions">
-        <button @click="saveCurrentTab">Save</button>
-        <button @click="runCurrentTab">Run</button>
-      </div>
-    </div>
+    </header>
   </template>
   
   <script lang="ts">
   import { defineComponent, computed } from 'vue';
   import { useStore } from 'vuex';
+  import AuthService from '@/services/AuthService';
+  import { useRouter } from 'vue-router';
   
   export default defineComponent({
     name: 'StudioHeader',
     setup() {
       const store = useStore();
+      const router = useRouter();
   
-      const openTabs = computed(() => store.state.studio.openTabs);
-      const activeTabId = computed(() => store.state.studio.activeTabId);
+      const userName = computed(() => store.state.user?.name || 'User');
   
-      const setActiveTab = (tabId: string) => {
-        store.commit('studio/setActiveTab', tabId);
-      };
-  
-      const closeTab = (tabId: string) => {
-        store.commit('studio/closeTab', tabId);
-      };
-  
-      const saveCurrentTab = () => {
-        // Implement save logic
-      };
-  
-      const runCurrentTab = () => {
-        // Implement run logic
+      const logout = () => {
+        AuthService.logout();
+        store.commit('setLoggedIn', false);
+        store.commit('setUser', null);
+        router.push('/');
       };
   
       return {
-        openTabs,
-        activeTabId,
-        setActiveTab,
-        closeTab,
-        saveCurrentTab,
-        runCurrentTab,
+        userName,
+        logout,
       };
     },
   });
@@ -2969,39 +3201,153 @@ createApp(App).use(router).use(store).mount('#app');==== END OF FILE: frontend/s
   
   <style scoped>
   .studio-header {
+    height: 60px;
+    background-color: #ecf0f1;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    background-color: #e0e0e0;
-    padding: 0.5rem;
+    padding: 0 20px;
+    justify-content: space-between;
+    border-bottom: 1px solid #bdc3c7;
   }
   
-  .tabs {
-    display: flex;
-  }
-  
-  .tab {
-    padding: 0.5rem 1rem;
-    background-color: #d0d0d0;
-    margin-right: 0.5rem;
-    cursor: pointer;
-  }
-  
-  .tab.active {
-    background-color: #ffffff;
-  }
-  
-  .close-tab {
-    margin-left: 0.5rem;
-    border: none;
+  .menu-button {
+    font-size: 24px;
     background: none;
+    border: none;
     cursor: pointer;
   }
   
-  .actions button {
-    margin-left: 0.5rem;
+  .user-info {
+    display: flex;
+    align-items: center;
+  }
+  
+  .user-info span {
+    margin-right: 15px;
+  }
+  
+  .user-info button {
+    padding: 5px 10px;
+    cursor: pointer;
   }
   </style>==== END OF FILE: frontend/src//components/studio/StudioHeader.vue ====
+
+==== START OF FILE: frontend/src//components/studio/PipelineList.vue ====
+<!-- frontend/src/components/studio/PipelineList.vue -->
+<template>
+    <div class="pipeline-list">
+      <h2>Pipeline List</h2>
+      <router-link to="/studio/pipelines/create" class="create-button">Create New Pipeline</router-link>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="pipeline in pipelines" :key="pipeline.id">
+            <td>{{ pipeline.id }}</td>
+            <td>{{ pipeline.name }}</td>
+            <td>{{ pipeline.description }}</td>
+            <td>
+              <router-link :to="`/studio/pipelines/${pipeline.id}`">View</router-link> |
+              <router-link :to="`/studio/pipelines/${pipeline.id}/edit`">Edit</router-link> |
+              <button @click="deletePipeline(pipeline.id)" class="delete-button">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-if="pipelines.length === 0">No pipelines available.</p>
+      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <p v-if="isLoading" class="loading">Loading pipelines...</p>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref, onMounted } from 'vue';
+  import apiClient from '@/services/apiClient';
+  
+  interface Pipeline {
+    id: number;
+    name: string;
+    description: string;
+    // ... other properties
+  }
+  
+  const pipelines = ref<Pipeline[]>([]);
+  const isLoading = ref(true);
+  const errorMessage = ref('');
+  
+  const fetchPipelines = async () => {
+    try {
+      const response = await apiClient.get('/pipelines');
+      pipelines.value = response.data;
+    } catch (error: any) {
+      errorMessage.value = error.response?.data?.message || 'Failed to load pipelines.';
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  const deletePipeline = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this pipeline?')) return;
+    try {
+      await apiClient.delete(`/pipelines/${id}`);
+      pipelines.value = pipelines.value.filter(pipeline => pipeline.id !== id);
+    } catch (error: any) {
+      alert('Failed to delete the pipeline. Please try again.');
+    }
+  };
+  
+  onMounted(() => {
+    fetchPipelines();
+  });
+  </script>
+  
+  <style scoped>
+  .pipeline-list {
+    padding: 20px;
+  }
+  .pipeline-list .create-button {
+    display: inline-block;
+    margin-bottom: 15px;
+  }
+  .pipeline-list table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .pipeline-list th,
+  .pipeline-list td {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+  .pipeline-list th {
+    background-color: #f2f2f2;
+    text-align: left;
+  }
+  .delete-button {
+    background-color: #c0392b;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .delete-button:hover {
+    background-color: #e74c3c;
+  }
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//components/studio/PipelineList.vue ====
 
 ==== START OF FILE: frontend/src//components/LoginLogout.vue ====
 <template>
@@ -3116,6 +3462,68 @@ async function greet() {
   }
   </style>==== END OF FILE: frontend/src//components/common/TreeView.vue ====
 
+==== START OF FILE: frontend/src//components/JsonEditorWithPills.vue ====
+<!-- JsonEditorWithPills.vue -->
+<template>
+    <div class="json-editor-with-pills">
+      <MonacoEditor
+        v-model="code"
+        language="json"
+        :options="editorOptions"
+        @editorMounted="onEditorMounted"
+      />
+    </div>
+  </template>
+  
+  <script lang="ts">
+  import { defineComponent, ref, watch } from 'vue';
+
+  import * as MonacoEditor from 'monaco-editor';
+
+
+
+  export default defineComponent({
+    name: 'JsonEditorWithPills',
+    components: { MonacoEditor },
+    props: {
+      modelValue: {
+        type: String,
+        required: true,
+      },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+      const code = ref(props.modelValue);
+  
+      const editorOptions = {
+        automaticLayout: true,
+        // Additional editor options
+      };
+  
+      const onEditorMounted = () => {
+        // Implement data pills functionality here
+        // e.g., custom syntax highlighting, hover tips, or decorations
+      };
+  
+      watch(code, (newValue) => {
+        emit('update:modelValue', newValue);
+      });
+  
+      return {
+        code,
+        editorOptions,
+        onEditorMounted,
+      };
+    },
+  });
+  </script>
+  
+  <style scoped>
+  .json-editor-with-pills {
+    height: 400px; /* Adjust as needed */
+  }
+  </style>==== END OF FILE: frontend/src//components/JsonEditorWithPills.vue ====
+
 ==== START OF FILE: frontend/src//vite-env.d.ts ====
 /// <reference types="vite/client" />
 
@@ -3127,15 +3535,975 @@ declare module "*.vue" {
 ==== END OF FILE: frontend/src//vite-env.d.ts ====
 
 ==== START OF FILE: frontend/src//config.ts ====
-export const API_URL = process.env.NODE_ENV === 'production' ? 'https://your-production-url.com' : 'http://localhost:8000';==== END OF FILE: frontend/src//config.ts ====
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';==== END OF FILE: frontend/src//config.ts ====
+
+==== START OF FILE: frontend/src//views/studio/Settings.vue ====
+<template>
+    <div class="settings">
+      <h1>Settings</h1>
+      <p>Manage your Studio settings here.</p>
+      <!-- Add settings forms and options here -->
+    </div>
+  </template>
+  
+  <script lang="ts">
+  import { defineComponent } from 'vue';
+  
+  export default defineComponent({
+    name: 'Settings',
+  });
+  </script>
+  
+  <style scoped>
+  .settings {
+    padding: 20px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/Settings.vue ====
+
+==== START OF FILE: frontend/src//views/studio/PipelineDetails.vue ====
+<!-- frontend/src/views/studio/PipelineDetails.vue -->
+<template>
+    <div v-if="pipeline" class="pipeline-details">
+      <h1>Pipeline Details</h1>
+      <p><strong>ID:</strong> {{ pipeline.id }}</p>
+      <p><strong>Name:</strong> {{ pipeline.name }}</p>
+      <p><strong>Description:</strong> {{ pipeline.description }}</p>
+      <!-- Display other pipeline properties as needed -->
+      <router-link :to="`/studio/pipelines/${pipeline.id}/edit`">Edit Pipeline</router-link>
+    </div>
+    <div v-else>
+      <p>Loading pipeline details...</p>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref, onMounted } from 'vue';
+  import { useRoute } from 'vue-router';
+  import apiClient from '@/services/apiClient';
+  
+  interface Pipeline {
+    id: number;
+    name: string;
+    description: string;
+    // ... other properties
+  }
+  
+  const route = useRoute();
+  const pipeline = ref<Pipeline | null>(null);
+  const errorMessage = ref('');
+  
+  const fetchPipeline = async () => {
+    try {
+      const response = await apiClient.get(`/pipelines/${route.params.id}`);
+      pipeline.value = response.data;
+    } catch (error: any) {
+      errorMessage.value = error.response?.data?.message || 'Failed to load pipeline details.';
+    }
+  };
+  
+  onMounted(() => {
+    fetchPipeline();
+  });
+  </script>
+  
+  <style scoped>
+  .pipeline-details {
+    padding: 20px;
+  }
+  .pipeline-details p {
+    margin-bottom: 10px;
+  }
+  .pipeline-details a {
+    color: #42b983;
+    text-decoration: none;
+  }
+  .pipeline-details a:hover {
+    text-decoration: underline;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/PipelineDetails.vue ====
+
+==== START OF FILE: frontend/src//views/studio/PipelineCreate.vue ====
+<!-- frontend/src/views/studio/PipelineCreate.vue -->
+<template>
+    <div class="pipeline-create">
+      <h1>Create Pipeline</h1>
+      <PipelineEditor
+        :data="pipeline"
+        @save="createPipeline"
+      />
+      <p v-if="isLoading" class="loading">Creating pipeline...</p>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref } from 'vue';
+  import { useRouter } from 'vue-router';
+  import PipelineEditor from '@/components/studio/editors/PipelineEditor.vue';
+  import apiClient from '@/services/apiClient';
+  
+  interface Pipeline {
+    name: string;
+    data: any;
+  }
+  
+  const router = useRouter();
+  const pipeline = ref<Pipeline>({
+    name: '',
+    data: {},
+  });
+  const isLoading = ref(false);
+  
+  const createPipeline = async (newPipeline: Pipeline) => {
+    isLoading.value = true;
+    try {
+      await apiClient.post('/pipelines', newPipeline);
+      router.push('/studio/pipelines');
+    } catch (error: any) {
+      console.error('Failed to create pipeline:', error);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  </script>
+  
+  <style scoped>
+  .pipeline-create {
+    padding: 20px;
+  }
+  .pipeline-create form {
+    display: flex;
+    flex-direction: column;
+  }
+  .pipeline-create label {
+    margin-bottom: 5px;
+  }
+  .pipeline-create input {
+    margin-bottom: 15px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+  }
+  .pipeline-create button {
+    padding: 10px;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .pipeline-create button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+  }
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/PipelineCreate.vue ====
+
+==== START OF FILE: frontend/src//views/studio/Dashboard.vue ====
+<template>
+    <div class="dashboard">
+      <h1>Studio Dashboard</h1>
+      <p>Welcome to the Studio Dashboard!</p>
+      <!-- Add more dashboard widgets and information here -->
+    </div>
+  </template>
+  
+  <script lang="ts">
+  import { defineComponent } from 'vue';
+  
+  export default defineComponent({
+    name: 'Dashboard',
+  });
+  </script>
+  
+  <style scoped>
+  .dashboard {
+    padding: 20px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/Dashboard.vue ====
+
+==== START OF FILE: frontend/src//views/studio/PipelineEdit.vue ====
+<!-- frontend/src/views/studio/PipelineEdit.vue -->
+<template>
+    <div v-if="pipeline" class="pipeline-edit">
+      <h1>Edit Pipeline</h1>
+      <PipelineEditor
+        :data="pipeline"
+        @save="updatePipeline"
+      />
+      <p v-if="isLoading" class="loading">Updating pipeline...</p>
+    </div>
+    <div v-else>
+      <p>Loading pipeline details...</p>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref, onMounted } from 'vue';
+  import { useRoute, useRouter } from 'vue-router';
+  import PipelineEditor from '@/components/studio/editors/PipelineEditor.vue';
+  import apiClient from '@/services/apiClient';
+  
+  interface Pipeline {
+    id: string;
+    name: string;
+    data: any;
+  }
+  
+  const route = useRoute();
+  const router = useRouter();
+  const pipeline = ref<Pipeline | null>(null);
+  const isLoading = ref(false);
+  
+  const fetchPipeline = async () => {
+    try {
+      const response = await apiClient.get(`/pipelines/${route.params.id}`);
+      pipeline.value = response.data;
+    } catch (error: any) {
+      console.error('Failed to load pipeline details:', error);
+    }
+  };
+  
+  const updatePipeline = async (updatedPipeline: Pipeline) => {
+    if (!pipeline.value) return;
+    isLoading.value = true;
+    try {
+      await apiClient.put(`/pipelines/${pipeline.value.id}`, updatedPipeline);
+      router.push('/studio/pipelines');
+    } catch (error: any) {
+      console.error('Failed to update pipeline:', error);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  onMounted(() => {
+    fetchPipeline();
+  });
+  </script>
+  
+  <style scoped>
+  .pipeline-edit {
+    padding: 20px;
+  }
+  .pipeline-edit form {
+    display: flex;
+    flex-direction: column;
+  }
+  .pipeline-edit label {
+    margin-bottom: 5px;
+  }
+  .pipeline-edit input {
+    margin-bottom: 15px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+  }
+  .pipeline-edit button {
+    padding: 10px;
+    background-color: #2980b9;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .pipeline-edit button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+  }
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/PipelineEdit.vue ====
+
+==== START OF FILE: frontend/src//views/studio/JobCreate.vue ====
+<template>
+    <div class="job-create">
+      <h2>Create New Job</h2>
+      <form @submit.prevent="createJob">
+        <div>
+          <label for="uri">URI:</label>
+          <input type="text" id="uri" v-model="job.uri" required />
+        </div>
+        <div>
+          <label for="worker_type">Worker Type:</label>
+          <input type="text" id="worker_type" v-model="job.worker_type" required />
+        </div>
+        <!-- Add more fields as necessary -->
+        <button type="submit">Create</button>
+      </form>
+      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <p v-if="isLoading">Creating job...</p>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref } from 'vue';
+  import { useRouter } from 'vue-router';
+  import apiClient from '@/services/apiClient';
+  
+  interface Job {
+    uri: string;
+    worker_type: string;
+    // ... other properties
+  }
+  
+  const job = ref<Job>({
+    uri: '',
+    worker_type: '',
+    // ... initialize other properties
+  });
+  
+  const router = useRouter();
+  const errorMessage = ref('');
+  const isLoading = ref(false);
+  
+  const createJob = async () => {
+    isLoading.value = true;
+    errorMessage.value = '';
+    try {
+      await apiClient.post('/jobs', job.value); // Adjust endpoint if needed
+      router.push('/studio/jobs');
+    } catch (error: any) {
+      console.error('Failed to create job:', error);
+      errorMessage.value = error.response?.data?.message || 'Failed to create job.';
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  </script>
+  
+  <style scoped>
+  .job-create {
+    padding: 20px;
+  }
+  
+  .job-create form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .job-create label {
+    margin-bottom: 5px;
+  }
+  
+  .job-create input {
+    margin-bottom: 15px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+  }
+  
+  .job-create button {
+    padding: 10px;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .job-create button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+  }
+  
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/JobCreate.vue ====
+
+==== START OF FILE: frontend/src//views/studio/JobDetails.vue ====
+<template>
+    <div class="job-create">
+      <h2>Create New Job</h2>
+      <form @submit.prevent="createJob">
+        <div>
+          <label for="uri">URI:</label>
+          <input type="text" id="uri" v-model="job.uri" required />
+        </div>
+        <div>
+          <label for="worker_type">Worker Type:</label>
+          <input type="text" id="worker_type" v-model="job.worker_type" required />
+        </div>
+        <!-- Add more fields as necessary -->
+        <button type="submit">Create</button>
+      </form>
+      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <p v-if="isLoading">Creating job...</p>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref } from 'vue';
+  import { useRouter } from 'vue-router';
+  import apiClient from '@/services/apiClient';
+  
+  interface Job {
+    uri: string;
+    worker_type: string;
+    // ... other properties
+  }
+  
+  const job = ref<Job>({
+    uri: '',
+    worker_type: '',
+    // ... initialize other properties
+  });
+  
+  const router = useRouter();
+  const errorMessage = ref('');
+  const isLoading = ref(false);
+  
+  const createJob = async () => {
+    isLoading.value = true;
+    errorMessage.value = '';
+    try {
+      await apiClient.post('/jobs', job.value); // Adjust endpoint if needed
+      router.push('/studio/jobs');
+    } catch (error: any) {
+      console.error('Failed to create job:', error);
+      errorMessage.value = error.response?.data?.message || 'Failed to create job.';
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  </script>
+  
+  <style scoped>
+  .job-create {
+    padding: 20px;
+  }
+  
+  .job-create form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .job-create label {
+    margin-bottom: 5px;
+  }
+  
+  .job-create input {
+    margin-bottom: 15px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+  }
+  
+  .job-create button {
+    padding: 10px;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .job-create button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+  }
+  
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/JobDetails.vue ====
+
+==== START OF FILE: frontend/src//views/studio/JobsList.vue ====
+<template>
+  <div class="job-list">
+    <h2>Job List</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>URI</th>
+          <th>Worker Type</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="job in jobs" :key="job.id">
+          <td>{{ job.id }}</td>
+          <td>{{ job.uri }}</td>
+          <td>{{ job.worker_type }}</td>
+          <td>
+            <router-link :to="`/admin/jobs/${job.id}`">View</router-link> |
+            <router-link :to="`/admin/jobs/${job.id}/edit`">Edit</router-link> |
+            <button @click="deleteJob(job.id)" class="delete-button">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p v-if="jobs.length === 0">No jobs available.</p>
+    <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+    <p v-if="isLoading">Loading jobs...</p>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import apiClient from '@/services/apiClient';
+
+interface Job {
+  id: number;
+  uri: string;
+  config: any; // Replace with the actual type of your job config
+  worker_type: string;
+  // ... other properties
+}
+
+const jobs = ref<Job[]>([]);
+const isLoading = ref(true);
+const errorMessage = ref('');
+
+const fetchJobs = async () => {
+  try {
+    const response = await apiClient.get('/jobs'); // Adjust endpoint if needed
+    jobs.value = response.data;
+  } catch (error: any) {
+    console.error('Failed to fetch jobs:', error);
+    errorMessage.value = error.response?.data?.message || 'Failed to load jobs.';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const deleteJob = async (id: number) => {
+  if (!confirm('Are you sure you want to delete this job?')) return;
+  try {
+    await apiClient.delete(`/jobs/${id}`); // Adjust endpoint if needed
+    jobs.value = jobs.value.filter(job => job.id !== id);
+  } catch (error) {
+    console.error('Failed to delete job:', error);
+    alert('Failed to delete the job. Please try again.');
+  }
+};
+
+onMounted(() => {
+  fetchJobs();
+});
+</script>
+
+<style scoped>
+.job-list {
+  padding: 20px;
+}
+
+.job-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.job-list th,
+.job-list td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+.job-list th {
+  background-color: #f2f2f2;
+  text-align: left;
+}
+
+.delete-button {
+  background-color: #c0392b;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.delete-button:hover {
+  background-color: #e74c3c;
+}
+
+.error {
+  color: red;
+}
+
+p {
+  margin-top: 20px;
+}
+
+.loading {
+  color: #3498db;
+}
+</style>==== END OF FILE: frontend/src//views/studio/JobsList.vue ====
+
+==== START OF FILE: frontend/src//views/studio/Jobs.vue ====
+<template>
+  <div class="jobs">
+    <h1>Manage Jobs</h1>
+    <router-link to="/studio/jobs/create" class="create-button">Create New Job</router-link>
+    <JobList />
+  </div>
+</template>
+
+<script lang="ts">
+import { defineComponent } from 'vue';
+import JobList from '@/components/studio/JobList.vue';
+
+export default defineComponent({
+  name: 'Jobs',
+  components: {
+    JobList,
+  },
+});
+</script>
+
+<style scoped>
+.jobs {
+  padding: 20px;
+}
+
+.create-button {
+  background-color: #27ae60;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 5px;
+  text-decoration: none;
+  margin-bottom: 15px;
+  display: inline-block;
+}
+</style>==== END OF FILE: frontend/src//views/studio/Jobs.vue ====
+
+==== START OF FILE: frontend/src//views/studio/Pipelines.vue ====
+<template>
+    <div class="pipelines">
+      <h1>Pipelines</h1>
+      <button @click="addPipeline" class="add-button">Add New Pipeline</button>
+  
+      <!-- Pipeline Editor Modal -->
+      <div v-if="showEditor && selectedPipeline" class="modal">
+        <div class="modal-content">
+          <PipelineEditor
+            :data="selectedPipeline"
+            @save="handleSave"
+            @cancel="closeEditor"
+          />
+        </div>
+      </div>
+  
+      <!-- List of Pipelines -->
+      <div v-if="pipelines.length">
+        <ul class="pipeline-list">
+          <li v-for="pipeline in pipelines" :key="pipeline.id" class="pipeline-item">
+            <span>{{ pipeline.name }}</span>
+            <div class="actions">
+              <router-link :to="`/studio/pipelines/${pipeline.id}`">View</router-link> |
+              <router-link :to="`/studio/pipelines/${pipeline.id}/edit`">Edit</router-link> |
+              <button @click="deletePipeline(pipeline.id)" class="delete-button">Delete</button>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div v-else>
+        <p>No pipelines available.</p>
+      </div>
+    </div>
+  </template>
+  
+  <script lang="ts">
+  import { defineComponent, ref, onMounted } from 'vue';
+  import apiClient from '@/services/apiClient';
+  import PipelineEditor from '@/components/studio/editors/PipelineEditor.vue';
+  
+  interface Pipeline {
+    id: string;
+    name: string;
+    data: any;
+  }
+  
+  export default defineComponent({
+    name: 'Pipelines',
+    components: {
+      PipelineEditor,
+    },
+    setup() {
+      const pipelines = ref<Pipeline[]>([]);
+      const showEditor = ref(false);
+      const selectedPipeline = ref<Pipeline | null>(null);
+  
+      const fetchPipelines = async () => {
+        try {
+          const response = await apiClient.get('/pipelines');
+          pipelines.value = response.data;
+        } catch (error: any) {
+          console.error('Failed to fetch pipelines:', error);
+        }
+      };
+  
+      const addPipeline = () => {
+        selectedPipeline.value = { id: '', name: '', data: {} };
+        showEditor.value = true;
+      };
+  
+      const handleSave = async (pipeline: Pipeline) => {
+        try {
+          if (pipeline.id) {
+            // Update existing pipeline
+            await apiClient.put(`/pipelines/${pipeline.id}`, pipeline);
+          } else {
+            // Create new pipeline
+            const response = await apiClient.post('/pipelines', pipeline);
+            pipeline.id = response.data.id;
+            pipelines.value.push(pipeline);
+          }
+          await fetchPipelines();
+          closeEditor();
+        } catch (error: any) {
+          console.error('Failed to save pipeline:', error);
+        }
+      };
+  
+      const closeEditor = () => {
+        showEditor.value = false;
+        selectedPipeline.value = null;
+      };
+  
+      const deletePipeline = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this pipeline?')) return;
+        try {
+          await apiClient.delete(`/pipelines/${id}`);
+          pipelines.value = pipelines.value.filter((p) => p.id !== id);
+        } catch (error: any) {
+          alert('Failed to delete the pipeline. Please try again.');
+        }
+      };
+  
+      onMounted(() => {
+        fetchPipelines();
+      });
+  
+      return {
+        pipelines,
+        showEditor,
+        selectedPipeline,
+        addPipeline,
+        handleSave,
+        closeEditor,
+        deletePipeline,
+      };
+    },
+  });
+  </script>
+  
+  <style scoped>
+  .pipelines {
+    padding: 20px;
+  }
+  
+  .pipelines .add-button {
+    margin-bottom: 15px;
+    padding: 10px 20px;
+    background-color: #2980b9;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .pipelines .add-button:hover {
+    background-color: #3498db;
+  }
+  
+  .pipeline-list {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .pipeline-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .pipeline-item .actions a,
+  .pipeline-item .actions .delete-button {
+    margin-left: 10px;
+    color: #2980b9;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  
+  .pipeline-item .actions .delete-button {
+    background-color: #c0392b;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+  }
+  
+  .pipeline-item .actions .delete-button:hover {
+    background-color: #e74c3c;
+  }
+  
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .modal-content {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 5px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/Pipelines.vue ====
+
+==== START OF FILE: frontend/src//views/studio/JobEdit.vue ====
+<template>
+    <div class="job-create">
+      <h2>Create New Job</h2>
+      <form @submit.prevent="createJob">
+        <div>
+          <label for="uri">URI:</label>
+          <input type="text" id="uri" v-model="job.uri" required />
+        </div>
+        <div>
+          <label for="worker_type">Worker Type:</label>
+          <input type="text" id="worker_type" v-model="job.worker_type" required />
+        </div>
+        <!-- Add more fields as necessary -->
+        <button type="submit">Create</button>
+      </form>
+      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <p v-if="isLoading">Creating job...</p>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref } from 'vue';
+  import { useRouter } from 'vue-router';
+  import apiClient from '@/services/apiClient';
+  
+  interface Job {
+    uri: string;
+    worker_type: string;
+    // ... other properties
+  }
+  
+  const job = ref<Job>({
+    uri: '',
+    worker_type: '',
+    // ... initialize other properties
+  });
+  
+  const router = useRouter();
+  const errorMessage = ref('');
+  const isLoading = ref(false);
+  
+  const createJob = async () => {
+    isLoading.value = true;
+    errorMessage.value = '';
+    try {
+      await apiClient.post('/jobs', job.value); // Adjust endpoint if needed
+      router.push('/studio/jobs');
+    } catch (error: any) {
+      console.error('Failed to create job:', error);
+      errorMessage.value = error.response?.data?.message || 'Failed to create job.';
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  </script>
+  
+  <style scoped>
+  .job-create {
+    padding: 20px;
+  }
+  
+  .job-create form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .job-create label {
+    margin-bottom: 5px;
+  }
+  
+  .job-create input {
+    margin-bottom: 15px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+  }
+  
+  .job-create button {
+    padding: 10px;
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .job-create button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+  }
+  
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/JobEdit.vue ====
 
 ==== START OF FILE: frontend/src//views/Login.vue ====
 <template>
     <div class="login">
       <h2>Login</h2>
       <form @submit.prevent="login">
-        <input v-model="username" type="text" placeholder="Username" required>
-        <input v-model="password" type="password" placeholder="Password" required>
+        <input v-model="username" type="text" placeholder="Username" required />
+        <input v-model="password" type="password" placeholder="Password" required />
         <button type="submit">Login</button>
       </form>
     </div>
@@ -3144,6 +4512,7 @@ export const API_URL = process.env.NODE_ENV === 'production' ? 'https://your-pro
   <script lang="ts">
   import { defineComponent, ref } from 'vue';
   import { useRouter } from 'vue-router';
+  import { useStore } from 'vuex';
   import AuthService from '../services/AuthService';
   
   export default defineComponent({
@@ -3152,11 +4521,14 @@ export const API_URL = process.env.NODE_ENV === 'production' ? 'https://your-pro
       const username = ref('');
       const password = ref('');
       const router = useRouter();
+      const store = useStore();
   
       const login = async () => {
         try {
-          const token = await AuthService.login(username.value, password.value);
-          localStorage.setItem('token', token);
+          const { token, user } = await AuthService.login(username.value, password.value);
+          AuthService.setToken(token);
+          store.commit('setLoggedIn', true);
+          store.commit('setUser', user);
           router.push('/');
         } catch (error) {
           console.error('Login failed:', error);
@@ -3165,9 +4537,16 @@ export const API_URL = process.env.NODE_ENV === 'production' ? 'https://your-pro
       };
   
       return { username, password, login };
-    }
+    },
   });
-  </script>==== END OF FILE: frontend/src//views/Login.vue ====
+  </script>
+  
+  <style scoped>
+  .login {
+    max-width: 300px;
+    margin: 50px auto;
+  }
+  </style>==== END OF FILE: frontend/src//views/Login.vue ====
 
 ==== START OF FILE: frontend/src//views/Home.vue ====
 <template>
@@ -3188,16 +4567,20 @@ export const API_URL = process.env.NODE_ENV === 'production' ? 'https://your-pro
 ==== START OF FILE: frontend/src//views/Studio.vue ====
 <template>
     <div class="studio">
-      <StudioSidebar />
-      <div class="studio-main">
-        <StudioHeader />
-        <router-view></router-view>
-      </div>
+      <nav class="studio-sidebar">
+        <router-link to="/studio/dashboard">Dashboard</router-link>
+        <router-link to="/studio/jobs">Jobs</router-link>
+        <router-link to="/studio/pipelines">Pipelines</router-link>
+        <!-- Include other navigation links as needed -->
+      </nav>
+      <main class="studio-main">
+        <router-view />
+      </main>
     </div>
   </template>
   
   <script lang="ts">
-  import { defineComponent } from 'vue';
+  import { defineComponent, ref } from 'vue';
   import StudioSidebar from '@/components/studio/StudioSidebar.vue';
   import StudioHeader from '@/components/studio/StudioHeader.vue';
   
@@ -3207,22 +4590,146 @@ export const API_URL = process.env.NODE_ENV === 'production' ? 'https://your-pro
       StudioSidebar,
       StudioHeader,
     },
+    setup() {
+      const isSidebarCollapsed = ref(false);
+  
+      const toggleSidebar = () => {
+        isSidebarCollapsed.value = !isSidebarCollapsed.value;
+      };
+  
+      return {
+        isSidebarCollapsed,
+        toggleSidebar,
+      };
+    },
   });
   </script>
-
   
   <style scoped>
   .studio {
     display: flex;
     height: calc(100vh - 60px);
   }
-  
+  .studio-sidebar {
+    width: 200px;
+    background-color: #2c3e50;
+    padding: 20px;
+  }
+  .studio-sidebar a {
+    display: block;
+    color: #ecf0f1;
+    text-decoration: none;
+    margin-bottom: 10px;
+  }
+  .studio-sidebar a.router-link-exact-active {
+    font-weight: bold;
+  }
   .studio-main {
     flex-grow: 1;
-    display: flex;
-    flex-direction: column;
+    padding: 20px;
   }
   </style>==== END OF FILE: frontend/src//views/Studio.vue ====
+
+==== START OF FILE: frontend/src//views/admin/Login.vue ====
+<template>
+  <div class="login">
+    <h2>Login</h2>
+    <form @submit.prevent="login">
+      <input v-model="username" type="text" placeholder="Username" required />
+      <input v-model="password" type="password" placeholder="Password" required />
+      <button type="submit" :disabled="isLoading">
+        {{ isLoading ? 'Logging in...' : 'Login' }}
+      </button>
+    </form>
+    <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+  </div>
+</template>
+
+<script lang="ts">
+import { defineComponent, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
+import AuthService from '@/services/AuthService';
+
+export default defineComponent({
+  name: 'Login',
+  setup() {
+    const username = ref('');
+    const password = ref('');
+    const errorMessage = ref('');
+    const isLoading = ref(false);
+    const router = useRouter();
+    const store = useStore();
+
+    const login = async () => {
+      errorMessage.value = '';
+      isLoading.value = true;
+      try {
+        const { token, user } = await AuthService.login(username.value, password.value);
+        AuthService.setToken(token);
+        store.commit('setLoggedIn', true);
+        store.commit('setUser', user);
+        router.push('/');
+      } catch (error: any) {
+        console.error('Login failed:', error);
+        errorMessage.value = error.response?.data?.message || 'Login failed. Please try again.';
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    return { username, password, login, errorMessage, isLoading };
+  },
+});
+</script>
+
+<style scoped>
+.login {
+  max-width: 300px;
+  margin: 50px auto;
+  padding: 20px;
+  border: 1px solid #bdc3c7;
+  border-radius: 5px;
+  background-color: #fff;
+}
+
+.login h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.login form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login input {
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #bdc3c7;
+  border-radius: 3px;
+}
+
+.login button {
+  padding: 10px;
+  background-color: #2c3e50;
+  color: #ecf0f1;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.login button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.error {
+  color: red;
+  text-align: center;
+  margin-top: 10px;
+}
+</style>==== END OF FILE: frontend/src//views/admin/Login.vue ====
 
 ==== START OF FILE: frontend/src//views/admin/JobCreate.vue ====
 <script setup lang="ts">
@@ -3274,6 +4781,7 @@ const createJob = async () => {
 <script setup lang="ts">
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
+import { API_URL } from '@/config';
 
 interface Job {
   id: number;
@@ -3287,11 +4795,11 @@ const jobs = ref<Job[]>([]);
 
 onMounted(async () => {
   try {
-    const response = await axios.get('/jobs');
+    const response = await axios.get(`${API_URL}/jobs`);
     jobs.value = response.data;
   } catch (error) {
-    console.error(error);
-    // Handle error, e.g., display an error message to the user
+    console.error('Failed to fetch jobs:', error);
+    // Optionally, set an error message to display to the user
   }
 });
 </script>
@@ -3304,6 +4812,7 @@ onMounted(async () => {
         <router-link :to="`/admin/jobs/${job.id}`">{{ job.uri }}</router-link>
       </li>
     </ul>
+    <p v-if="jobs.length === 0">No jobs available.</p>
   </div>
 </template>==== END OF FILE: frontend/src//views/admin/JobList.vue ====
 
@@ -3312,6 +4821,7 @@ onMounted(async () => {
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { API_URL } from '@/config';
 
 interface Job {
   id: number;
@@ -3326,11 +4836,11 @@ const job = ref<Job | null>(null);
 
 onMounted(async () => {
   try {
-    const response = await axios.get(`/jobs/${route.params.id}`);
+    const response = await axios.get(`${API_URL}/jobs/${route.params.id}`);
     job.value = response.data;
   } catch (error) {
-    console.error(error);
-    // Handle error, e.g., display an error message to the user
+    console.error('Failed to fetch job details:', error);
+    // Optionally, set an error message to display to the user
   }
 });
 </script>
@@ -3353,6 +4863,7 @@ onMounted(async () => {
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { API_URL } from '@/config';
 
 interface Job {
   id: number;
@@ -3368,21 +4879,22 @@ const job = ref<Job | null>(null);
 
 onMounted(async () => {
   try {
-    const response = await axios.get(`/jobs/${route.params.id}`);
+    const response = await axios.get(`${API_URL}/jobs/${route.params.id}`);
     job.value = response.data;
   } catch (error) {
-    console.error(error);
-    // Handle error, e.g., display an error message to the user
+    console.error('Failed to fetch job details:', error);
+    // Optionally, set an error message to display to the user
   }
 });
 
 const updateJob = async () => {
+  if (!job.value) return;
   try {
-    await axios.put(`/jobs/${route.params.id}`, job.value);
+    await axios.put(`${API_URL}/jobs/${route.params.id}`, job.value);
     router.push('/admin/jobs'); // Redirect to job list after successful update
   } catch (error) {
-    console.error(error);
-    // Handle error, e.g., display an error message to the user
+    console.error('Failed to update job:', error);
+    // Optionally, set an error message to display to the user
   }
 };
 </script>
@@ -3396,7 +4908,7 @@ const updateJob = async () => {
 
       <!-- ... input fields for other job properties ... -->
 
-      <button type="submit">Update</button>
+      <button type="submit">Update Job</button>
     </form>
   </div>
   <div v-else>
@@ -3461,30 +4973,76 @@ onMounted(async () => {
   </style>==== END OF FILE: frontend/src//views/Admin.vue ====
 
 ==== START OF FILE: frontend/src//services/AuthService.ts ====
-import axios from 'axios';
-import { API_URL } from '../config';
+import apiClient from './apiClient';
 
-export default {
-  async login(username: string, password: string): Promise<{ token: string, user: any }> {
-    const response = await axios.post(`${API_URL}/users/login`, { username, password });
+interface LoginResponse {
+  token: string;
+  user: any; // Define a proper type based on your user structure
+}
+
+const AuthService = {
+  async login(username: string, password: string): Promise<LoginResponse> {
+    const response = await apiClient.post('/users/login', { username, password });
     return response.data;
   },
 
   logout() {
     localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+    delete apiClient.defaults.headers.common['Authorization'];
+    window.location.href = '/login';
   },
 
   setToken(token: string) {
     localStorage.setItem('token', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   },
-  
 
   getToken(): string | null {
     return localStorage.getItem('token');
+  },
+};
+
+export default AuthService;==== END OF FILE: frontend/src//services/AuthService.ts ====
+
+==== START OF FILE: frontend/src//services/apiClient.ts ====
+import axios from 'axios';
+import { API_URL } from '@/config';
+import AuthService from './AuthService';
+
+const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
+
+// Request interceptor to add the auth token to headers
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = AuthService.getToken();
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor to handle global errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle unauthorized access globally
+    if (error.response && error.response.status === 401) {
+      AuthService.logout();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
   }
-};==== END OF FILE: frontend/src//services/AuthService.ts ====
+);
+
+export default apiClient;==== END OF FILE: frontend/src//services/apiClient.ts ====
 
 ==== START OF FILE: frontend/src//store/types.ts ====
 export interface RootState {
@@ -3495,24 +5053,36 @@ export interface RootState {
   }==== END OF FILE: frontend/src//store/types.ts ====
 
 ==== START OF FILE: frontend/src//store/index.ts ====
-// src/store/index.ts
-
-import { createStore } from 'vuex'
+import { createStore } from 'vuex';
 
 export default createStore({
   state: {
     isLoggedIn: false,
-    user: null
+    user: null,
   },
   mutations: {
     setLoggedIn(state, value: boolean) {
-      state.isLoggedIn = value
+      state.isLoggedIn = value;
     },
-    setUser(state, user) {
-      state.user = user
-    }
-  }
-})==== END OF FILE: frontend/src//store/index.ts ====
+    setUser(state, user: any) {
+      state.user = user;
+    },
+  },
+  actions: {
+    login({ commit }, { user }) { // Removed 'token' since it's unused
+      commit('setLoggedIn', true);
+      commit('setUser', user);
+    },
+    logout({ commit }) {
+      commit('setLoggedIn', false);
+      commit('setUser', null);
+    },
+  },
+  getters: {
+    isLoggedIn: (state) => state.isLoggedIn,
+    user: (state) => state.user,
+  },
+});==== END OF FILE: frontend/src//store/index.ts ====
 
 ==== START OF FILE: frontend/src//store/modules/studio.ts ====
 import { Module } from 'vuex';
@@ -3576,69 +5146,81 @@ import Home from '../views/Home.vue';
 import Login from '../views/Login.vue';
 import Admin from '../views/Admin.vue';
 import Studio from '../views/Studio.vue';
+import Dashboard from '../views/studio/Dashboard.vue';
+import Jobs from '@/views/studio/Jobs.vue';
+import JobCreate from '@/views/studio/JobCreate.vue';
+import JobDetails from '@/views/studio/JobDetails.vue';
+import JobEdit from '@/views/studio/JobEdit.vue';
+import Pipelines from '../views/studio/Pipelines.vue';
+import Settings from '../views/studio/Settings.vue';
 import JobList from '../views/admin/JobList.vue';
-import JobDetails from '../views/admin/JobDetails.vue';
-import JobCreate from '../views/admin/JobCreate.vue';
-import JobEdit from '../views/admin/JobEdit.vue';
+import PipelineList from '../components/studio/PipelineList.vue';
+import PipelineCreate from '../views/studio/PipelineCreate.vue';
+import PipelineDetails from '../views/studio/PipelineDetails.vue';
+import PipelineEdit from '../views/studio/PipelineEdit.vue';
+
 import WorkerTypeList from '../views/WorkerTypeList.vue'; // This one remains in the root views folder
-import AuthService from '../services/AuthService';
+import store from '@/store';
 
 const routes: Array<RouteRecordRaw> = [
-  {
-    path: '/',
-    name: 'Home',
-    component: Home
-  },
-  {
-    path: '/login',
-    name: 'Login',
-    component: Login
-  },
-  {
-    path: '/admin',
-    name: 'Admin',
-    component: Admin,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/studio',
-    name: 'Studio',
+  { path: '/', name: 'Home', component: Home },
+  { path: '/login', name: 'Login', component: Login },
+  { path: '/admin', name: 'Admin', component: Admin },
+  { 
+    path: '/studio', 
+    name: 'Studio', 
     component: Studio,
     meta: { requiresAuth: true },
     children: [
-      {
-        path: 'configurations',
-        name: 'Configurations',
-        component: () => import('@/components/studio/editors/ConfigurationEditor.vue'),
-      },
+      { path: 'dashboard', name: 'Dashboard', component: Dashboard },
+      { path: 'jobs', name: 'Jobs', component: Jobs },
+      { path: 'pipelines', name: 'Pipelines', component: Pipelines },
+      { path: 'settings', name: 'Settings', component: Settings },
       {
         path: 'pipelines',
-        name: 'Pipelines',
-        component: () => import('@/components/studio/editors/PipelineEditor.vue'),
+        name: 'PipelineList',
+        component: PipelineList,
       },
       {
-        path: 'dockerfiles',
-        name: 'DockerFiles',
-        component: () => import('@/components/studio/editors/DockerFileEditor.vue'),
+        path: 'pipelines/create',
+        name: 'PipelineCreate',
+        component: PipelineCreate,
       },
+      {
+        path: 'pipelines/:id',
+        name: 'PipelineDetails',
+        component: PipelineDetails,
+        props: true,
+      },
+      {
+        path: 'pipelines/:id/edit',
+        name: 'PipelineEdit',
+        component: PipelineEdit,
+        props: true,
+      }
     ],
   },
   { path: '/admin/jobs', name: 'JobList', component: JobList },
-  { path: '/admin/jobs/:id', name: 'JobDetails', component: JobDetails },
   { path: '/admin/jobs/create', name: 'JobCreate', component: JobCreate },
+  { path: '/admin/jobs/:id', name: 'JobDetails', component: JobDetails },
   { path: '/admin/jobs/:id/edit', name: 'JobEdit', component: JobEdit },
-  { path: '/admin/worker-types', name: 'WorkerTypeList', component: WorkerTypeList },
+  { path: '/worker-types', name: 'WorkerTypeList', component: WorkerTypeList },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 });
 
+// Navigation Guard
 router.beforeEach((to, _, next) => {
-  const isAuthenticated = !!AuthService.getToken();
-  if (to.matched.some(record => record.meta.requiresAuth) && !isAuthenticated) {
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const isLoggedIn = store.getters.isLoggedIn;
+
+  if (requiresAuth && !isLoggedIn) {
     next('/login');
+  } else if (to.path === '/login' && isLoggedIn) {
+    next('/');
   } else {
     next();
   }

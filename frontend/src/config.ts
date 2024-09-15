@@ -1,1 +1,1 @@
-export const API_URL = process.env.NODE_ENV === 'production' ? 'https://localhost:8000' : 'http://localhost:8000';
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';

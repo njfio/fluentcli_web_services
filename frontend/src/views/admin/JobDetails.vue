@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { API_URL } from '@/config';
 
 interface Job {
   id: number;
@@ -16,11 +17,11 @@ const job = ref<Job | null>(null);
 
 onMounted(async () => {
   try {
-    const response = await axios.get(`/jobs/${route.params.id}`);
+    const response = await axios.get(`${API_URL}/jobs/${route.params.id}`);
     job.value = response.data;
   } catch (error) {
-    console.error(error);
-    // Handle error, e.g., display an error message to the user
+    console.error('Failed to fetch job details:', error);
+    // Optionally, set an error message to display to the user
   }
 });
 </script>

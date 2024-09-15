@@ -2,65 +2,108 @@
     <div class="pipeline-editor">
       <h2>Pipeline Editor</h2>
       <form @submit.prevent="savePipeline">
-        <div>
-          <label for="name">Name:</label>
-          <input type="text" id="name" v-model="pipeline.name" required />
+        <div class="form-group">
+          <label for="name">Pipeline Name</label>
+          <input
+            type="text"
+            id="name"
+            v-model="pipeline.name"
+            required
+            class="form-control"
+          />
         </div>
-        <div>
-          <label for="stages">Stages:</label>
-          <div v-for="(stage, index) in pipeline.stages" :key="index">
-            <input type="text" v-model="stage.name" placeholder="Stage name" />
-            <textarea v-model="stage.command" placeholder="Stage command"></textarea>
-            <button type="button" @click="removeStage(index)">Remove Stage</button>
-          </div>
-          <button type="button" @click="addStage">Add Stage</button>
+        <div class="form-group">
+          <label for="editor">Pipeline Configuration</label>
+          <EditorContent :editor="editor" />
         </div>
-        <button type="submit">Save Pipeline</button>
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary">Save Pipeline</button>
+          <button type="button" @click="cancel" class="btn btn-secondary">Cancel</button>
+        </div>
       </form>
     </div>
   </template>
   
   <script lang="ts">
-  import { defineComponent, ref } from 'vue';
+  import { defineComponent, ref, watch } from 'vue';
+  import { useEditor, EditorContent } from '@tiptap/vue-3';
+  import StarterKit from '@tiptap/starter-kit';
+  import { DataPill } from '@/extensions/DataPill';
   
   interface Pipeline {
+    id?: string;
     name: string;
-    stages: Array<{ name: string; command: string }>;
+    data: any;
   }
   
   export default defineComponent({
     name: 'PipelineEditor',
+    components: { EditorContent },
     props: {
       data: {
         type: Object as () => Pipeline,
         required: true,
       },
     },
-    setup(props) {
-      const pipeline = ref<Pipeline>({ 
-        name: props.data.name || '',
-        stages: props.data.stages || []
+    setup(props, { emit }) {
+      const pipeline = ref<Pipeline>({ ...props.data });
+      const isSaving = ref(false);
+      const errorMessage = ref('');
+  
+      const editor = useEditor({
+        extensions: [StarterKit, DataPill],
+        content: pipeline.value.data || {
+          type: 'doc',
+          content: [],
+        },
       });
   
-      const addStage = () => {
-        pipeline.value.stages.push({ name: '', command: '' });
-      };
-  
-      const removeStage = (index: number) => {
-        pipeline.value.stages.splice(index, 1);
-      };
+      watch(
+        () => props.data,
+        (newValue) => {
+          pipeline.value = { ...newValue };
+          if (editor.value) {
+            editor.value.commands.setContent(newValue.data || { type: 'doc', content: [] });
+          }
+        },
+        { deep: true }
+      );
   
       const savePipeline = () => {
-        // Implement save logic
-        console.log('Saving pipeline:', pipeline.value);
+        if (editor.value) {
+          const updatedPipeline: Pipeline = {
+            id: pipeline.value.id, // 'id' may be undefined for new pipelines
+            name: pipeline.value.name,
+            data: editor.value.getJSON(), // Use getJSON for structured data
+          };
+          emit('save', updatedPipeline);
+        }
+      };
+  
+      const cancel = () => {
+        emit('cancel');
       };
   
       return {
         pipeline,
-        addStage,
-        removeStage,
+        isSaving,
+        errorMessage,
         savePipeline,
+        cancel,
+        editor,
       };
     },
   });
   </script>
+  
+  <style scoped>
+  .pipeline-editor {
+    padding: 20px;
+  }
+  .form-group {
+    margin-bottom: 15px;
+  }
+  .button-group {
+    margin-top: 20px;
+  }
+  </style>

@@ -1,48 +1,52 @@
 <template>
     <div class="pipelines">
       <h1>Pipelines</h1>
-      <button @click="showEditor = true" class="add-button">Add New Pipeline</button>
-      
+      <button @click="addPipeline" class="add-button">Add New Pipeline</button>
+  
       <!-- Pipeline Editor Modal -->
       <div v-if="showEditor && selectedPipeline" class="modal">
         <div class="modal-content">
-          <PipelineEditor 
-            :data="selectedPipeline" 
-            @save="handleSave" 
-            @cancel="closeEditor" 
+          <PipelineEditor
+            :data="selectedPipeline"
+            @save="handleSave"
+            @cancel="closeEditor"
           />
         </div>
       </div>
   
       <!-- List of Pipelines -->
-      <div v-else>
+      <div v-if="pipelines.length">
         <ul class="pipeline-list">
           <li v-for="pipeline in pipelines" :key="pipeline.id" class="pipeline-item">
             <span>{{ pipeline.name }}</span>
             <div class="actions">
-              <button @click="editPipeline(pipeline)" class="edit-button">Edit</button>
+              <router-link :to="`/studio/pipelines/${pipeline.id}`">View</router-link> |
+              <router-link :to="`/studio/pipelines/${pipeline.id}/edit`">Edit</router-link> |
               <button @click="deletePipeline(pipeline.id)" class="delete-button">Delete</button>
             </div>
           </li>
         </ul>
+      </div>
+      <div v-else>
+        <p>No pipelines available.</p>
       </div>
     </div>
   </template>
   
   <script lang="ts">
   import { defineComponent, ref, onMounted } from 'vue';
+  import apiClient from '@/services/apiClient';
   import PipelineEditor from '@/components/studio/editors/PipelineEditor.vue';
-  import axios from 'axios';
-  
-  interface Stage {
-    name: string;
-    command: string;
-  }
   
   interface Pipeline {
     id: string;
     name: string;
-    stages: Stage[];
+    data: any;
+  }
+  
+  interface NewPipeline {
+    name: string;
+    data: any;
   }
   
   export default defineComponent({
@@ -53,48 +57,63 @@
     setup() {
       const pipelines = ref<Pipeline[]>([]);
       const showEditor = ref(false);
-      const selectedPipeline = ref<Pipeline | null>(null);
+      const selectedPipeline = ref<Pipeline | NewPipeline | null>(null);
   
       const fetchPipelines = async () => {
         try {
-          const response = await axios.get('/api/pipelines');
+          const response = await apiClient.get('/pipelines');
           pipelines.value = response.data;
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to fetch pipelines:', error);
         }
       };
   
-      const handleSave = async (pipeline: Pipeline) => {
-        try {
-          if (pipeline.id) {
-            await axios.put(`/api/pipelines/${pipeline.id}`, pipeline);
-          } else {
-            await axios.post('/api/pipelines', pipeline);
-          }
-          await fetchPipelines();
-          closeEditor();
-        } catch (error) {
-          console.error('Failed to save pipeline:', error);
-        }
-      };
-  
-      const editPipeline = (pipeline: Pipeline) => {
-        selectedPipeline.value = { ...pipeline };
+      const addPipeline = () => {
+        selectedPipeline.value = {
+          name: '',
+          data: {
+            type: 'doc',
+            content: [],
+          },
+        };
         showEditor.value = true;
       };
   
-      const deletePipeline = async (id: string) => {
-        try {
-          await axios.delete(`/api/pipelines/${id}`);
-          await fetchPipelines();
-        } catch (error) {
-          console.error('Failed to delete pipeline:', error);
-        }
-      };
+      function isExistingPipeline(pipeline: Pipeline | NewPipeline): pipeline is Pipeline {
+  return (pipeline as Pipeline).id !== undefined;
+}
+
+const handleSave = async (pipeline: Pipeline | NewPipeline) => {
+  try {
+    if (isExistingPipeline(pipeline)) {
+      // Update existing pipeline
+      await apiClient.put(`/pipelines/${pipeline.id}`, pipeline);
+    } else {
+      // Create new pipeline without `id`
+      const response = await apiClient.post('/pipelines', pipeline);
+      const createdPipeline: Pipeline = response.data;
+      pipelines.value.push(createdPipeline);
+    }
+    await fetchPipelines();
+    closeEditor();
+  } catch (error: any) {
+    console.error('Failed to save pipeline:', error);
+  }
+};
   
       const closeEditor = () => {
-        selectedPipeline.value = null;
         showEditor.value = false;
+        selectedPipeline.value = null;
+      };
+  
+      const deletePipeline = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this pipeline?')) return;
+        try {
+          await apiClient.delete(`/pipelines/${id}`);
+          pipelines.value = pipelines.value.filter((p) => p.id !== id);
+        } catch (error: any) {
+          alert('Failed to delete the pipeline. Please try again.');
+        }
       };
   
       onMounted(() => {
@@ -105,10 +124,10 @@
         pipelines,
         showEditor,
         selectedPipeline,
+        addPipeline,
         handleSave,
-        editPipeline,
-        deletePipeline,
         closeEditor,
+        deletePipeline,
       };
     },
   });
@@ -119,14 +138,60 @@
     padding: 20px;
   }
   
-  .add-button {
-    background-color: #2c3e50;
+  .pipelines .add-button {
+    margin-bottom: 15px;
+    padding: 10px 20px;
+    background-color: #2980b9;
     color: #ecf0f1;
     border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
+    border-radius: 3px;
     cursor: pointer;
-    margin-bottom: 20px;
+  }
+  
+  .pipelines .add-button:hover {
+    background-color: #3498db;
+  }
+  
+  .pipeline-list {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .pipeline-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .pipeline-item .actions a,
+  .pipeline-item .actions .delete-button {
+    margin-left: 10px;
+    color: #2980b9;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  
+  .pipeline-item .actions .delete-button {
+    background-color: #c0392b;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+  }
+  
+  .pipeline-item .actions .delete-button:hover {
+    background-color: #e74c3c;
+  }
+  
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
   }
   
   .modal {
@@ -145,39 +210,5 @@
     background-color: #fff;
     padding: 20px;
     border-radius: 5px;
-    width: 500px;
-  }
-  
-  .pipeline-list {
-    list-style: none;
-    padding: 0;
-  }
-  
-  .pipeline-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid #bdc3c7;
-  }
-  
-  .actions button {
-    margin-left: 10px;
-    padding: 5px 10px;
-    cursor: pointer;
-  }
-  
-  .edit-button {
-    background-color: #2980b9;
-    color: #fff;
-    border: none;
-    border-radius: 3px;
-  }
-  
-  .delete-button {
-    background-color: #c0392b;
-    color: #fff;
-    border: none;
-    border-radius: 3px;
   }
   </style>

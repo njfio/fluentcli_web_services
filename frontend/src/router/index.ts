@@ -4,13 +4,18 @@ import Login from '../views/Login.vue';
 import Admin from '../views/Admin.vue';
 import Studio from '../views/Studio.vue';
 import Dashboard from '../views/studio/Dashboard.vue';
-import Jobs from '../views/studio/Jobs.vue';
+import Jobs from '@/views/studio/Jobs.vue';
+import JobCreate from '@/views/studio/JobCreate.vue';
+import JobDetails from '@/views/studio/JobDetails.vue';
+import JobEdit from '@/views/studio/JobEdit.vue';
 import Pipelines from '../views/studio/Pipelines.vue';
 import Settings from '../views/studio/Settings.vue';
 import JobList from '../views/admin/JobList.vue';
-import JobDetails from '../views/admin/JobDetails.vue';
-import JobCreate from '../views/admin/JobCreate.vue';
-import JobEdit from '../views/admin/JobEdit.vue';
+import PipelineList from '../components/studio/PipelineList.vue';
+import PipelineCreate from '../views/studio/PipelineCreate.vue';
+import PipelineDetails from '../views/studio/PipelineDetails.vue';
+import PipelineEdit from '../views/studio/PipelineEdit.vue';
+
 import WorkerTypeList from '../views/WorkerTypeList.vue'; // This one remains in the root views folder
 import store from '@/store';
 
@@ -28,6 +33,28 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'jobs', name: 'Jobs', component: Jobs },
       { path: 'pipelines', name: 'Pipelines', component: Pipelines },
       { path: 'settings', name: 'Settings', component: Settings },
+      {
+        path: 'pipelines',
+        name: 'PipelineList',
+        component: PipelineList,
+      },
+      {
+        path: 'pipelines/create',
+        name: 'PipelineCreate',
+        component: PipelineCreate,
+      },
+      {
+        path: 'pipelines/:id',
+        name: 'PipelineDetails',
+        component: PipelineDetails,
+        props: true,
+      },
+      {
+        path: 'pipelines/:id/edit',
+        name: 'PipelineEdit',
+        component: PipelineEdit,
+        props: true,
+      }
     ],
   },
   { path: '/admin/jobs', name: 'JobList', component: JobList },

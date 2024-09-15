@@ -1,25 +1,30 @@
-import axios from 'axios';
+import apiClient from './apiClient';
 
-const API_URL = import.meta.env.VITE_API_URL;
+interface LoginResponse {
+  token: string;
+  user: any; // Define a proper type based on your user structure
+}
 
-const apiClient = axios.create({
-  baseURL: API_URL,
-});
-
-export default {
-  async login(username: string, password: string): Promise<{ token: string; user: any }> {
+const AuthService = {
+  async login(username: string, password: string): Promise<LoginResponse> {
     const response = await apiClient.post('/users/login', { username, password });
     return response.data;
   },
+
   logout() {
     localStorage.removeItem('token');
     delete apiClient.defaults.headers.common['Authorization'];
+    window.location.href = '/login';
   },
+
   setToken(token: string) {
     localStorage.setItem('token', token);
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   },
+
   getToken(): string | null {
     return localStorage.getItem('token');
   },
 };
+
+export default AuthService;

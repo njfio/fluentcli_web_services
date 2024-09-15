@@ -48,7 +48,7 @@ export default defineComponent({
 
     const fetchJobs = async () => {
       try {
-        const response = await axios.get('/api/jobs'); // Adjust the endpoint as needed
+        const response = await axios.get('/jobs'); // Adjust the endpoint as needed
         jobs.value = response.data;
       } catch (error) {
         console.error('Failed to fetch jobs:', error);

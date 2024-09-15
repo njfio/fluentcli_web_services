@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'monaco-editor': 'monaco-editor/esm/vs/editor/editor.api.js',
     },
   },
   server: {
@@ -17,6 +18,18 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      '/jobs': {
+          target: 'http://localhost:8000', // Replace with your backend server's URL and port
+          changeOrigin: true,
+          secure: false, 
+          rewrite: (path) => path.replace(/^\/api/, '')// Set to true if using HTTPS on the backend
+        },
+      '/pipelines': {
+          target: 'http://localhost:8000', // Replace with your backend server's URL and port
+          changeOrigin: true,
+          secure: false,
+                rewrite: (path) => path.replace(/^\/api/, ''), // Set to true if using HTTPS on the backend
+        },
     },
   },
 });
