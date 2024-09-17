@@ -16,6 +16,9 @@
             <router-link to="/studio/pipelines">Pipelines</router-link>
           </li>
           <li>
+            <router-link to="/studio/dockerfiles">Docker Files</router-link>
+          </li>
+          <li>
             <router-link to="/studio/settings">Settings</router-link>
           </li>
         </ul>

@@ -1,43 +1,70 @@
 <template>
-    <div class="dockerfile-editor">
-      <h2>Dockerfile Editor</h2>
-      <form @submit.prevent="saveDockerfile">
+    <div class="docker-file-editor">
+      <h3>{{ isNew ? 'Create' : 'Edit' }} Docker File</h3>
+      <form @submit.prevent="handleSubmit">
         <div>
           <label for="name">Name:</label>
-          <input type="text" id="name" v-model="dockerfile.name" required />
+          <input type="text" id="name" v-model="editedDockerFile.name" required>
         </div>
         <div>
           <label for="content">Content:</label>
-          <textarea id="content" v-model="dockerfile.content" rows="20" required></textarea>
+          <textarea id="content" v-model="editedDockerFile.content" rows="10" required></textarea>
         </div>
-        <button type="submit">Save Dockerfile</button>
+        <div>
+          <button type="submit">Save</button>
+          <button type="button" @click="$emit('cancel')">Cancel</button>
+        </div>
       </form>
     </div>
   </template>
   
-  <script lang="ts">
-  import { defineComponent, ref } from 'vue';
+  <script setup lang="ts">
+  import { ref, computed } from 'vue';
   
-  export default defineComponent({
-    name: 'DockerFileEditor',
-    props: {
-      data: {
-        type: Object,
-        required: true,
-      },
-    },
-    setup(props) {
-      const dockerfile = ref({ ...props.data });
+  interface DockerFile {
+    id?: string;
+    name: string;
+    content: string;
+  }
   
-      const saveDockerfile = () => {
-        // Implement save logic
-        console.log('Saving Dockerfile:', dockerfile.value);
-      };
+  const props = defineProps<{
+    dockerFile: DockerFile | null;
+  }>();
   
-      return {
-        dockerfile,
-        saveDockerfile,
-      };
-    },
+  const emit = defineEmits<{
+    (e: 'save', dockerFile: DockerFile): void;
+    (e: 'cancel'): void;
+  }>();
+  
+  const editedDockerFile = ref<DockerFile>({
+    id: props.dockerFile?.id,
+    name: props.dockerFile?.name || '',
+    content: props.dockerFile?.content || '',
   });
+  
+  const isNew = computed(() => !props.dockerFile?.id);
+  
+  const handleSubmit = () => {
+    emit('save', editedDockerFile.value);
+  };
   </script>
+  
+  <style scoped>
+  .docker-file-editor {
+    margin-top: 20px;
+  }
+  form > div {
+    margin-bottom: 15px;
+  }
+  label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 5px;
+  }
+  button {
+    margin-right: 10px;
+  }
+  </style>

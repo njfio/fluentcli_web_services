@@ -4,6 +4,7 @@
         <router-link to="/studio/dashboard">Dashboard</router-link>
         <router-link to="/studio/jobs">Jobs</router-link>
         <router-link to="/studio/pipelines">Pipelines</router-link>
+        <router-link to="/studio/dockerfiles">Docker Files</router-link>
         <!-- Include other navigation links as needed -->
       </nav>
       <main class="studio-main">

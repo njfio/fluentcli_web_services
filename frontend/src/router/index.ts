@@ -15,6 +15,7 @@ import PipelineList from '../components/studio/PipelineList.vue';
 import PipelineCreate from '../views/studio/PipelineCreate.vue';
 import PipelineDetails from '../views/studio/PipelineDetails.vue';
 import PipelineEdit from '../views/studio/PipelineEdit.vue';
+import DockerFiles from '../views/studio/DockerFiles.vue';
 
 import WorkerTypeList from '../views/WorkerTypeList.vue'; // This one remains in the root views folder
 import store from '@/store';
@@ -54,6 +55,11 @@ const routes: Array<RouteRecordRaw> = [
         name: 'PipelineEdit',
         component: PipelineEdit,
         props: true,
+      },
+      {
+        path: 'dockerfiles',
+        name: 'DockerFiles',
+        component: DockerFiles,
       }
     ],
   },
