@@ -1,11 +1,7 @@
 <template>
-    <div class="configuration-editor">
-      <h3>{{ isNew ? 'Create' : 'Edit' }} Configuration</h3>
+    <div class="amber-store-editor">
+      <h3>{{ isNew ? 'Create' : 'Edit' }} Amber Store</h3>
       <form @submit.prevent="handleSubmit">
-        <div>
-          <label for="name">Name:</label>
-          <input type="text" id="name" v-model="editedConfiguration.name" required>
-        </div>
         <div>
           <label for="data">Data (JSON):</label>
           <textarea id="data" v-model="jsonData" rows="10" required></textarea>
@@ -21,35 +17,34 @@
   <script setup lang="ts">
   import { ref, computed, watch } from 'vue';
   
-  interface Configuration {
+  interface AmberStore {
     id?: string;
-    name: string;
     data: any;
   }
   
   const props = defineProps<{
-    data: Configuration;
+    data: AmberStore;
   }>();
   
   const emit = defineEmits<{
-    (e: 'save', configuration: Configuration): void;
+    (e: 'save', amberStore: AmberStore): void;
     (e: 'cancel'): void;
   }>();
   
-  const editedConfiguration = ref<Configuration>({ ...props.data });
+  const editedAmberStore = ref<AmberStore>({ ...props.data });
   const jsonData = ref(JSON.stringify(props.data.data, null, 2));
   
   const isNew = computed(() => !props.data.id);
   
   watch(() => props.data, (newData) => {
-    editedConfiguration.value = { ...newData };
+    editedAmberStore.value = { ...newData };
     jsonData.value = JSON.stringify(newData.data, null, 2);
   }, { deep: true });
   
   const handleSubmit = () => {
     try {
-      editedConfiguration.value.data = JSON.parse(jsonData.value);
-      emit('save', editedConfiguration.value);
+      editedAmberStore.value.data = JSON.parse(jsonData.value);
+      emit('save', editedAmberStore.value);
     } catch (error) {
       alert('Invalid JSON data. Please check your input.');
     }
@@ -57,7 +52,7 @@
   </script>
   
   <style scoped>
-  .configuration-editor {
+  .amber-store-editor {
     margin-top: 20px;
   }
   form > div {
@@ -67,7 +62,7 @@
     display: block;
     margin-bottom: 5px;
   }
-  input[type="text"], textarea {
+  textarea {
     width: 100%;
     padding: 5px;
   }

@@ -4,7 +4,7 @@ import Login from '../views/Login.vue';
 import Admin from '../views/Admin.vue';
 import Studio from '../views/Studio.vue';
 import Dashboard from '../views/studio/Dashboard.vue';
-import Jobs from '@/views/studio/Jobs.vue';
+
 import JobCreate from '@/views/studio/JobCreate.vue';
 import JobDetails from '@/views/studio/JobDetails.vue';
 import JobEdit from '@/views/studio/JobEdit.vue';
@@ -16,6 +16,10 @@ import PipelineCreate from '../views/studio/PipelineCreate.vue';
 import PipelineDetails from '../views/studio/PipelineDetails.vue';
 import PipelineEdit from '../views/studio/PipelineEdit.vue';
 import DockerFiles from '../views/studio/DockerFiles.vue';
+import AmberStores from '../views/studio/AmberStores.vue';
+import Jobs from '../views/studio/Jobs.vue';
+
+
 
 import WorkerTypeList from '../views/WorkerTypeList.vue'; // This one remains in the root views folder
 import store from '@/store';
@@ -31,7 +35,11 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true },
     children: [
       { path: 'dashboard', name: 'Dashboard', component: Dashboard },
-      { path: 'jobs', name: 'Jobs', component: Jobs },
+      {
+        path: '/studio/jobs',
+        name: 'Jobs',
+        component: Jobs,
+      },
       { path: 'pipelines', name: 'Pipelines', component: Pipelines },
       { path: 'settings', name: 'Settings', component: Settings },
       {
@@ -60,7 +68,17 @@ const routes: Array<RouteRecordRaw> = [
         path: 'dockerfiles',
         name: 'DockerFiles',
         component: DockerFiles,
-      }
+      },
+      {
+        path: '/studio/configurations',
+        name: 'Configurations',
+        component: () => import('@/views/studio/Configurations.vue')
+      },
+      {
+        path: '/studio/amberstores',
+        name: 'AmberStores',
+        component: AmberStores,
+      },
     ],
   },
   { path: '/admin/jobs', name: 'JobList', component: JobList },

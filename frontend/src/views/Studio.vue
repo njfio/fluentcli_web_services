@@ -5,6 +5,8 @@
         <router-link to="/studio/jobs">Jobs</router-link>
         <router-link to="/studio/pipelines">Pipelines</router-link>
         <router-link to="/studio/dockerfiles">Docker Files</router-link>
+        <router-link to="/studio/configurations">Configurations</router-link>
+        <router-link to="/studio/amberstores">Amber Stores</router-link>
         <!-- Include other navigation links as needed -->
       </nav>
       <main class="studio-main">
