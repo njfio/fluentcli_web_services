@@ -16,10 +16,10 @@
       </thead>
       <tbody>
         <tr v-for="job in jobs" :key="job.id">
-          <td>{{ job.uri }}</td>
+          <td>{{ job.id }}</td>
           <td>{{ getDockerFileName(job.worker_type) }}</td>
           <td>{{ getConfigurationName(job.config) }}</td>
-          <td>{{ getPipelineName(job.data_path) }}</td>
+          <td>{{ getPipelineName(job.pipeline_id) }}</td>
           <td>{{ job.amber_id || 'N/A' }}</td>
           <td>{{ job.status }}</td>
           <td>
@@ -55,23 +55,31 @@ import apiClient from '@/services/apiClient';
 
 interface Job {
   id?: string;
-  uri: string;
+  config: any;
+  amber_id?: string | null;
+  state_file_content?: string | null;
+  data_path?: string;
   worker_type: string;
-  config: string;
-  data_path: string;
-  amber_id: string | null;
+  triggers?: any;
+  timers?: any;
   status: string;
+  pipeline_id: string;
+  results?: any;
 }
 
 const jobs = ref<Job[]>([]);
 const showEditor = ref(false);
 const selectedJob = ref<Job>({
-  uri: '',
   worker_type: '',
-  config: '',
+  config: {},
   data_path: '',
   amber_id: null,
   status: '',
+  pipeline_id: '',
+  state_file_content: null,
+  triggers: null,
+  timers: null,
+  results: null
 });
 const error = ref<string | null>(null);
 const isLoading = ref(false);
@@ -139,7 +147,20 @@ const handleSave = async (job: Job) => {
     if (job.id) {
       await apiClient.put(`/jobs/${job.id}`, job);
     } else {
-      await apiClient.post('/jobs', job);
+      const newJob = {
+        config: job.config,
+        amber_id: job.amber_id,
+        state_file_content: job.state_file_content,
+        data_path: job.data_path,
+        worker_type: job.worker_type,
+        triggers: job.triggers,
+        timers: job.timers,
+        status: job.status,
+        pipeline_id: job.pipeline_id,
+        results: job.results
+      };
+      console.log('Job data being sent:', newJob);
+      await apiClient.post('/jobs', newJob);
     }
     await fetchJobs();
     showEditor.value = false;

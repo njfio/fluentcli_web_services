@@ -10,31 +10,43 @@ pub async fn create_job(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    log::info!("Creating job for user_id: {}", user_id);
-    log::info!("Received data: {:?}", new_job_payload);
+    
+    // Always generate a new UUID for uri
+    let uri = Uuid::new_v4();
 
-    let new_job = NewJob {
-        user_id,
-        uri: new_job_payload.uri.clone(),
-        config: new_job_payload.config.clone(),
-        amber_id: new_job_payload.amber_id,
-        state_file_content: new_job_payload.state_file_content.clone(),
-        data_path: new_job_payload.data_path.clone(),
-        worker_type: new_job_payload.worker_type.clone(),
-        triggers: new_job_payload.triggers.clone(),
-        timers: new_job_payload.timers.clone(),
-        status: new_job_payload.status.clone(),
-    };
-    log::info!("New job data: {:?}", new_job);
+    // First, check if the pipeline exists
+    match JobService::pipeline_exists(&pool, new_job_payload.pipeline_id, user_id) {
+        Ok(true) => {
+            let new_job = NewJob {
+                user_id,
+                uri,
+                config: new_job_payload.config.clone(),
+                amber_id: new_job_payload.amber_id,
+                state_file_content: new_job_payload.state_file_content.clone(),
+                data_path: new_job_payload.data_path.clone(),
+                worker_type: new_job_payload.worker_type.clone(),
+                triggers: new_job_payload.triggers.clone(),
+                timers: new_job_payload.timers.clone(),
+                status: new_job_payload.status.clone(),
+                pipeline_id: new_job_payload.pipeline_id,
+                results: new_job_payload.results.clone(),
+            };
 
-    match JobService::create_job(&pool, new_job) {
-        Ok(job) => {
-            log::info!("Job created successfully: {:?}", job);
-            HttpResponse::Created().json(job)
+            match JobService::create_job(&pool, new_job) {
+                Ok(job) => HttpResponse::Created().json(job),
+                Err(e) => {
+                    log::error!("Error creating job: {:?}", e);
+                    HttpResponse::InternalServerError().json(format!("Failed to create job: {:?}", e))
+                }
+            }
+        },
+        Ok(false) => {
+            log::error!("Pipeline not found: {:?}", new_job_payload.pipeline_id);
+            HttpResponse::BadRequest().json("Invalid pipeline_id")
         },
         Err(e) => {
-            log::error!("Error creating job: {:?}", e);
-            HttpResponse::InternalServerError().body("Failed to create job")
+            log::error!("Error checking pipeline existence: {:?}", e);
+            HttpResponse::InternalServerError().json(format!("Failed to check pipeline existence: {:?}", e))
         }
     }
 }

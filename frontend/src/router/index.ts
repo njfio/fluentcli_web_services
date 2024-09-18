@@ -5,12 +5,9 @@ import Admin from '../views/Admin.vue';
 import Studio from '../views/Studio.vue';
 import Dashboard from '../views/studio/Dashboard.vue';
 
-import JobCreate from '@/views/studio/JobCreate.vue';
-import JobDetails from '@/views/studio/JobDetails.vue';
-import JobEdit from '@/views/studio/JobEdit.vue';
 import Pipelines from '../views/studio/Pipelines.vue';
 import Settings from '../views/studio/Settings.vue';
-import JobList from '../views/admin/JobList.vue';
+
 import PipelineList from '../components/studio/PipelineList.vue';
 import PipelineCreate from '../views/studio/PipelineCreate.vue';
 import PipelineDetails from '../views/studio/PipelineDetails.vue';
@@ -19,9 +16,6 @@ import DockerFiles from '../views/studio/DockerFiles.vue';
 import AmberStores from '../views/studio/AmberStores.vue';
 import Jobs from '../views/studio/Jobs.vue';
 
-
-
-import WorkerTypeList from '../views/WorkerTypeList.vue'; // This one remains in the root views folder
 import store from '@/store';
 
 const routes: Array<RouteRecordRaw> = [
@@ -80,12 +74,7 @@ const routes: Array<RouteRecordRaw> = [
         component: AmberStores,
       },
     ],
-  },
-  { path: '/admin/jobs', name: 'JobList', component: JobList },
-  { path: '/admin/jobs/create', name: 'JobCreate', component: JobCreate },
-  { path: '/admin/jobs/:id', name: 'JobDetails', component: JobDetails },
-  { path: '/admin/jobs/:id/edit', name: 'JobEdit', component: JobEdit },
-  { path: '/worker-types', name: 'WorkerTypeList', component: WorkerTypeList },
+  }
 ];
 
 const router = createRouter({

@@ -10,15 +10,17 @@ use uuid::Uuid;
 pub struct Job {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub uri: String,
-    pub config: Value, // Reference to configuration ID
-    pub amber_id: Option<Uuid>, // Reference to amber_store ID
+    pub uri: Uuid,
+    pub config: Value,
+    pub amber_id: Option<Uuid>,
     pub state_file_content: Option<String>,
     pub data_path: Option<String>,
-    pub worker_type: String, // Reference to docker_file ID
+    pub worker_type: String,
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: String,
+    pub results: Option<Value>,
+    pub pipeline_id: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub started_at: Option<DateTime<Utc>>,
@@ -29,7 +31,7 @@ pub struct Job {
 #[table_name = "jobs"]
 pub struct NewJob {
     pub user_id: Uuid,
-    pub uri: String,
+    pub uri: Uuid,
     pub config: Value,
     pub amber_id: Option<Uuid>,
     pub state_file_content: Option<String>,
@@ -38,25 +40,13 @@ pub struct NewJob {
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct NewJobPayload {
-    pub uri: String,
-    pub config: Value,
-    pub amber_id: Option<Uuid>,
-    pub state_file_content: Option<String>,
-    pub data_path: Option<String>,
-    pub worker_type: String,
-    pub triggers: Option<Value>,
-    pub timers: Option<Value>,
-    pub status: String,
+    pub pipeline_id: Uuid,
+    pub results: Option<Value>,
 }
 
 #[derive(AsChangeset, Deserialize)]
 #[table_name = "jobs"]
 pub struct UpdateJob {
-    pub uri: Option<String>,
     pub config: Option<Value>,
     pub amber_id: Option<Uuid>,
     pub state_file_content: Option<String>,
@@ -65,4 +55,21 @@ pub struct UpdateJob {
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: Option<String>,
+    pub results: Option<Value>,
+    pub pipeline_id: Option<Uuid>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NewJobPayload {
+    pub uri: Option<String>,
+    pub config: Value,
+    pub amber_id: Option<Uuid>,
+    pub state_file_content: Option<String>,
+    pub data_path: Option<String>,
+    pub worker_type: String,
+    pub triggers: Option<Value>,
+    pub timers: Option<Value>,
+    pub status: String,
+    pub pipeline_id: Uuid,
+    pub results: Option<Value>,
 }

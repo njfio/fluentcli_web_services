@@ -63,7 +63,7 @@ diesel::table! {
     jobs (id) {
         id -> Uuid,
         user_id -> Uuid,
-        uri -> Text,
+        uri -> Uuid,
         config -> Jsonb,
         amber_id -> Nullable<Uuid>,
         state_file_content -> Nullable<Text>,
@@ -74,6 +74,8 @@ diesel::table! {
         timers -> Nullable<Jsonb>,
         #[max_length = 255]
         status -> Varchar,
+        results -> Nullable<Jsonb>,
+        pipeline_id -> Uuid,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         started_at -> Nullable<Timestamptz>,
@@ -147,6 +149,7 @@ diesel::joinable!(api_keys -> users (user_id));
 diesel::joinable!(configurations -> users (user_id));
 diesel::joinable!(docker_files -> users (user_id));
 diesel::joinable!(jobs -> amber_store (amber_id));
+diesel::joinable!(jobs -> pipelines (pipeline_id));
 diesel::joinable!(jobs -> users (user_id));
 diesel::joinable!(pipelines -> users (user_id));
 diesel::joinable!(secure_vault -> users (user_id));

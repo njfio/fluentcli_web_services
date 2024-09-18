@@ -104,7 +104,7 @@ CREATE TABLE active_workers (
 CREATE TABLE jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
-    uri TEXT NOT NULL,
+    uri UUID NOT NULL UNIQUE,
     config JSONB NOT NULL,
     amber_id UUID REFERENCES amber_store(id),
     state_file_content TEXT,
@@ -113,11 +113,15 @@ CREATE TABLE jobs (
     triggers JSONB,
     timers JSONB,
     status VARCHAR(255) NOT NULL,
+    results JSONB,
+    pipeline_id UUID NOT NULL REFERENCES pipelines(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),  
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ
 );
+
+
 
 CREATE TABLE workers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -149,6 +153,7 @@ CREATE INDEX idx_docker_files_user_id ON docker_files(user_id);
 CREATE INDEX idx_active_workers_user_id ON active_workers(user_id);
 CREATE INDEX idx_jobs_user_id ON jobs(user_id);
 CREATE INDEX idx_jobs_amber_id ON jobs(amber_id);
+CREATE UNIQUE INDEX idx_jobs_uri ON jobs(uri);
 
 -- Set up triggers for automatic updated_at
 SELECT diesel_manage_updated_at('users');
