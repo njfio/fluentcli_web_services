@@ -86,9 +86,17 @@ echo "$response"
  echo -e "\n\n\nGet amber store entry details"
  make_request GET "/amber_store/$amber_store_id" "" "$token" "200"
 
-# # Update amber store entry
- echo -e "\n\n\nUpdate amber store entry"
- make_request PUT "/amber_store/$amber_store_id" '{"data": {"key": "updated_value"}}' "$token" "200"
+# Update amber store entry
+echo -e "\n\n\nUpdate amber store entry"
+yaml_data=$(cat <<EOF
+data:
+  key: updated_value
+  nested:
+    subkey: subvalue
+EOF
+)
+escaped_yaml_data=$(echo "$yaml_data" | jq -Rs .)
+make_request PUT "/amber_store/$amber_store_id" "{\"data\": $escaped_yaml_data}" "$token" "200"
 
 # # Verify the update
  echo -e "\n\n\nVerify amber store entry update"

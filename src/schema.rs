@@ -16,7 +16,7 @@ diesel::table! {
     amber_store (id) {
         id -> Uuid,
         user_id -> Uuid,
-        data -> Jsonb,
+        data -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

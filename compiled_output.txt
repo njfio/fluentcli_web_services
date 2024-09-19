@@ -303,15 +303,17 @@ use uuid::Uuid;
 pub struct Job {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub uri: String,
-    pub config: Value, // Reference to configuration ID
-    pub amber_id: Option<Uuid>, // Reference to amber_store ID
+    pub uri: Uuid,
+    pub config: Value,
+    pub amber_id: Option<Uuid>,
     pub state_file_content: Option<String>,
     pub data_path: Option<String>,
-    pub worker_type: String, // Reference to docker_file ID
+    pub worker_type: String,
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: String,
+    pub results: Option<Value>,
+    pub pipeline_id: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub started_at: Option<DateTime<Utc>>,
@@ -322,7 +324,7 @@ pub struct Job {
 #[table_name = "jobs"]
 pub struct NewJob {
     pub user_id: Uuid,
-    pub uri: String,
+    pub uri: Uuid,
     pub config: Value,
     pub amber_id: Option<Uuid>,
     pub state_file_content: Option<String>,
@@ -331,25 +333,13 @@ pub struct NewJob {
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct NewJobPayload {
-    pub uri: String,
-    pub config: Value,
-    pub amber_id: Option<Uuid>,
-    pub state_file_content: Option<String>,
-    pub data_path: Option<String>,
-    pub worker_type: String,
-    pub triggers: Option<Value>,
-    pub timers: Option<Value>,
-    pub status: String,
+    pub pipeline_id: Uuid,
+    pub results: Option<Value>,
 }
 
 #[derive(AsChangeset, Deserialize)]
 #[table_name = "jobs"]
 pub struct UpdateJob {
-    pub uri: Option<String>,
     pub config: Option<Value>,
     pub amber_id: Option<Uuid>,
     pub state_file_content: Option<String>,
@@ -358,6 +348,23 @@ pub struct UpdateJob {
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: Option<String>,
+    pub results: Option<Value>,
+    pub pipeline_id: Option<Uuid>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct NewJobPayload {
+    pub uri: Option<String>,
+    pub config: Value,
+    pub amber_id: Option<Uuid>,
+    pub state_file_content: Option<String>,
+    pub data_path: Option<String>,
+    pub worker_type: String,
+    pub triggers: Option<Value>,
+    pub timers: Option<Value>,
+    pub status: String,
+    pub pipeline_id: Uuid,
+    pub results: Option<Value>,
 }==== END OF FILE: src//models/job.rs ====
 
 ==== START OF FILE: src//models/configuration.rs ====
@@ -507,7 +514,7 @@ use crate::schema::amber_store;
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_yaml::Value;
 use uuid::Uuid;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Serialize, Deserialize)]
@@ -515,26 +522,26 @@ use uuid::Uuid;
 pub struct AmberStore {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub data: serde_json::Value,
-    pub created_at: chrono::NaiveDateTime,
-    pub updated_at: chrono::NaiveDateTime,
+    pub data: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 #[derive(Insertable, Debug)]
 #[table_name = "amber_store"]
 pub struct NewAmberStore {
     pub user_id: Uuid,
-    pub data: serde_json::Value,
+    pub data: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct NewAmberStorePayload {
-    pub data: serde_json::Value,
+    pub data: serde_yaml::Value,
 }
 
-#[derive(AsChangeset, Deserialize)]
+#[derive(AsChangeset, Deserialize, Debug )]
 #[table_name = "amber_store"]
 pub struct UpdateAmberStore {
-    pub data: Option<serde_json::Value>,
+    pub data: Option<String>,
 }==== END OF FILE: src//models/amber_store.rs ====
 
 ==== START OF FILE: src//models/mod.rs ====
@@ -776,7 +783,7 @@ diesel::table! {
     amber_store (id) {
         id -> Uuid,
         user_id -> Uuid,
-        data -> Jsonb,
+        data -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -823,7 +830,7 @@ diesel::table! {
     jobs (id) {
         id -> Uuid,
         user_id -> Uuid,
-        uri -> Text,
+        uri -> Uuid,
         config -> Jsonb,
         amber_id -> Nullable<Uuid>,
         state_file_content -> Nullable<Text>,
@@ -834,6 +841,8 @@ diesel::table! {
         timers -> Nullable<Jsonb>,
         #[max_length = 255]
         status -> Varchar,
+        results -> Nullable<Jsonb>,
+        pipeline_id -> Uuid,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         started_at -> Nullable<Timestamptz>,
@@ -907,6 +916,7 @@ diesel::joinable!(api_keys -> users (user_id));
 diesel::joinable!(configurations -> users (user_id));
 diesel::joinable!(docker_files -> users (user_id));
 diesel::joinable!(jobs -> amber_store (amber_id));
+diesel::joinable!(jobs -> pipelines (pipeline_id));
 diesel::joinable!(jobs -> users (user_id));
 diesel::joinable!(pipelines -> users (user_id));
 diesel::joinable!(secure_vault -> users (user_id));
@@ -990,9 +1000,14 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin() // Be cautious with this in production environments
-            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
             .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
-            .allowed_header(http::header::CONTENT_TYPE)
+            .allowed_headers(vec![
+                http::header::AUTHORIZATION,
+                http::header::ACCEPT,
+                http::header::CONTENT_TYPE,
+            ])
+            .supports_credentials()
             .max_age(3600);
 
         App::new()
@@ -1112,31 +1127,43 @@ pub async fn create_job(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    log::info!("Creating job for user_id: {}", user_id);
-    log::info!("Received data: {:?}", new_job_payload);
+    
+    // Always generate a new UUID for uri
+    let uri = Uuid::new_v4();
 
-    let new_job = NewJob {
-        user_id,
-        uri: new_job_payload.uri.clone(),
-        config: new_job_payload.config.clone(),
-        amber_id: new_job_payload.amber_id,
-        state_file_content: new_job_payload.state_file_content.clone(),
-        data_path: new_job_payload.data_path.clone(),
-        worker_type: new_job_payload.worker_type.clone(),
-        triggers: new_job_payload.triggers.clone(),
-        timers: new_job_payload.timers.clone(),
-        status: new_job_payload.status.clone(),
-    };
-    log::info!("New job data: {:?}", new_job);
+    // First, check if the pipeline exists
+    match JobService::pipeline_exists(&pool, new_job_payload.pipeline_id, user_id) {
+        Ok(true) => {
+            let new_job = NewJob {
+                user_id,
+                uri,
+                config: new_job_payload.config.clone(),
+                amber_id: new_job_payload.amber_id,
+                state_file_content: new_job_payload.state_file_content.clone(),
+                data_path: new_job_payload.data_path.clone(),
+                worker_type: new_job_payload.worker_type.clone(),
+                triggers: new_job_payload.triggers.clone(),
+                timers: new_job_payload.timers.clone(),
+                status: new_job_payload.status.clone(),
+                pipeline_id: new_job_payload.pipeline_id,
+                results: new_job_payload.results.clone(),
+            };
 
-    match JobService::create_job(&pool, new_job) {
-        Ok(job) => {
-            log::info!("Job created successfully: {:?}", job);
-            HttpResponse::Created().json(job)
+            match JobService::create_job(&pool, new_job) {
+                Ok(job) => HttpResponse::Created().json(job),
+                Err(e) => {
+                    log::error!("Error creating job: {:?}", e);
+                    HttpResponse::InternalServerError().json(format!("Failed to create job: {:?}", e))
+                }
+            }
+        },
+        Ok(false) => {
+            log::error!("Pipeline not found: {:?}", new_job_payload.pipeline_id);
+            HttpResponse::BadRequest().json("Invalid pipeline_id")
         },
         Err(e) => {
-            log::error!("Error creating job: {:?}", e);
-            HttpResponse::InternalServerError().body("Failed to create job")
+            log::error!("Error checking pipeline existence: {:?}", e);
+            HttpResponse::InternalServerError().json(format!("Failed to check pipeline existence: {:?}", e))
         }
     }
 }
@@ -1619,7 +1646,11 @@ use uuid::Uuid;
 use crate::db::DbPool;
 use crate::services::amber_store_service::AmberStoreService;
 use crate::models::amber_store::{NewAmberStore, UpdateAmberStore, NewAmberStorePayload};
-
+use crate::error::AppError;
+use diesel::prelude::*;
+use diesel::QueryDsl;
+use diesel::ExpressionMethods;
+use serde_yaml::Value;
 
 pub async fn create_amber_store(
     pool: web::Data<DbPool>,
@@ -1627,18 +1658,14 @@ pub async fn create_amber_store(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    log::info!("Creating amber store for user_id: {}", user_id);
-    log::info!("Received data: {:?}", new_amber_store_payload);
-
+    
     let new_amber_store = NewAmberStore {
         user_id,
-        data: new_amber_store_payload.data.clone(),
+        data: serde_yaml::to_string(&new_amber_store_payload.data).unwrap(),
     };
+
     match AmberStoreService::create_amber_store(&pool, new_amber_store) {
-        Ok(amber_store) => {
-            log::info!("Amber store created successfully: {:?}", amber_store);
-            HttpResponse::Created().json(amber_store)
-        },
+        Ok(amber_store) => HttpResponse::Created().json(amber_store),
         Err(e) => {
             log::error!("Error creating amber store: {:?}", e);
             HttpResponse::InternalServerError().body("Failed to create amber store")
@@ -1679,7 +1706,25 @@ pub async fn update_amber_store(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match AmberStoreService::update_amber_store(&pool, amber_store_id.into_inner(), update_data.into_inner(), user_id) {
+    
+    let yaml_string = match &update_data.data {
+        Some(data) => {
+            match serde_yaml::from_str::<serde_yaml::Value>(data) {
+                Ok(yaml_value) => serde_yaml::to_string(&yaml_value).unwrap_or_default(),
+                Err(e) => {
+                    log::error!("Error parsing YAML: {:?}", e);
+                    return HttpResponse::BadRequest().body("Invalid YAML data");
+                }
+            }
+        },
+        None => String::new(),
+    };
+
+    let update_data = UpdateAmberStore {
+        data: Some(yaml_string),
+    };
+
+    match AmberStoreService::update_amber_store(&pool, amber_store_id.into_inner(), update_data, user_id) {
         Ok(amber_store) => HttpResponse::Ok().json(amber_store),
         Err(e) => {
             log::error!("Error updating amber store: {:?}", e);
@@ -2247,7 +2292,7 @@ impl SecureVaultService {
 use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::amber_store::{AmberStore, NewAmberStore, UpdateAmberStore};
-use diesel::prelude::*;
+use diesel::{prelude::*, update};
 use uuid::Uuid;
 
 pub struct AmberStoreService;
@@ -2256,7 +2301,6 @@ impl AmberStoreService {
     pub fn create_amber_store(pool: &DbPool, new_amber_store: NewAmberStore) -> Result<AmberStore, AppError> {
         use crate::schema::amber_store::dsl::*;
         let conn = &mut pool.get()?;
-        log::info!("Inserting new amber store into database: {:?}", new_amber_store);
         diesel::insert_into(amber_store)
             .values(&new_amber_store)
             .get_result(conn)
@@ -2278,6 +2322,7 @@ impl AmberStoreService {
     pub fn update_amber_store(pool: &DbPool, amber_store_id: Uuid, update_data: UpdateAmberStore, user_id: Uuid) -> Result<AmberStore, AppError> {
         use crate::schema::amber_store::dsl::*;
         let conn = &mut pool.get()?;
+        log::error!("Update amber data: {:#?}", &update_data);
         diesel::update(amber_store.filter(id.eq(amber_store_id).and(user_id.eq(user_id))))
             .set(&update_data)
             .get_result(conn)
@@ -2481,6 +2526,18 @@ impl JobService {
             .map_err(AppError::DatabaseError)
     }
 
+    pub fn pipeline_exists(pool: &DbPool, pipeline_id: Uuid, user_id: Uuid) -> Result<bool, AppError> {
+        use crate::schema::pipelines::dsl::*;
+        let conn = &mut pool.get()?;
+        let exists = diesel::select(diesel::dsl::exists(
+            pipelines
+                .filter(id.eq(pipeline_id))
+                .filter(user_id.eq(user_id))
+        ))
+        .get_result(conn)?;
+        Ok(exists)
+    }
+
     pub fn start_job(pool: &DbPool, job_id: Uuid, user_id: Uuid) -> Result<Job, AppError> {
         // Implement the logic to start a job
         unimplemented!()
@@ -2676,6 +2733,80 @@ export const DataPill = Node.create<DataPillOptions>({
   },
 })==== END OF FILE: frontend/src//extensions/DataPill.ts ====
 
+==== START OF FILE: frontend/src//components/studio/editors/AmberStoreEditor.vue ====
+<template>
+    <div class="amber-store-editor">
+      <h3>{{ isNew ? 'Create' : 'Edit' }} Amber Store</h3>
+      <form @submit.prevent="handleSubmit">
+        <div>
+          <label for="data">Data (JSON):</label>
+          <textarea id="data" v-model="jsonData" rows="10" required></textarea>
+        </div>
+        <div>
+          <button type="submit">Save</button>
+          <button type="button" @click="$emit('cancel')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref, computed, watch } from 'vue';
+  
+  interface AmberStore {
+    id?: string;
+    data: any;
+  }
+  
+  const props = defineProps<{
+    data: AmberStore;
+  }>();
+  
+  const emit = defineEmits<{
+    (e: 'save', amberStore: AmberStore): void;
+    (e: 'cancel'): void;
+  }>();
+  
+  const editedAmberStore = ref<AmberStore>({ ...props.data });
+  const jsonData = ref(JSON.stringify(props.data.data, null, 2));
+  
+  const isNew = computed(() => !props.data.id);
+  
+  watch(() => props.data, (newData) => {
+    editedAmberStore.value = { ...newData };
+    jsonData.value = JSON.stringify(newData.data, null, 2);
+  }, { deep: true });
+  
+  const handleSubmit = () => {
+    try {
+      editedAmberStore.value.data = JSON.parse(jsonData.value);
+      emit('save', editedAmberStore.value);
+    } catch (error) {
+      alert('Invalid JSON data. Please check your input.');
+    }
+  };
+  </script>
+  
+  <style scoped>
+  .amber-store-editor {
+    margin-top: 20px;
+  }
+  form > div {
+    margin-bottom: 15px;
+  }
+  label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  textarea {
+    width: 100%;
+    padding: 5px;
+  }
+  button {
+    margin-right: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//components/studio/editors/AmberStoreEditor.vue ====
+
 ==== START OF FILE: frontend/src//components/studio/editors/PipelineEditor.vue ====
 <template>
     <div class="pipeline-editor">
@@ -2697,27 +2828,27 @@ export const DataPill = Node.create<DataPillOptions>({
         </div>
         <div class="button-group">
           <button type="submit" class="btn btn-primary">Save Pipeline</button>
+          <button type="button" @click="cancel" class="btn btn-secondary">Cancel</button>
         </div>
       </form>
     </div>
   </template>
-
+  
   <script lang="ts">
   import { defineComponent, ref, watch } from 'vue';
-  import JsonEditorWithPills from '@/components/JsonEditorWithPills.vue';
   import { useEditor, EditorContent } from '@tiptap/vue-3';
   import StarterKit from '@tiptap/starter-kit';
   import { DataPill } from '@/extensions/DataPill';
-
+  
   interface Pipeline {
     id?: string;
     name: string;
     data: any;
   }
-
+  
   export default defineComponent({
     name: 'PipelineEditor',
-    components: { JsonEditorWithPills, EditorContent },
+    components: { EditorContent },
     props: {
       data: {
         type: Object as () => Pipeline,
@@ -2728,49 +2859,53 @@ export const DataPill = Node.create<DataPillOptions>({
       const pipeline = ref<Pipeline>({ ...props.data });
       const isSaving = ref(false);
       const errorMessage = ref('');
-
+  
       const editor = useEditor({
         extensions: [StarterKit, DataPill],
-        content: pipeline.value.data,
+        content: pipeline.value.data || {
+          type: 'doc',
+          content: [],
+        },
       });
-
-      const insertDataPill = () => {
-        if (editor.value) {
-          editor.value.commands.insertDataPill('dynamic_value');
-        }
-      };
-
+  
       watch(
-        () => pipeline.value.data,
-        (_) => {
-          try {
-            // Assuming you want to stringify or handle changes accordingly
-            // For demonstration, not modifying pipeline.value.data
-            errorMessage.value = '';
-          } catch (e) {
-            errorMessage.value = 'Invalid JSON format.';
+        () => props.data,
+        (newValue) => {
+          pipeline.value = { ...newValue };
+          if (editor.value) {
+            editor.value.commands.setContent(newValue.data || { type: 'doc', content: [] });
           }
-        }
+        },
+        { deep: true }
       );
-
+  
       const savePipeline = () => {
-        if (errorMessage.value) return;
-        isSaving.value = true;
-        emit('save', pipeline.value);
+        if (editor.value) {
+          const updatedPipeline: Pipeline = {
+            id: pipeline.value.id, // 'id' may be undefined for new pipelines
+            name: pipeline.value.name,
+            data: editor.value.getJSON(), // Use getJSON for structured data
+          };
+          emit('save', updatedPipeline);
+        }
       };
-
+  
+      const cancel = () => {
+        emit('cancel');
+      };
+  
       return {
         pipeline,
         isSaving,
         errorMessage,
         savePipeline,
+        cancel,
         editor,
-        insertDataPill,
       };
     },
   });
   </script>
-
+  
   <style scoped>
   .pipeline-editor {
     padding: 20px;
@@ -2785,93 +2920,251 @@ export const DataPill = Node.create<DataPillOptions>({
 
 ==== START OF FILE: frontend/src//components/studio/editors/DockerFileEditor.vue ====
 <template>
-    <div class="dockerfile-editor">
-      <h2>Dockerfile Editor</h2>
-      <form @submit.prevent="saveDockerfile">
+    <div class="docker-file-editor">
+      <h3>{{ isNew ? 'Create' : 'Edit' }} Docker File</h3>
+      <form @submit.prevent="handleSubmit">
         <div>
           <label for="name">Name:</label>
-          <input type="text" id="name" v-model="dockerfile.name" required />
+          <input type="text" id="name" v-model="editedDockerFile.name" required>
         </div>
         <div>
           <label for="content">Content:</label>
-          <textarea id="content" v-model="dockerfile.content" rows="20" required></textarea>
+          <textarea id="content" v-model="editedDockerFile.content" rows="10" required></textarea>
         </div>
-        <button type="submit">Save Dockerfile</button>
+        <div>
+          <button type="submit">Save</button>
+          <button type="button" @click="$emit('cancel')">Cancel</button>
+        </div>
       </form>
     </div>
   </template>
   
-  <script lang="ts">
-  import { defineComponent, ref } from 'vue';
+  <script setup lang="ts">
+  import { ref, computed } from 'vue';
   
-  export default defineComponent({
-    name: 'DockerFileEditor',
-    props: {
-      data: {
-        type: Object,
-        required: true,
-      },
-    },
-    setup(props) {
-      const dockerfile = ref({ ...props.data });
+  interface DockerFile {
+    id?: string;
+    name: string;
+    content: string;
+  }
   
-      const saveDockerfile = () => {
-        // Implement save logic
-        console.log('Saving Dockerfile:', dockerfile.value);
-      };
+  const props = defineProps<{
+    dockerFile: DockerFile | null;
+  }>();
   
-      return {
-        dockerfile,
-        saveDockerfile,
-      };
-    },
+  const emit = defineEmits<{
+    (e: 'save', dockerFile: DockerFile): void;
+    (e: 'cancel'): void;
+  }>();
+  
+  const editedDockerFile = ref<DockerFile>({
+    id: props.dockerFile?.id,
+    name: props.dockerFile?.name || '',
+    content: props.dockerFile?.content || '',
   });
-  </script>==== END OF FILE: frontend/src//components/studio/editors/DockerFileEditor.vue ====
+  
+  const isNew = computed(() => !props.dockerFile?.id);
+  
+  const handleSubmit = () => {
+    emit('save', editedDockerFile.value);
+  };
+  </script>
+  
+  <style scoped>
+  .docker-file-editor {
+    margin-top: 20px;
+  }
+  form > div {
+    margin-bottom: 15px;
+  }
+  label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 5px;
+  }
+  button {
+    margin-right: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//components/studio/editors/DockerFileEditor.vue ====
+
+==== START OF FILE: frontend/src//components/studio/editors/JobEditor.vue ====
+<template>
+  <div class="job-editor">
+    <h3>{{ isNew ? 'Create' : 'Edit' }} Job</h3>
+    <form @submit.prevent="handleSubmit">
+      <div>
+        <label for="worker_type">Worker Type:</label>
+        <select id="worker_type" v-model="editedJob.worker_type" required>
+          <option v-for="dockerFile in dockerFiles" :key="dockerFile.id" :value="dockerFile.id">
+            {{ dockerFile.name }}
+          </option>
+        </select>
+        <router-link to="/studio/dockerfiles">Manage Docker Files</router-link>
+      </div>
+      <div>
+        <label for="config">Configuration:</label>
+        <select id="config" v-model="editedJob.config" required>
+          <option v-for="config in configurations" :key="config.id" :value="config.id">
+            {{ config.name }}
+          </option>
+        </select>
+        <router-link to="/studio/configurations">Manage Configurations</router-link>
+      </div>
+      <div>
+  <label for="pipeline">Pipeline:</label>
+  <select id="pipeline" v-model="editedJob.pipeline_id" required>
+    <option v-for="pipeline in pipelines" :key="pipeline.id" :value="pipeline.id">
+      {{ pipeline.name }}
+    </option>
+  </select>
+  <router-link to="/studio/pipelines">Manage Pipelines</router-link>
+</div>
+      <div>
+        <label for="amber_store">Amber Store:</label>
+        <select id="amber_store" v-model="editedJob.amber_id">
+          <option :value="null">None</option>
+          <option v-for="amberStore in amberStores" :key="amberStore.id" :value="amberStore.id">
+            {{ amberStore.id }}
+          </option>
+        </select>
+        <router-link to="/studio/amberstores">Manage Amber Stores</router-link>
+      </div>
+      <div>
+        <button type="submit">Save</button>
+        <button type="button" @click="$emit('cancel')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+
+interface Job {
+  id?: string;
+  config: any;
+  amber_id?: string | null;
+  state_file_content?: string | null;
+  data_path?: string;
+  worker_type: string;
+  triggers?: any;
+  timers?: any;
+  status: string;
+  pipeline_id: string;
+  results?: any;
+}
+
+const props = defineProps<{
+  data: Job;
+  dockerFiles: any[];
+  configurations: any[];
+  pipelines: any[];
+  amberStores: any[];
+}>();
+
+const emit = defineEmits<{
+  (e: 'save', job: Job): void;
+  (e: 'cancel'): void;
+}>();
+
+const editedJob = ref<Job>({ ...props.data });
+
+const isNew = computed(() => !props.data.id);
+
+watch(() => props.data, (newData) => {
+  editedJob.value = { ...newData };
+}, { deep: true });
+
+const handleSubmit = () => {
+  emit('save', editedJob.value);
+};
+</script>
+
+<style scoped>
+/* ... (keep existing styles) ... */
+</style>==== END OF FILE: frontend/src//components/studio/editors/JobEditor.vue ====
 
 ==== START OF FILE: frontend/src//components/studio/editors/ConfigurationEditor.vue ====
 <template>
     <div class="configuration-editor">
-      <h2>Configuration Editor</h2>
-      <form @submit.prevent="saveConfiguration">
+      <h3>{{ isNew ? 'Create' : 'Edit' }} Configuration</h3>
+      <form @submit.prevent="handleSubmit">
         <div>
           <label for="name">Name:</label>
-          <input type="text" id="name" v-model="config.name" required />
+          <input type="text" id="name" v-model="editedConfiguration.name" required>
         </div>
         <div>
-          <label for="data">Data:</label>
-          <textarea id="data" v-model="config.data" rows="10" required></textarea>
+          <label for="data">Data (JSON):</label>
+          <textarea id="data" v-model="jsonData" rows="10" required></textarea>
         </div>
-        <button type="submit">Save Configuration</button>
+        <div>
+          <button type="submit">Save</button>
+          <button type="button" @click="$emit('cancel')">Cancel</button>
+        </div>
       </form>
     </div>
   </template>
   
-  <script lang="ts">
-  import { defineComponent, ref } from 'vue';
+  <script setup lang="ts">
+  import { ref, computed, watch } from 'vue';
   
-  export default defineComponent({
-    name: 'ConfigurationEditor',
-    props: {
-      data: {
-        type: Object,
-        required: true,
-      },
-    },
-    setup(props) {
-      const config = ref({ ...props.data });
+  interface Configuration {
+    id?: string;
+    name: string;
+    data: any;
+  }
   
-      const saveConfiguration = () => {
-        // Implement save logic
-        console.log('Saving configuration:', config.value);
-      };
+  const props = defineProps<{
+    data: Configuration;
+  }>();
   
-      return {
-        config,
-        saveConfiguration,
-      };
-    },
-  });
-  </script>==== END OF FILE: frontend/src//components/studio/editors/ConfigurationEditor.vue ====
+  const emit = defineEmits<{
+    (e: 'save', configuration: Configuration): void;
+    (e: 'cancel'): void;
+  }>();
+  
+  const editedConfiguration = ref<Configuration>({ ...props.data });
+  const jsonData = ref(JSON.stringify(props.data.data, null, 2));
+  
+  const isNew = computed(() => !props.data.id);
+  
+  watch(() => props.data, (newData) => {
+    editedConfiguration.value = { ...newData };
+    jsonData.value = JSON.stringify(newData.data, null, 2);
+  }, { deep: true });
+  
+  const handleSubmit = () => {
+    try {
+      editedConfiguration.value.data = JSON.parse(jsonData.value);
+      emit('save', editedConfiguration.value);
+    } catch (error) {
+      alert('Invalid JSON data. Please check your input.');
+    }
+  };
+  </script>
+  
+  <style scoped>
+  .configuration-editor {
+    margin-top: 20px;
+  }
+  form > div {
+    margin-bottom: 15px;
+  }
+  label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 5px;
+  }
+  button {
+    margin-right: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//components/studio/editors/ConfigurationEditor.vue ====
 
 ==== START OF FILE: frontend/src//components/studio/JobList.vue ====
 <template>
@@ -3092,6 +3385,9 @@ p {
           </li>
           <li>
             <router-link to="/studio/pipelines">Pipelines</router-link>
+          </li>
+          <li>
+            <router-link to="/studio/dockerfiles">Docker Files</router-link>
           </li>
           <li>
             <router-link to="/studio/settings">Settings</router-link>
@@ -3623,13 +3919,13 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';=
   </style>==== END OF FILE: frontend/src//views/studio/PipelineDetails.vue ====
 
 ==== START OF FILE: frontend/src//views/studio/PipelineCreate.vue ====
-<!-- frontend/src/views/studio/PipelineCreate.vue -->
 <template>
     <div class="pipeline-create">
       <h1>Create Pipeline</h1>
       <PipelineEditor
         :data="pipeline"
         @save="createPipeline"
+        @cancel="closeEditor"
       />
       <p v-if="isLoading" class="loading">Creating pipeline...</p>
     </div>
@@ -3649,7 +3945,10 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';=
   const router = useRouter();
   const pipeline = ref<Pipeline>({
     name: '',
-    data: {},
+    data: {
+      type: 'doc',
+      content: [],
+    },
   });
   const isLoading = ref(false);
   
@@ -3663,6 +3962,10 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';=
     } finally {
       isLoading.value = false;
     }
+  };
+  
+  const closeEditor = () => {
+    // Implement modal close if necessary
   };
   </script>
   
@@ -3728,14 +4031,95 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';=
   }
   </style>==== END OF FILE: frontend/src//views/studio/Dashboard.vue ====
 
+==== START OF FILE: frontend/src//views/studio/DockerFileEditor.vue ====
+<!-- frontend/src/views/studio/DockerFileEdit.vue -->
+<template>
+    <div v-if="dockerFile" class="docker-file-edit">
+      <h1>Edit Docker File</h1>
+      <DockerFileEditor
+        :dockerFile="dockerFile"
+        @save="updateDockerFile"
+        @cancel="cancelEdit"
+      />
+      <p v-if="isLoading" class="loading">Updating Docker file...</p>
+    </div>
+    <div v-else>
+      <p>Loading Docker file details...</p>
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref, onMounted } from 'vue';
+  import { useRoute, useRouter } from 'vue-router';
+  import DockerFileEditor from '@/components/studio/editors/DockerFileEditor.vue';
+  import apiClient from '@/services/apiClient';
+  
+  interface DockerFile {
+    id?: string;
+    name: string;
+    content: string;
+  }
+  
+  const route = useRoute();
+  const router = useRouter();
+  const dockerFile = ref<DockerFile | null>(null);
+  const isLoading = ref(false);
+  
+  const fetchDockerFile = async () => {
+    try {
+      const response = await apiClient.get(`/docker_files/${route.params.id}`);
+      dockerFile.value = response.data;
+    } catch (error: any) {
+      console.error('Failed to load Docker file details:', error);
+    }
+  };
+  
+  const updateDockerFile = async (updatedDockerFile: DockerFile) => {
+    if (!dockerFile.value) return;
+    isLoading.value = true;
+    try {
+      await apiClient.put(`/docker_files/${dockerFile.value.id}`, updatedDockerFile);
+      router.push(`/studio/dockerfiles/${dockerFile.value.id}`);
+    } catch (error: any) {
+      console.error('Failed to update Docker file:', error);
+      alert('Failed to update the Docker file. Please try again.');
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  const cancelEdit = () => {
+    if (dockerFile.value) {
+      router.push(`/studio/dockerfiles/${dockerFile.value.id}`);
+    } else {
+      router.push('/studio/dockerfiles');
+    }
+  };
+  
+  onMounted(() => {
+    fetchDockerFile();
+  });
+  </script>
+  
+  <style scoped>
+  .docker-file-edit {
+    padding: 20px;
+  }
+  
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/DockerFileEditor.vue ====
+
 ==== START OF FILE: frontend/src//views/studio/PipelineEdit.vue ====
-<!-- frontend/src/views/studio/PipelineEdit.vue -->
 <template>
     <div v-if="pipeline" class="pipeline-edit">
       <h1>Edit Pipeline</h1>
       <PipelineEditor
         :data="pipeline"
         @save="updatePipeline"
+        @cancel="closeEditor"
       />
       <p v-if="isLoading" class="loading">Updating pipeline...</p>
     </div>
@@ -3783,6 +4167,10 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';=
     }
   };
   
+  const closeEditor = () => {
+    // Implement modal close if necessary
+  };
+  
   onMounted(() => {
     fetchPipeline();
   });
@@ -3827,371 +4215,516 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';=
   }
   </style>==== END OF FILE: frontend/src//views/studio/PipelineEdit.vue ====
 
-==== START OF FILE: frontend/src//views/studio/JobCreate.vue ====
+==== START OF FILE: frontend/src//views/studio/Jobs.vue ====
 <template>
-    <div class="job-create">
-      <h2>Create New Job</h2>
-      <form @submit.prevent="createJob">
-        <div>
-          <label for="uri">URI:</label>
-          <input type="text" id="uri" v-model="job.uri" required />
-        </div>
-        <div>
-          <label for="worker_type">Worker Type:</label>
-          <input type="text" id="worker_type" v-model="job.worker_type" required />
-        </div>
-        <!-- Add more fields as necessary -->
-        <button type="submit">Create</button>
-      </form>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-      <p v-if="isLoading">Creating job...</p>
-    </div>
-  </template>
-  
-  <script setup lang="ts">
-  import { ref } from 'vue';
-  import { useRouter } from 'vue-router';
-  import apiClient from '@/services/apiClient';
-  
-  interface Job {
-    uri: string;
-    worker_type: string;
-    // ... other properties
-  }
-  
-  const job = ref<Job>({
-    uri: '',
-    worker_type: '',
-    // ... initialize other properties
-  });
-  
-  const router = useRouter();
-  const errorMessage = ref('');
-  const isLoading = ref(false);
-  
-  const createJob = async () => {
-    isLoading.value = true;
-    errorMessage.value = '';
-    try {
-      await apiClient.post('/jobs', job.value); // Adjust endpoint if needed
-      router.push('/studio/jobs');
-    } catch (error: any) {
-      console.error('Failed to create job:', error);
-      errorMessage.value = error.response?.data?.message || 'Failed to create job.';
-    } finally {
-      isLoading.value = false;
-    }
-  };
-  </script>
-  
-  <style scoped>
-  .job-create {
-    padding: 20px;
-  }
-  
-  .job-create form {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .job-create label {
-    margin-bottom: 5px;
-  }
-  
-  .job-create input {
-    margin-bottom: 15px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-  }
-  
-  .job-create button {
-    padding: 10px;
-    background-color: #2c3e50;
-    color: #ecf0f1;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-  }
-  
-  .job-create button:disabled {
-    background-color: #95a5a6;
-    cursor: not-allowed;
-  }
-  
-  .error {
-    color: red;
-    margin-top: 10px;
-  }
-  
-  .loading {
-    color: #3498db;
-    margin-top: 10px;
-  }
-  </style>==== END OF FILE: frontend/src//views/studio/JobCreate.vue ====
-
-==== START OF FILE: frontend/src//views/studio/JobDetails.vue ====
-<template>
-    <div class="job-create">
-      <h2>Create New Job</h2>
-      <form @submit.prevent="createJob">
-        <div>
-          <label for="uri">URI:</label>
-          <input type="text" id="uri" v-model="job.uri" required />
-        </div>
-        <div>
-          <label for="worker_type">Worker Type:</label>
-          <input type="text" id="worker_type" v-model="job.worker_type" required />
-        </div>
-        <!-- Add more fields as necessary -->
-        <button type="submit">Create</button>
-      </form>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-      <p v-if="isLoading">Creating job...</p>
-    </div>
-  </template>
-  
-  <script setup lang="ts">
-  import { ref } from 'vue';
-  import { useRouter } from 'vue-router';
-  import apiClient from '@/services/apiClient';
-  
-  interface Job {
-    uri: string;
-    worker_type: string;
-    // ... other properties
-  }
-  
-  const job = ref<Job>({
-    uri: '',
-    worker_type: '',
-    // ... initialize other properties
-  });
-  
-  const router = useRouter();
-  const errorMessage = ref('');
-  const isLoading = ref(false);
-  
-  const createJob = async () => {
-    isLoading.value = true;
-    errorMessage.value = '';
-    try {
-      await apiClient.post('/jobs', job.value); // Adjust endpoint if needed
-      router.push('/studio/jobs');
-    } catch (error: any) {
-      console.error('Failed to create job:', error);
-      errorMessage.value = error.response?.data?.message || 'Failed to create job.';
-    } finally {
-      isLoading.value = false;
-    }
-  };
-  </script>
-  
-  <style scoped>
-  .job-create {
-    padding: 20px;
-  }
-  
-  .job-create form {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .job-create label {
-    margin-bottom: 5px;
-  }
-  
-  .job-create input {
-    margin-bottom: 15px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-  }
-  
-  .job-create button {
-    padding: 10px;
-    background-color: #2c3e50;
-    color: #ecf0f1;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-  }
-  
-  .job-create button:disabled {
-    background-color: #95a5a6;
-    cursor: not-allowed;
-  }
-  
-  .error {
-    color: red;
-    margin-top: 10px;
-  }
-  
-  .loading {
-    color: #3498db;
-    margin-top: 10px;
-  }
-  </style>==== END OF FILE: frontend/src//views/studio/JobDetails.vue ====
-
-==== START OF FILE: frontend/src//views/studio/JobsList.vue ====
-<template>
-  <div class="job-list">
-    <h2>Job List</h2>
-    <table>
+  <div class="jobs">
+    <h2>Jobs</h2>
+    <button @click="showEditor = true" class="create-button">Create New Job</button>
+    <table v-if="jobs.length">
       <thead>
         <tr>
-          <th>ID</th>
           <th>URI</th>
           <th>Worker Type</th>
+          <th>Configuration</th>
+          <th>Pipeline</th>
+          <th>Amber Store</th>
+          <th>Status</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="job in jobs" :key="job.id">
           <td>{{ job.id }}</td>
-          <td>{{ job.uri }}</td>
-          <td>{{ job.worker_type }}</td>
+          <td>{{ getDockerFileName(job.worker_type) }}</td>
+          <td>{{ getConfigurationName(job.config) }}</td>
+          <td>{{ getPipelineName(job.pipeline_id) }}</td>
+          <td>{{ job.amber_id || 'N/A' }}</td>
+          <td>{{ job.status }}</td>
           <td>
-            <router-link :to="`/admin/jobs/${job.id}`">View</router-link> |
-            <router-link :to="`/admin/jobs/${job.id}/edit`">Edit</router-link> |
-            <button @click="deleteJob(job.id)" class="delete-button">Delete</button>
+            <button @click="editJob(job)" class="edit-button">Edit</button>
+            <button @click="job.id && deleteJob(job.id)" class="delete-button">Delete</button>
+            <button @click="job.id && startJob(job.id)" class="start-button">Start</button>
+            <button @click="job.id && stopJob(job.id)" class="stop-button">Stop</button>
           </td>
         </tr>
       </tbody>
     </table>
-    <p v-if="jobs.length === 0">No jobs available.</p>
-    <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-    <p v-if="isLoading">Loading jobs...</p>
+    <p v-else>No jobs available.</p>
+    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="isLoading" class="loading">Loading...</p>
+
+    <JobEditor
+      v-if="showEditor"
+      :data="selectedJob"
+      :dockerFiles="dockerFiles"
+      :configurations="configurations"
+      :pipelines="pipelines"
+      :amberStores="amberStores"
+      @save="handleSave"
+      @cancel="showEditor = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import JobEditor from '@/components/studio/editors/JobEditor.vue';
 import apiClient from '@/services/apiClient';
 
 interface Job {
-  id: number;
-  uri: string;
-  config: any; // Replace with the actual type of your job config
+  id?: string;
+  config: any;
+  amber_id?: string | null;
+  state_file_content?: string | null;
+  data_path?: string;
   worker_type: string;
-  // ... other properties
+  triggers?: any;
+  timers?: any;
+  status: string;
+  pipeline_id: string;
+  results?: any;
 }
 
 const jobs = ref<Job[]>([]);
-const isLoading = ref(true);
-const errorMessage = ref('');
+const showEditor = ref(false);
+const selectedJob = ref<Job>({
+  worker_type: '',
+  config: {},
+  data_path: '',
+  amber_id: null,
+  status: '',
+  pipeline_id: '',
+  state_file_content: null,
+  triggers: null,
+  timers: null,
+  results: null
+});
+const error = ref<string | null>(null);
+const isLoading = ref(false);
+
+const dockerFiles = ref<{ id: string; name: string }[]>([]);
+const configurations = ref<{ id: string; name: string }[]>([]);
+const pipelines = ref<{ id: string; name: string }[]>([]);
+const amberStores = ref<{ id: string }[]>([]);
 
 const fetchJobs = async () => {
+  isLoading.value = true;
+  error.value = null;
   try {
-    const response = await apiClient.get('/jobs'); // Adjust endpoint if needed
+    const response = await apiClient.get('/jobs');
     jobs.value = response.data;
-  } catch (error: any) {
-    console.error('Failed to fetch jobs:', error);
-    errorMessage.value = error.response?.data?.message || 'Failed to load jobs.';
+  } catch (err: any) {
+    error.value = 'Failed to fetch jobs. Please try again.';
+    console.error('Error fetching jobs:', err);
   } finally {
     isLoading.value = false;
   }
 };
 
-const deleteJob = async (id: number) => {
-  if (!confirm('Are you sure you want to delete this job?')) return;
+const fetchRelatedData = async () => {
   try {
-    await apiClient.delete(`/jobs/${id}`); // Adjust endpoint if needed
-    jobs.value = jobs.value.filter(job => job.id !== id);
-  } catch (error) {
-    console.error('Failed to delete job:', error);
-    alert('Failed to delete the job. Please try again.');
+    const [dockerFilesRes, configurationsRes, pipelinesRes, amberStoresRes] = await Promise.all([
+      apiClient.get<{ id: string; name: string }[]>('/docker_files'),
+      apiClient.get<{ id: string; name: string }[]>('/configurations'),
+      apiClient.get<{ id: string; name: string }[]>('/pipelines'),
+      apiClient.get<{ id: string }[]>('/amber_store')
+    ]);
+    dockerFiles.value = dockerFilesRes.data;
+    configurations.value = configurationsRes.data;
+    pipelines.value = pipelinesRes.data;
+    amberStores.value = amberStoresRes.data;
+  } catch (err: any) {
+    console.error('Error fetching related data:', err);
+  }
+};
+
+const getDockerFileName = (id: string) => {
+  const dockerFile = dockerFiles.value.find(df => df.id === id);
+  return dockerFile ? dockerFile.name : 'Unknown';
+};
+
+const getConfigurationName = (id: string) => {
+  const configuration = configurations.value.find(c => c.id === id);
+  return configuration ? configuration.name : 'Unknown';
+};
+
+const getPipelineName = (id: string) => {
+  const pipeline = pipelines.value.find(p => p.id === id);
+  return pipeline ? pipeline.name : 'Unknown';
+};
+
+const editJob = (job: Job) => {
+  selectedJob.value = { ...job };
+  showEditor.value = true;
+};
+
+const handleSave = async (job: Job) => {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    if (job.id) {
+      await apiClient.put(`/jobs/${job.id}`, job);
+    } else {
+      const newJob = {
+        config: job.config,
+        amber_id: job.amber_id,
+        state_file_content: job.state_file_content,
+        data_path: job.data_path,
+        worker_type: job.worker_type,
+        triggers: job.triggers,
+        timers: job.timers,
+        status: job.status,
+        pipeline_id: job.pipeline_id,
+        results: job.results
+      };
+      console.log('Job data being sent:', newJob);
+      await apiClient.post('/jobs', newJob);
+    }
+    await fetchJobs();
+    showEditor.value = false;
+  } catch (err: any) {
+    error.value = 'Failed to save job. Please try again.';
+    console.error('Error saving job:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const deleteJob = async (id: string) => {
+  if (!confirm('Are you sure you want to delete this job?')) return;
+  isLoading.value = true;
+  error.value = null;
+  try {
+    await apiClient.delete(`/jobs/${id}`);
+    await fetchJobs();
+  } catch (err: any) {
+    error.value = 'Failed to delete job. Please try again.';
+    console.error('Error deleting job:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const startJob = async (id: string) => {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    await apiClient.post(`/jobs/${id}/start`);
+    await fetchJobs();
+  } catch (err: any) {
+    error.value = 'Failed to start job. Please try again.';
+    console.error('Error starting job:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const stopJob = async (id: string) => {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    await apiClient.post(`/jobs/${id}/stop`);
+    await fetchJobs();
+  } catch (err: any) {
+    error.value = 'Failed to stop job. Please try again.';
+    console.error('Error stopping job:', err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
 onMounted(() => {
   fetchJobs();
+  fetchRelatedData();
 });
 </script>
 
 <style scoped>
-.job-list {
-  padding: 20px;
-}
+/* ... (keep existing styles) ... */
+</style>==== END OF FILE: frontend/src//views/studio/Jobs.vue ====
 
-.job-list table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.job-list th,
-.job-list td {
-  border: 1px solid #ddd;
-  padding: 8px;
-}
-
-.job-list th {
-  background-color: #f2f2f2;
-  text-align: left;
-}
-
-.delete-button {
-  background-color: #c0392b;
-  color: #fff;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.delete-button:hover {
-  background-color: #e74c3c;
-}
-
-.error {
-  color: red;
-}
-
-p {
-  margin-top: 20px;
-}
-
-.loading {
-  color: #3498db;
-}
-</style>==== END OF FILE: frontend/src//views/studio/JobsList.vue ====
-
-==== START OF FILE: frontend/src//views/studio/Jobs.vue ====
+==== START OF FILE: frontend/src//views/studio/Configurations.vue ====
 <template>
-  <div class="jobs">
-    <h1>Manage Jobs</h1>
-    <router-link to="/studio/jobs/create" class="create-button">Create New Job</router-link>
-    <JobList />
+    <div class="configurations">
+      <h2>Configurations</h2>
+      <button @click="showEditor = true" class="create-button">Create New Configuration</button>
+      <table v-if="configurations.length">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="configuration in configurations" :key="configuration.id">
+            <td>{{ configuration.name }}</td>
+            <td>
+              <button @click="editConfiguration(configuration)" class="edit-button">Edit</button>
+              <button @click="configuration.id && deleteConfiguration(configuration.id)" class="delete-button">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else>No configurations available.</p>
+      <p v-if="error" class="error">{{ error }}</p>
+      <p v-if="isLoading" class="loading">Loading...</p>
+  
+      <ConfigurationEditor
+        v-if="showEditor"
+        :data="selectedConfiguration"
+        @save="handleSave"
+        @cancel="showEditor = false"
+      />
+    </div>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref, onMounted } from 'vue';
+  import ConfigurationEditor from '@/components/studio/editors/ConfigurationEditor.vue';
+  import apiClient from '@/services/apiClient';
+  
+  interface Configuration {
+    id?: string;
+    name: string;
+    data: any;
+  }
+  
+  const configurations = ref<Configuration[]>([]);
+  const showEditor = ref(false);
+  const selectedConfiguration = ref<Configuration>({ name: '', data: {} });
+  const error = ref<string | null>(null);
+  const isLoading = ref(false);
+  
+  const fetchConfigurations = async () => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await apiClient.get('/configurations');
+      configurations.value = response.data;
+    } catch (err: any) {
+      error.value = 'Failed to fetch configurations. Please try again.';
+      console.error('Error fetching configurations:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  const editConfiguration = (configuration: Configuration) => {
+    selectedConfiguration.value = { ...configuration };
+    showEditor.value = true;
+  };
+  
+  const handleSave = async (configuration: Configuration) => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      if (configuration.id) {
+        await apiClient.put(`/configurations/${configuration.id}`, configuration);
+      } else {
+        await apiClient.post('/configurations', configuration);
+      }
+      await fetchConfigurations();
+      showEditor.value = false;
+    } catch (err: any) {
+      error.value = 'Failed to save configuration. Please try again.';
+      console.error('Error saving configuration:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  const deleteConfiguration = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this configuration?')) return;
+    isLoading.value = true;
+    error.value = null;
+    try {
+      await apiClient.delete(`/configurations/${id}`);
+      await fetchConfigurations();
+    } catch (err: any) {
+      error.value = 'Failed to delete configuration. Please try again.';
+      console.error('Error deleting configuration:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  onMounted(fetchConfigurations);
+  </script>
+  
+  <style scoped>
+  .configurations {
+    padding: 20px;
+  }
+  .create-button {
+    margin-bottom: 15px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background-color: #f2f2f2;
+  }
+  .edit-button, .delete-button {
+    margin-right: 5px;
+  }
+  .error {
+    color: red;
+    margin-top: 10px;
+  }
+  .loading {
+    color: #3498db;
+    margin-top: 10px;
+  }
+  </style>==== END OF FILE: frontend/src//views/studio/Configurations.vue ====
+
+==== START OF FILE: frontend/src//views/studio/DockerFiles.vue ====
+<template>
+  <div class="docker-files">
+    <h2>Docker Files</h2>
+    <button @click="showEditor = true" class="create-button">Create New Docker File</button>
+    <table v-if="dockerFiles.length">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="dockerFile in dockerFiles" :key="dockerFile.id">
+          <td>{{ dockerFile.name }}</td>
+          <td>
+            <button @click="editDockerFile(dockerFile)" class="edit-button">Edit</button>
+            <button @click="dockerFile.id && deleteDockerFile(dockerFile.id)" class="delete-button">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p v-else>No Docker files available.</p>
+    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="isLoading" class="loading">Loading...</p>
+
+    <DockerFileEditor
+      v-if="showEditor"
+      :dockerFile="selectedDockerFile"
+      @save="handleSave"
+      @cancel="showEditor = false"
+    />
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
-import JobList from '@/components/studio/JobList.vue';
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import DockerFileEditor from '@/components/studio/editors/DockerFileEditor.vue';
+import apiClient from '@/services/apiClient';
 
-export default defineComponent({
-  name: 'Jobs',
-  components: {
-    JobList,
-  },
-});
+interface DockerFile {
+  id?: string;
+  name: string;
+  content: string;
+}
+
+const dockerFiles = ref<DockerFile[]>([]);
+const showEditor = ref(false);
+const selectedDockerFile = ref<DockerFile | null>(null);
+const error = ref<string | null>(null);
+const isLoading = ref(false);
+
+const fetchDockerFiles = async () => {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    const response = await apiClient.get('/docker_files');
+    dockerFiles.value = response.data;
+  } catch (err: any) {
+    error.value = 'Failed to fetch Docker files. Please try again.';
+    console.error('Error fetching Docker files:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+
+
+
+const editDockerFile = (dockerFile: DockerFile) => {
+  selectedDockerFile.value = { ...dockerFile };
+  showEditor.value = true;
+};
+
+const handleSave = async (dockerFile: DockerFile) => {
+  isLoading.value = true;
+  error.value = null;
+  try {
+    if (dockerFile.id) {
+      await apiClient.put(`/docker_files/${dockerFile.id}`, dockerFile);
+    } else {
+      await apiClient.post('/docker_files', dockerFile);
+    }
+    await fetchDockerFiles();
+    showEditor.value = false;
+  } catch (err: any) {
+    error.value = 'Failed to save Docker file. Please try again.';
+    console.error('Error saving Docker file:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const deleteDockerFile = async (id: string) => {
+  if (!confirm('Are you sure you want to delete this Docker file?')) return;
+  isLoading.value = true;
+  error.value = null;
+  try {
+    await apiClient.delete(`/docker_files/${id}`);
+    await fetchDockerFiles();
+  } catch (err: any) {
+    error.value = 'Failed to delete Docker file. Please try again.';
+    console.error('Error deleting Docker file:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+onMounted(fetchDockerFiles);
 </script>
 
 <style scoped>
-.jobs {
+.docker-files {
   padding: 20px;
 }
-
 .create-button {
-  background-color: #27ae60;
-  color: #fff;
-  padding: 8px 12px;
-  border-radius: 5px;
-  text-decoration: none;
   margin-bottom: 15px;
-  display: inline-block;
 }
-</style>==== END OF FILE: frontend/src//views/studio/Jobs.vue ====
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+th {
+  background-color: #f2f2f2;
+}
+.edit-button, .delete-button {
+  margin-right: 5px;
+}
+.error {
+  color: red;
+  margin-top: 10px;
+}
+.loading {
+  color: #3498db;
+  margin-top: 10px;
+}
+</style>==== END OF FILE: frontend/src//views/studio/DockerFiles.vue ====
 
 ==== START OF FILE: frontend/src//views/studio/Pipelines.vue ====
 <template>
@@ -4240,6 +4773,11 @@ export default defineComponent({
     data: any;
   }
   
+  interface NewPipeline {
+    name: string;
+    data: any;
+  }
+  
   export default defineComponent({
     name: 'Pipelines',
     components: {
@@ -4248,7 +4786,7 @@ export default defineComponent({
     setup() {
       const pipelines = ref<Pipeline[]>([]);
       const showEditor = ref(false);
-      const selectedPipeline = ref<Pipeline | null>(null);
+      const selectedPipeline = ref<Pipeline | NewPipeline | null>(null);
   
       const fetchPipelines = async () => {
         try {
@@ -4260,27 +4798,37 @@ export default defineComponent({
       };
   
       const addPipeline = () => {
-        selectedPipeline.value = { id: '', name: '', data: {} };
+        selectedPipeline.value = {
+          name: '',
+          data: {
+            type: 'doc',
+            content: [],
+          },
+        };
         showEditor.value = true;
       };
   
-      const handleSave = async (pipeline: Pipeline) => {
-        try {
-          if (pipeline.id) {
-            // Update existing pipeline
-            await apiClient.put(`/pipelines/${pipeline.id}`, pipeline);
-          } else {
-            // Create new pipeline
-            const response = await apiClient.post('/pipelines', pipeline);
-            pipeline.id = response.data.id;
-            pipelines.value.push(pipeline);
-          }
-          await fetchPipelines();
-          closeEditor();
-        } catch (error: any) {
-          console.error('Failed to save pipeline:', error);
-        }
-      };
+      function isExistingPipeline(pipeline: Pipeline | NewPipeline): pipeline is Pipeline {
+  return (pipeline as Pipeline).id !== undefined;
+}
+
+const handleSave = async (pipeline: Pipeline | NewPipeline) => {
+  try {
+    if (isExistingPipeline(pipeline)) {
+      // Update existing pipeline
+      await apiClient.put(`/pipelines/${pipeline.id}`, pipeline);
+    } else {
+      // Create new pipeline without `id`
+      const response = await apiClient.post('/pipelines', pipeline);
+      const createdPipeline: Pipeline = response.data;
+      pipelines.value.push(createdPipeline);
+    }
+    await fetchPipelines();
+    closeEditor();
+  } catch (error: any) {
+    console.error('Failed to save pipeline:', error);
+  }
+};
   
       const closeEditor = () => {
         showEditor.value = false;
@@ -4394,108 +4942,144 @@ export default defineComponent({
   }
   </style>==== END OF FILE: frontend/src//views/studio/Pipelines.vue ====
 
-==== START OF FILE: frontend/src//views/studio/JobEdit.vue ====
+==== START OF FILE: frontend/src//views/studio/AmberStores.vue ====
 <template>
-    <div class="job-create">
-      <h2>Create New Job</h2>
-      <form @submit.prevent="createJob">
-        <div>
-          <label for="uri">URI:</label>
-          <input type="text" id="uri" v-model="job.uri" required />
-        </div>
-        <div>
-          <label for="worker_type">Worker Type:</label>
-          <input type="text" id="worker_type" v-model="job.worker_type" required />
-        </div>
-        <!-- Add more fields as necessary -->
-        <button type="submit">Create</button>
-      </form>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-      <p v-if="isLoading">Creating job...</p>
+    <div class="amber-stores">
+      <h2>Amber Stores</h2>
+      <button @click="showEditor = true" class="create-button">Create New Amber Store</button>
+      <table v-if="amberStores.length">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="amberStore in amberStores" :key="amberStore.id">
+            <td>{{ amberStore.id }}</td>
+            <td>
+              <button @click="editAmberStore(amberStore)" class="edit-button">Edit</button>
+              <button @click="amberStore.id && deleteAmberStore(amberStore.id)" class="delete-button">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else>No amber stores available.</p>
+      <p v-if="error" class="error">{{ error }}</p>
+      <p v-if="isLoading" class="loading">Loading...</p>
+  
+      <AmberStoreEditor
+        v-if="showEditor"
+        :data="selectedAmberStore"
+        @save="handleSave"
+        @cancel="showEditor = false"
+      />
     </div>
   </template>
   
   <script setup lang="ts">
-  import { ref } from 'vue';
-  import { useRouter } from 'vue-router';
+  import { ref, onMounted } from 'vue';
+  import AmberStoreEditor from '@/components/studio/editors/AmberStoreEditor.vue';
   import apiClient from '@/services/apiClient';
   
-  interface Job {
-    uri: string;
-    worker_type: string;
-    // ... other properties
+  interface AmberStore {
+    id?: string;
+    data: any;
   }
   
-  const job = ref<Job>({
-    uri: '',
-    worker_type: '',
-    // ... initialize other properties
-  });
-  
-  const router = useRouter();
-  const errorMessage = ref('');
+  const amberStores = ref<AmberStore[]>([]);
+  const showEditor = ref(false);
+  const selectedAmberStore = ref<AmberStore>({ data: {} });
+  const error = ref<string | null>(null);
   const isLoading = ref(false);
   
-  const createJob = async () => {
+  const fetchAmberStores = async () => {
     isLoading.value = true;
-    errorMessage.value = '';
+    error.value = null;
     try {
-      await apiClient.post('/jobs', job.value); // Adjust endpoint if needed
-      router.push('/studio/jobs');
-    } catch (error: any) {
-      console.error('Failed to create job:', error);
-      errorMessage.value = error.response?.data?.message || 'Failed to create job.';
+      const response = await apiClient.get('/amber_store');
+      amberStores.value = response.data;
+    } catch (err: any) {
+      error.value = 'Failed to fetch amber stores. Please try again.';
+      console.error('Error fetching amber stores:', err);
     } finally {
       isLoading.value = false;
     }
   };
+  
+  const editAmberStore = (amberStore: AmberStore) => {
+    selectedAmberStore.value = { ...amberStore };
+    showEditor.value = true;
+  };
+  
+  const handleSave = async (amberStore: AmberStore) => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      if (amberStore.id) {
+        await apiClient.put(`/amber_store/${amberStore.id}`, amberStore);
+      } else {
+        await apiClient.post('/amber_store', amberStore);
+      }
+      await fetchAmberStores();
+      showEditor.value = false;
+    } catch (err: any) {
+      error.value = 'Failed to save amber store. Please try again.';
+      console.error('Error saving amber store:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  const deleteAmberStore = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this amber store?')) return;
+    isLoading.value = true;
+    error.value = null;
+    try {
+      await apiClient.delete(`/amber_store/${id}`);
+      await fetchAmberStores();
+    } catch (err: any) {
+      error.value = 'Failed to delete amber store. Please try again.';
+      console.error('Error deleting amber store:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  onMounted(fetchAmberStores);
   </script>
   
   <style scoped>
-  .job-create {
+  .amber-stores {
     padding: 20px;
   }
-  
-  .job-create form {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .job-create label {
-    margin-bottom: 5px;
-  }
-  
-  .job-create input {
+  .create-button {
     margin-bottom: 15px;
-    padding: 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
     border: 1px solid #ddd;
-    border-radius: 3px;
+    padding: 8px;
+    text-align: left;
   }
-  
-  .job-create button {
-    padding: 10px;
-    background-color: #2c3e50;
-    color: #ecf0f1;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
+  th {
+    background-color: #f2f2f2;
   }
-  
-  .job-create button:disabled {
-    background-color: #95a5a6;
-    cursor: not-allowed;
+  .edit-button, .delete-button {
+    margin-right: 5px;
   }
-  
   .error {
     color: red;
     margin-top: 10px;
   }
-  
   .loading {
     color: #3498db;
     margin-top: 10px;
   }
-  </style>==== END OF FILE: frontend/src//views/studio/JobEdit.vue ====
+  </style>==== END OF FILE: frontend/src//views/studio/AmberStores.vue ====
 
 ==== START OF FILE: frontend/src//views/Login.vue ====
 <template>
@@ -4571,6 +5155,9 @@ export default defineComponent({
         <router-link to="/studio/dashboard">Dashboard</router-link>
         <router-link to="/studio/jobs">Jobs</router-link>
         <router-link to="/studio/pipelines">Pipelines</router-link>
+        <router-link to="/studio/dockerfiles">Docker Files</router-link>
+        <router-link to="/studio/configurations">Configurations</router-link>
+        <router-link to="/studio/amberstores">Amber Stores</router-link>
         <!-- Include other navigation links as needed -->
       </nav>
       <main class="studio-main">
@@ -4730,226 +5317,6 @@ export default defineComponent({
   margin-top: 10px;
 }
 </style>==== END OF FILE: frontend/src//views/admin/Login.vue ====
-
-==== START OF FILE: frontend/src//views/admin/JobCreate.vue ====
-<script setup lang="ts">
-import axios from 'axios';
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-
-interface Job {
-  uri: string;
-  config: any; // Replace with the actual type of your job config
-  worker_type: string;
-  // ... other properties
-}
-
-const router = useRouter();
-const newJob = ref<Job>({
-  uri: '',
-  config: {},
-  worker_type: '',
-  // ... initialize other properties
-});
-
-const createJob = async () => {
-  try {
-    await axios.post('/jobs', newJob.value);
-    router.push('/admin/jobs'); // Redirect to job list after successful creation
-  } catch (error) {
-    console.error(error);
-    // Handle error, e.g., display an error message to the user
-  }
-};
-</script>
-
-<template>
-  <div>
-    <h1>Create Job</h1>
-    <form @submit.prevent="createJob">
-      <label for="uri">URI:</label>
-      <input type="text" id="uri" v-model="newJob.uri" />
-
-      <!-- ... input fields for other job properties ... -->
-
-      <button type="submit">Create</button>
-    </form>
-  </div>
-</template>==== END OF FILE: frontend/src//views/admin/JobCreate.vue ====
-
-==== START OF FILE: frontend/src//views/admin/JobList.vue ====
-<script setup lang="ts">
-import axios from 'axios';
-import { ref, onMounted } from 'vue';
-import { API_URL } from '@/config';
-
-interface Job {
-  id: number;
-  uri: string;
-  config: any; // Replace with the actual type of your job config
-  worker_type: string;
-  // ... other properties
-}
-
-const jobs = ref<Job[]>([]);
-
-onMounted(async () => {
-  try {
-    const response = await axios.get(`${API_URL}/jobs`);
-    jobs.value = response.data;
-  } catch (error) {
-    console.error('Failed to fetch jobs:', error);
-    // Optionally, set an error message to display to the user
-  }
-});
-</script>
-
-<template>
-  <div>
-    <h1>Jobs</h1>
-    <ul>
-      <li v-for="job in jobs" :key="job.id">
-        <router-link :to="`/admin/jobs/${job.id}`">{{ job.uri }}</router-link>
-      </li>
-    </ul>
-    <p v-if="jobs.length === 0">No jobs available.</p>
-  </div>
-</template>==== END OF FILE: frontend/src//views/admin/JobList.vue ====
-
-==== START OF FILE: frontend/src//views/admin/JobDetails.vue ====
-<script setup lang="ts">
-import axios from 'axios';
-import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { API_URL } from '@/config';
-
-interface Job {
-  id: number;
-  uri: string;
-  config: any; // Replace with the actual type of your job config
-  worker_type: string;
-  // ... other properties
-}
-
-const route = useRoute();
-const job = ref<Job | null>(null);
-
-onMounted(async () => {
-  try {
-    const response = await axios.get(`${API_URL}/jobs/${route.params.id}`);
-    job.value = response.data;
-  } catch (error) {
-    console.error('Failed to fetch job details:', error);
-    // Optionally, set an error message to display to the user
-  }
-});
-</script>
-
-<template>
-  <div v-if="job">
-    <h1>Job Details</h1>
-    <p>URI: {{ job.uri }}</p>
-    <p>Config: {{ job.config }}</p>
-    <p>Worker Type: {{ job.worker_type }}</p>
-    <!-- ... display other job details ... -->
-  </div>
-  <div v-else>
-    <p>Loading job details...</p>
-  </div>
-</template>==== END OF FILE: frontend/src//views/admin/JobDetails.vue ====
-
-==== START OF FILE: frontend/src//views/admin/JobEdit.vue ====
-<script setup lang="ts">
-import axios from 'axios';
-import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { API_URL } from '@/config';
-
-interface Job {
-  id: number;
-  uri: string;
-  config: any; // Replace with the actual type of your job config
-  worker_type: string;
-  // ... other properties
-}
-
-const route = useRoute();
-const router = useRouter();
-const job = ref<Job | null>(null);
-
-onMounted(async () => {
-  try {
-    const response = await axios.get(`${API_URL}/jobs/${route.params.id}`);
-    job.value = response.data;
-  } catch (error) {
-    console.error('Failed to fetch job details:', error);
-    // Optionally, set an error message to display to the user
-  }
-});
-
-const updateJob = async () => {
-  if (!job.value) return;
-  try {
-    await axios.put(`${API_URL}/jobs/${route.params.id}`, job.value);
-    router.push('/admin/jobs'); // Redirect to job list after successful update
-  } catch (error) {
-    console.error('Failed to update job:', error);
-    // Optionally, set an error message to display to the user
-  }
-};
-</script>
-
-<template>
-  <div v-if="job">
-    <h1>Edit Job</h1>
-    <form @submit.prevent="updateJob">
-      <label for="uri">URI:</label>
-      <input type="text" id="uri" v-model="job.uri" />
-
-      <!-- ... input fields for other job properties ... -->
-
-      <button type="submit">Update Job</button>
-    </form>
-  </div>
-  <div v-else>
-    <p>Loading job details...</p>
-  </div>
-</template>==== END OF FILE: frontend/src//views/admin/JobEdit.vue ====
-
-==== START OF FILE: frontend/src//views/WorkerTypeList.vue ====
-<script setup lang="ts">
-import axios from 'axios';
-import { ref, onMounted } from 'vue';
-
-interface WorkerType {
-  id: number;
-  name: string;
-  // ... other properties
-}
-
-const workerTypes = ref<WorkerType[]>([]);
-
-onMounted(async () => {
-  try {
-    const response = await axios.get('/worker-types'); // Replace with your actual API endpoint
-    workerTypes.value = response.data;
-  } catch (error) {
-    console.error(error);
-    // Handle error, e.g., display an error message to the user
-  }
-});
-</script>
-
-<template>
-  <div>
-    <h1>Worker Types</h1>
-    <ul>
-      <li v-for="workerType in workerTypes" :key="workerType.id">
-        {{ workerType.name }}
-      </li>
-    </ul>
-  </div>
-</template>==== END OF FILE: frontend/src//views/WorkerTypeList.vue ====
 
 ==== START OF FILE: frontend/src//views/Admin.vue ====
 <template>
@@ -5147,19 +5514,18 @@ import Login from '../views/Login.vue';
 import Admin from '../views/Admin.vue';
 import Studio from '../views/Studio.vue';
 import Dashboard from '../views/studio/Dashboard.vue';
-import Jobs from '@/views/studio/Jobs.vue';
-import JobCreate from '@/views/studio/JobCreate.vue';
-import JobDetails from '@/views/studio/JobDetails.vue';
-import JobEdit from '@/views/studio/JobEdit.vue';
+
 import Pipelines from '../views/studio/Pipelines.vue';
 import Settings from '../views/studio/Settings.vue';
-import JobList from '../views/admin/JobList.vue';
+
 import PipelineList from '../components/studio/PipelineList.vue';
 import PipelineCreate from '../views/studio/PipelineCreate.vue';
 import PipelineDetails from '../views/studio/PipelineDetails.vue';
 import PipelineEdit from '../views/studio/PipelineEdit.vue';
+import DockerFiles from '../views/studio/DockerFiles.vue';
+import AmberStores from '../views/studio/AmberStores.vue';
+import Jobs from '../views/studio/Jobs.vue';
 
-import WorkerTypeList from '../views/WorkerTypeList.vue'; // This one remains in the root views folder
 import store from '@/store';
 
 const routes: Array<RouteRecordRaw> = [
@@ -5173,7 +5539,11 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true },
     children: [
       { path: 'dashboard', name: 'Dashboard', component: Dashboard },
-      { path: 'jobs', name: 'Jobs', component: Jobs },
+      {
+        path: '/studio/jobs',
+        name: 'Jobs',
+        component: Jobs,
+      },
       { path: 'pipelines', name: 'Pipelines', component: Pipelines },
       { path: 'settings', name: 'Settings', component: Settings },
       {
@@ -5197,14 +5567,24 @@ const routes: Array<RouteRecordRaw> = [
         name: 'PipelineEdit',
         component: PipelineEdit,
         props: true,
-      }
+      },
+      {
+        path: 'dockerfiles',
+        name: 'DockerFiles',
+        component: DockerFiles,
+      },
+      {
+        path: '/studio/configurations',
+        name: 'Configurations',
+        component: () => import('@/views/studio/Configurations.vue')
+      },
+      {
+        path: '/studio/amberstores',
+        name: 'AmberStores',
+        component: AmberStores,
+      },
     ],
-  },
-  { path: '/admin/jobs', name: 'JobList', component: JobList },
-  { path: '/admin/jobs/create', name: 'JobCreate', component: JobCreate },
-  { path: '/admin/jobs/:id', name: 'JobDetails', component: JobDetails },
-  { path: '/admin/jobs/:id/edit', name: 'JobEdit', component: JobEdit },
-  { path: '/worker-types', name: 'WorkerTypeList', component: WorkerTypeList },
+  }
 ];
 
 const router = createRouter({

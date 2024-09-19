@@ -3,7 +3,11 @@ use uuid::Uuid;
 use crate::db::DbPool;
 use crate::services::amber_store_service::AmberStoreService;
 use crate::models::amber_store::{NewAmberStore, UpdateAmberStore, NewAmberStorePayload};
-
+use crate::error::AppError;
+use diesel::prelude::*;
+use diesel::QueryDsl;
+use diesel::ExpressionMethods;
+use serde_yaml::Value;
 
 pub async fn create_amber_store(
     pool: web::Data<DbPool>,
@@ -11,18 +15,14 @@ pub async fn create_amber_store(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    log::info!("Creating amber store for user_id: {}", user_id);
-    log::info!("Received data: {:?}", new_amber_store_payload);
-
+    
     let new_amber_store = NewAmberStore {
         user_id,
-        data: new_amber_store_payload.data.clone(),
+        data: serde_yaml::to_string(&new_amber_store_payload.data).unwrap(),
     };
+
     match AmberStoreService::create_amber_store(&pool, new_amber_store) {
-        Ok(amber_store) => {
-            log::info!("Amber store created successfully: {:?}", amber_store);
-            HttpResponse::Created().json(amber_store)
-        },
+        Ok(amber_store) => HttpResponse::Created().json(amber_store),
         Err(e) => {
             log::error!("Error creating amber store: {:?}", e);
             HttpResponse::InternalServerError().body("Failed to create amber store")
@@ -63,7 +63,25 @@ pub async fn update_amber_store(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match AmberStoreService::update_amber_store(&pool, amber_store_id.into_inner(), update_data.into_inner(), user_id) {
+    
+    let yaml_string = match &update_data.data {
+        Some(data) => {
+            match serde_yaml::from_str::<serde_yaml::Value>(data) {
+                Ok(yaml_value) => serde_yaml::to_string(&yaml_value).unwrap_or_default(),
+                Err(e) => {
+                    log::error!("Error parsing YAML: {:?}", e);
+                    return HttpResponse::BadRequest().body("Invalid YAML data");
+                }
+            }
+        },
+        None => String::new(),
+    };
+
+    let update_data = UpdateAmberStore {
+        data: Some(yaml_string),
+    };
+
+    match AmberStoreService::update_amber_store(&pool, amber_store_id.into_inner(), update_data, user_id) {
         Ok(amber_store) => HttpResponse::Ok().json(amber_store),
         Err(e) => {
             log::error!("Error updating amber store: {:?}", e);
