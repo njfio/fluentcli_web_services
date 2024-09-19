@@ -5,6 +5,9 @@ use hex;
 use rand::Rng;
 use std::env;
 use std::str;
+use crate::error::AppError;
+use bcrypt::{hash, verify, DEFAULT_COST};
+
 
 type Aes256Cbc = Cbc<Aes256, Pkcs7>;
 
@@ -29,4 +32,12 @@ pub fn decrypt_data(encrypted_data: &str) -> String {
     let cipher = Aes256Cbc::new_from_slices(&key, &iv).unwrap();
     let decrypted_data = cipher.decrypt_vec(&ciphertext).unwrap();
     str::from_utf8(&decrypted_data).unwrap().to_string()
+}
+
+pub fn hash_secure_key(secure_key: &str) -> Result<String, AppError> {
+    hash(secure_key, DEFAULT_COST).map_err(|_| AppError::InternalServerError)
+}
+
+pub fn verify_secure_key(secure_key: &str, hash: &str) -> Result<bool, AppError> {
+    verify(secure_key, hash).map_err(|_| AppError::InternalServerError)
 }

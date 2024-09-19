@@ -16,7 +16,11 @@ diesel::table! {
     amber_store (id) {
         id -> Uuid,
         user_id -> Uuid,
+        #[max_length = 255]
+        name -> Varchar,
         data -> Text,
+        #[max_length = 255]
+        secure_key_hash -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

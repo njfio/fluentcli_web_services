@@ -46,9 +46,11 @@ CREATE TABLE api_keys (
 CREATE TABLE amber_store (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
+    name VARCHAR(255) NOT NULL,
     data TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
+    secure_key_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Create secure_vault table

@@ -31,7 +31,6 @@ impl AmberStoreService {
     pub fn update_amber_store(pool: &DbPool, amber_store_id: Uuid, update_data: UpdateAmberStore, user_id: Uuid) -> Result<AmberStore, AppError> {
         use crate::schema::amber_store::dsl::*;
         let conn = &mut pool.get()?;
-        log::error!("Update amber data: {:#?}", &update_data);
         diesel::update(amber_store.filter(id.eq(amber_store_id).and(user_id.eq(user_id))))
             .set(&update_data)
             .get_result(conn)
