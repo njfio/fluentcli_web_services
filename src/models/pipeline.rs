@@ -2,7 +2,6 @@ use crate::schema::pipelines;
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use uuid::Uuid;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Serialize, Deserialize)]
@@ -11,7 +10,7 @@ pub struct Pipeline {
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
-    pub data: Value,
+    pub data: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -21,18 +20,18 @@ pub struct Pipeline {
 pub struct NewPipeline {
     pub user_id: Uuid,
     pub name: String,
-    pub data: Value,
+    pub data: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct NewPipelinePayload {
     pub name: String,
-    pub data: Value,
+    pub data: serde_yaml::Value,
 }
 
 #[derive(AsChangeset, Deserialize)]
 #[table_name = "pipelines"]
 pub struct UpdatePipeline {
     pub name: Option<String>,
-    pub data: Option<Value>,
+    pub data: Option<String>,
 }

@@ -93,7 +93,7 @@ diesel::table! {
         user_id -> Uuid,
         #[max_length = 255]
         name -> Varchar,
-        data -> Jsonb,
+        data -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

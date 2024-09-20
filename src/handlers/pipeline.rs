@@ -1,31 +1,31 @@
-use actix_web::{web, HttpResponse, Responder, HttpRequest, HttpMessage};
-use uuid::Uuid;
 use crate::db::DbPool;
+use crate::models::pipeline::{NewPipeline, NewPipelinePayload, UpdatePipeline};
 use crate::services::pipeline_service::PipelineService;
-use crate::models::pipeline::{NewPipeline, UpdatePipeline, NewPipelinePayload};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
+use serde_yaml;
+use uuid::Uuid;
 
 pub async fn create_pipeline(
     pool: web::Data<DbPool>,
     new_pipeline_payload: web::Json<NewPipelinePayload>,
     req: HttpRequest,
-) -> impl Responder {
+) -> Result<HttpResponse, actix_web::Error> {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    log::info!("Creating pipeline for user_id: {}", user_id);
-    log::info!("Received data: {:?}", new_pipeline_payload);
+
+    let yaml_data = serde_yaml::to_string(&new_pipeline_payload.data)
+        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid YAML data"))?;
 
     let new_pipeline = NewPipeline {
         user_id,
         name: new_pipeline_payload.name.clone(),
-        data: new_pipeline_payload.data.clone(),
+        data: yaml_data,
     };
+
     match PipelineService::create_pipeline(&pool, new_pipeline) {
-        Ok(pipeline) => {
-            log::info!("Pipeline created successfully: {:?}", pipeline);
-            HttpResponse::Created().json(pipeline)
-        },
+        Ok(pipeline) => Ok(HttpResponse::Created().json(pipeline)),
         Err(e) => {
             log::error!("Error creating pipeline: {:?}", e);
-            HttpResponse::InternalServerError().body("Failed to create pipeline")
+            Ok(HttpResponse::InternalServerError().body("Failed to create pipeline"))
         }
     }
 }
@@ -61,13 +61,33 @@ pub async fn update_pipeline(
     pipeline_id: web::Path<Uuid>,
     update_data: web::Json<UpdatePipeline>,
     req: HttpRequest,
-) -> impl Responder {
+) -> Result<HttpResponse, actix_web::Error> {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match PipelineService::update_pipeline(&pool, pipeline_id.into_inner(), update_data.into_inner(), user_id) {
-        Ok(pipeline) => HttpResponse::Ok().json(pipeline),
+
+    let yaml_data = if let Some(data) = &update_data.data {
+        Some(
+            serde_yaml::to_string(data)
+                .map_err(|_| actix_web::error::ErrorBadRequest("Invalid YAML data"))?,
+        )
+    } else {
+        None
+    };
+
+    let update_pipeline = UpdatePipeline {
+        name: update_data.name.clone(),
+        data: yaml_data,
+    };
+
+    match PipelineService::update_pipeline(
+        &pool,
+        pipeline_id.into_inner(),
+        update_pipeline,
+        user_id,
+    ) {
+        Ok(pipeline) => Ok(HttpResponse::Ok().json(pipeline)),
         Err(e) => {
             log::error!("Error updating pipeline: {:?}", e);
-            HttpResponse::InternalServerError().body("Failed to update pipeline")
+            Ok(HttpResponse::InternalServerError().body("Failed to update pipeline"))
         }
     }
 }

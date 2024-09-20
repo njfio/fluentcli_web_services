@@ -20,7 +20,7 @@
           <td>{{ getDockerFileName(job.worker_type) }}</td>
           <td>{{ getConfigurationName(job.config) }}</td>
           <td>{{ getPipelineName(job.pipeline_id) }}</td>
-          <td>{{ job.amber_id || 'N/A' }}</td>
+          <td>{{ getAmberStoreName(job.amber_id) }}</td>
           <td>{{ job.status }}</td>
           <td>
             <button @click="editJob(job)" class="edit-button">Edit</button>
@@ -87,7 +87,7 @@ const isLoading = ref(false);
 const dockerFiles = ref<{ id: string; name: string }[]>([]);
 const configurations = ref<{ id: string; name: string }[]>([]);
 const pipelines = ref<{ id: string; name: string }[]>([]);
-const amberStores = ref<{ id: string }[]>([]);
+const amberStores = ref<{ id: string; name: string }[]>([]);
 
 const fetchJobs = async () => {
   isLoading.value = true;
@@ -109,7 +109,7 @@ const fetchRelatedData = async () => {
       apiClient.get<{ id: string; name: string }[]>('/docker_files'),
       apiClient.get<{ id: string; name: string }[]>('/configurations'),
       apiClient.get<{ id: string; name: string }[]>('/pipelines'),
-      apiClient.get<{ id: string }[]>('/amber_store')
+      apiClient.get<{ id: string; name: string }[]>('/amber_store')
     ]);
     dockerFiles.value = dockerFilesRes.data;
     configurations.value = configurationsRes.data;
@@ -133,6 +133,12 @@ const getConfigurationName = (id: string) => {
 const getPipelineName = (id: string) => {
   const pipeline = pipelines.value.find(p => p.id === id);
   return pipeline ? pipeline.name : 'Unknown';
+};
+
+const getAmberStoreName = (id: string | null) => {
+  if (!id) return 'N/A';
+  const amberStore = amberStores.value.find(as => as.id === id);
+  return amberStore ? amberStore.name : 'Unknown';
 };
 
 const editJob = (job: Job) => {

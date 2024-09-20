@@ -8,10 +8,7 @@ import Dashboard from '../views/studio/Dashboard.vue';
 import Pipelines from '../views/studio/Pipelines.vue';
 import Settings from '../views/studio/Settings.vue';
 
-import PipelineList from '../components/studio/PipelineList.vue';
-import PipelineCreate from '../views/studio/PipelineCreate.vue';
-import PipelineDetails from '../views/studio/PipelineDetails.vue';
-import PipelineEdit from '../views/studio/PipelineEdit.vue';
+
 import DockerFiles from '../views/studio/DockerFiles.vue';
 import AmberStores from '../views/studio/AmberStores.vue';
 import Jobs from '../views/studio/Jobs.vue';
@@ -22,9 +19,9 @@ const routes: Array<RouteRecordRaw> = [
   { path: '/', name: 'Home', component: Home },
   { path: '/login', name: 'Login', component: Login },
   { path: '/admin', name: 'Admin', component: Admin },
-  { 
-    path: '/studio', 
-    name: 'Studio', 
+  {
+    path: '/studio',
+    name: 'Studio',
     component: Studio,
     meta: { requiresAuth: true },
     children: [
@@ -36,28 +33,6 @@ const routes: Array<RouteRecordRaw> = [
       },
       { path: 'pipelines', name: 'Pipelines', component: Pipelines },
       { path: 'settings', name: 'Settings', component: Settings },
-      {
-        path: 'pipelines',
-        name: 'PipelineList',
-        component: PipelineList,
-      },
-      {
-        path: 'pipelines/create',
-        name: 'PipelineCreate',
-        component: PipelineCreate,
-      },
-      {
-        path: 'pipelines/:id',
-        name: 'PipelineDetails',
-        component: PipelineDetails,
-        props: true,
-      },
-      {
-        path: 'pipelines/:id/edit',
-        name: 'PipelineEdit',
-        component: PipelineEdit,
-        props: true,
-      },
       {
         path: 'dockerfiles',
         name: 'DockerFiles',

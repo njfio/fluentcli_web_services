@@ -1,109 +1,107 @@
 <template>
-    <div class="pipeline-editor">
-      <h2>Pipeline Editor</h2>
-      <form @submit.prevent="savePipeline">
-        <div class="form-group">
-          <label for="name">Pipeline Name</label>
-          <input
-            type="text"
-            id="name"
-            v-model="pipeline.name"
-            required
-            class="form-control"
-          />
-        </div>
-        <div class="form-group">
-          <label for="editor">Pipeline Configuration</label>
-          <EditorContent :editor="editor" />
-        </div>
-        <div class="button-group">
-          <button type="submit" class="btn btn-primary">Save Pipeline</button>
-          <button type="button" @click="cancel" class="btn btn-secondary">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </template>
-  
-  <script lang="ts">
-  import { defineComponent, ref, watch } from 'vue';
-  import { useEditor, EditorContent } from '@tiptap/vue-3';
-  import StarterKit from '@tiptap/starter-kit';
-  import { DataPill } from '@/extensions/DataPill';
-  
-  interface Pipeline {
-    id?: string;
-    name: string;
-    data: any;
+  <div class="pipeline-editor">
+    <h3>{{ isNew ? 'Create' : 'Edit' }} Pipeline</h3>
+    <form @submit.prevent="handleSubmit">
+      <div>
+        <label for="name">Name:</label>
+        <input id="name" v-model="editedPipeline.name" required>
+      </div>
+      <div>
+        <label for="data">Data (YAML):</label>
+        <textarea id="data" v-model="yamlData" rows="10" required @input="validateYaml"></textarea>
+      </div>
+      <div v-if="yamlError" class="error">
+        {{ yamlError }}
+      </div>
+      <div>
+        <button type="submit" :disabled="!!yamlError">Save</button>
+        <button type="button" @click="$emit('cancel')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+import * as yaml from 'js-yaml';
+
+interface Pipeline {
+  id: string;
+  name: string;
+  data: string;
+}
+
+const props = defineProps<{
+  data: Pipeline;
+}>();
+
+const emit = defineEmits<{
+  (e: 'save', pipeline: Pipeline): void;
+  (e: 'cancel'): void;
+}>();
+
+const editedPipeline = ref<Pipeline>({ ...props.data });
+const yamlData = ref(formatYaml(props.data.data));
+const yamlError = ref('');
+
+const isNew = computed(() => !props.data.id);
+
+watch(() => props.data, (newData) => {
+  editedPipeline.value = { ...newData };
+  yamlData.value = formatYaml(newData.data);
+}, { deep: true });
+
+function formatYaml(data: string): string {
+  try {
+    const parsedData = yaml.load(data);
+    return yaml.dump(parsedData, { indent: 2 });
+  } catch (error) {
+    console.error('Error formatting YAML:', error);
+    return data;
   }
-  
-  export default defineComponent({
-    name: 'PipelineEditor',
-    components: { EditorContent },
-    props: {
-      data: {
-        type: Object as () => Pipeline,
-        required: true,
-      },
-    },
-    setup(props, { emit }) {
-      const pipeline = ref<Pipeline>({ ...props.data });
-      const isSaving = ref(false);
-      const errorMessage = ref('');
-  
-      const editor = useEditor({
-        extensions: [StarterKit, DataPill],
-        content: pipeline.value.data || {
-          type: 'doc',
-          content: [],
-        },
-      });
-  
-      watch(
-        () => props.data,
-        (newValue) => {
-          pipeline.value = { ...newValue };
-          if (editor.value) {
-            editor.value.commands.setContent(newValue.data || { type: 'doc', content: [] });
-          }
-        },
-        { deep: true }
-      );
-  
-      const savePipeline = () => {
-        if (editor.value) {
-          const updatedPipeline: Pipeline = {
-            id: pipeline.value.id, // 'id' may be undefined for new pipelines
-            name: pipeline.value.name,
-            data: editor.value.getJSON(), // Use getJSON for structured data
-          };
-          emit('save', updatedPipeline);
-        }
-      };
-  
-      const cancel = () => {
-        emit('cancel');
-      };
-  
-      return {
-        pipeline,
-        isSaving,
-        errorMessage,
-        savePipeline,
-        cancel,
-        editor,
-      };
-    },
-  });
-  </script>
-  
-  <style scoped>
-  .pipeline-editor {
-    padding: 20px;
+}
+
+function validateYaml() {
+  try {
+    yaml.load(yamlData.value);
+    yamlError.value = '';
+  } catch (error) {
+    if (error instanceof Error) {
+      yamlError.value = `Invalid YAML: ${error.message}`;
+    } else {
+      yamlError.value = 'Invalid YAML';
+    }
   }
-  .form-group {
-    margin-bottom: 15px;
+}
+
+const handleSubmit = () => {
+  if (!yamlError.value) {
+    editedPipeline.value.data = yamlData.value;
+    emit('save', editedPipeline.value);
   }
-  .button-group {
-    margin-top: 20px;
-  }
-  </style>
+};
+</script>
+
+<style scoped>
+.pipeline-editor {
+  margin-top: 20px;
+}
+form > div {
+  margin-bottom: 15px;
+}
+label {
+  display: block;
+  margin-bottom: 5px;
+}
+textarea {
+  width: 100%;
+  padding: 5px;
+}
+button {
+  margin-right: 10px;
+}
+.error {
+  color: red;
+  margin-bottom: 10px;
+}
+</style>
