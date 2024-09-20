@@ -54,9 +54,9 @@ import JobEditor from '@/components/studio/editors/JobEditor.vue';
 import apiClient from '@/services/apiClient';
 
 interface Job {
-  id?: string;
+    id?: string;
   config: any;
-  amber_id?: string | null;
+  amber_id?: string | null | undefined;
   state_file_content?: string | null;
   data_path?: string;
   worker_type: string;
@@ -135,7 +135,7 @@ const getPipelineName = (id: string) => {
   return pipeline ? pipeline.name : 'Unknown';
 };
 
-const getAmberStoreName = (id: string | null) => {
+const getAmberStoreName = (id: string | null | undefined) => {
   if (!id) return 'N/A';
   const amberStore = amberStores.value.find(as => as.id === id);
   return amberStore ? amberStore.name : 'Unknown';
