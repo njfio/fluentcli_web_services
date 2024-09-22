@@ -5,7 +5,7 @@
     <table v-if="jobs.length">
       <thead>
         <tr>
-          <th>URI</th>
+          <th>ID</th>
           <th>Worker Type</th>
           <th>Configuration</th>
           <th>Pipeline</th>
@@ -15,20 +15,20 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="job in jobs" :key="job.id">
-          <td>{{ job.id }}</td>
-          <td>{{ getDockerFileName(job.worker_type) }}</td>
-          <td>{{ getConfigurationName(job.config) }}</td>
-          <td>{{ getPipelineName(job.pipeline_id) }}</td>
-          <td>{{ getAmberStoreName(job.amber_id) }}</td>
-          <td>{{ job.status }}</td>
-          <td>
-            <button @click="editJob(job)" class="edit-button">Edit</button>
-            <button @click="job.id && deleteJob(job.id)" class="delete-button">Delete</button>
-            <button @click="job.id && startJob(job.id)" class="start-button">Start</button>
-            <button @click="job.id && stopJob(job.id)" class="stop-button">Stop</button>
-          </td>
-        </tr>
+       <tr v-for="job in jobs" :key="job.id">
+        <td>{{ job.id }}</td>
+        <td>{{ getDockerFileName(job.worker_type) }}</td>
+        <td>{{ getConfigurationName(job.config) }}</td>
+        <td>{{ getPipelineName(job.pipeline_id) }}</td>
+        <td>{{ getAmberStoreName(job.amber_id) }}</td>
+        <td>{{ job.status }}</td>
+        <td>
+          <button @click="editJob(job)" class="edit-button">Edit</button>
+          <button @click="deleteJob(job.id!)" class="delete-button">Delete</button>
+          <button @click="startJob(job.id!)" class="start-button">Start</button>
+          <button @click="stopJob(job.id!)" class="stop-button">Stop</button>
+        </td>
+      </tr>
       </tbody>
     </table>
     <p v-else>No jobs available.</p>
@@ -37,7 +37,7 @@
 
     <JobEditor
       v-if="showEditor"
-      :data="selectedJob"
+      :job="selectedJob"
       :dockerFiles="dockerFiles"
       :configurations="configurations"
       :pipelines="pipelines"
@@ -54,10 +54,10 @@ import JobEditor from '@/components/studio/editors/JobEditor.vue';
 import apiClient from '@/services/apiClient';
 
 interface Job {
-    id?: string;
-  config: any;
-  amber_id?: string | null | undefined;
-  state_file_content?: string | null;
+  id?: string;
+  config: string;
+  amber_id?: string | null;
+  state_file_content?: string;
   data_path?: string;
   worker_type: string;
   triggers?: any;
@@ -69,18 +69,7 @@ interface Job {
 
 const jobs = ref<Job[]>([]);
 const showEditor = ref(false);
-const selectedJob = ref<Job>({
-  worker_type: '',
-  config: {},
-  data_path: '',
-  amber_id: null,
-  status: '',
-  pipeline_id: '',
-  state_file_content: null,
-  triggers: null,
-  timers: null,
-  results: null
-});
+const selectedJob = ref<Job | null>(null);
 const error = ref<string | null>(null);
 const isLoading = ref(false);
 
@@ -105,29 +94,29 @@ const fetchJobs = async () => {
 
 const fetchRelatedData = async () => {
   try {
-    const [dockerFilesRes, configurationsRes, pipelinesRes, amberStoresRes] = await Promise.all([
-      apiClient.get<{ id: string; name: string }[]>('/docker_files'),
-      apiClient.get<{ id: string; name: string }[]>('/configurations'),
-      apiClient.get<{ id: string; name: string }[]>('/pipelines'),
-      apiClient.get<{ id: string; name: string }[]>('/amber_store')
+    const [dockerResponse, configResponse, pipelineResponse, amberResponse] = await Promise.all([
+      apiClient.get('/docker_files'),
+      apiClient.get('/configurations'),
+      apiClient.get('/pipelines'),
+      apiClient.get('/amber_store')
     ]);
-    dockerFiles.value = dockerFilesRes.data;
-    configurations.value = configurationsRes.data;
-    pipelines.value = pipelinesRes.data;
-    amberStores.value = amberStoresRes.data;
+    dockerFiles.value = dockerResponse.data;
+    configurations.value = configResponse.data;
+    pipelines.value = pipelineResponse.data;
+    amberStores.value = amberResponse.data;
   } catch (err: any) {
     console.error('Error fetching related data:', err);
   }
 };
 
 const getDockerFileName = (id: string) => {
-  const dockerFile = dockerFiles.value.find(df => df.id === id);
-  return dockerFile ? dockerFile.name : 'Unknown';
+  const docker = dockerFiles.value.find(d => d.id === id);
+  return docker ? docker.name : 'Unknown';
 };
 
 const getConfigurationName = (id: string) => {
-  const configuration = configurations.value.find(c => c.id === id);
-  return configuration ? configuration.name : 'Unknown';
+  const config = configurations.value.find(c => c.id === id);
+  return config ? config.name : 'Unknown';
 };
 
 const getPipelineName = (id: string) => {
@@ -137,8 +126,8 @@ const getPipelineName = (id: string) => {
 
 const getAmberStoreName = (id: string | null | undefined) => {
   if (!id) return 'N/A';
-  const amberStore = amberStores.value.find(as => as.id === id);
-  return amberStore ? amberStore.name : 'Unknown';
+  const amber = amberStores.value.find(a => a.id === id);
+  return amber ? amber.name : 'Unknown';
 };
 
 const editJob = (job: Job) => {
@@ -153,20 +142,7 @@ const handleSave = async (job: Job) => {
     if (job.id) {
       await apiClient.put(`/jobs/${job.id}`, job);
     } else {
-      const newJob = {
-        config: job.config,
-        amber_id: job.amber_id,
-        state_file_content: job.state_file_content,
-        data_path: job.data_path,
-        worker_type: job.worker_type,
-        triggers: job.triggers,
-        timers: job.timers,
-        status: job.status,
-        pipeline_id: job.pipeline_id,
-        results: job.results
-      };
-      console.log('Job data being sent:', newJob);
-      await apiClient.post('/jobs', newJob);
+      await apiClient.post('/jobs', job);
     }
     await fetchJobs();
     showEditor.value = false;
@@ -228,5 +204,65 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ... (keep existing styles) ... */
+.jobs {
+  padding: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+}
+
+.create-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+}
+
+.edit-button, .delete-button, .start-button, .stop-button {
+  margin-right: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.edit-button {
+  background-color: #008CBA;
+  color: white;
+}
+
+.delete-button {
+  background-color: #f44336;
+  color: white;
+}
+
+.start-button {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.stop-button {
+  background-color: #555555;
+  color: white;
+}
+
+.error {
+  color: red;
+}
+
+.loading {
+  color: #888;
+}
 </style>
