@@ -11,11 +11,11 @@ pub struct Job {
     pub id: Uuid,
     pub user_id: Uuid,
     pub uri: Uuid,
-    pub config: Value,
+    pub config: Uuid,
     pub amber_id: Option<Uuid>,
-    pub state_file_content: Option<String>,
+    pub state_file_content: Option<Value>,
     pub data_path: Option<String>,
-    pub worker_type: String,
+    pub worker_type: Uuid,
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: String,
@@ -32,11 +32,11 @@ pub struct Job {
 pub struct NewJob {
     pub user_id: Uuid,
     pub uri: Uuid,
-    pub config: Value,
+    pub config: Uuid,
     pub amber_id: Option<Uuid>,
-    pub state_file_content: Option<String>,
+    pub state_file_content: Option<Value>,
     pub data_path: Option<String>,
-    pub worker_type: String,
+    pub worker_type: Uuid,
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: String,
@@ -47,11 +47,11 @@ pub struct NewJob {
 #[derive(AsChangeset, Deserialize)]
 #[table_name = "jobs"]
 pub struct UpdateJob {
-    pub config: Option<Value>,
+    pub config: Option<Uuid>,
     pub amber_id: Option<Uuid>,
-    pub state_file_content: Option<String>,
+    pub state_file_content: Option<Value>,
     pub data_path: Option<String>,
-    pub worker_type: Option<String>,
+    pub worker_type: Option<Uuid>,
     pub triggers: Option<Value>,
     pub timers: Option<Value>,
     pub status: Option<String>,
@@ -62,7 +62,7 @@ pub struct UpdateJob {
 #[derive(Deserialize, Debug)]
 pub struct NewJobPayload {
     pub uri: Option<String>,
-    pub config: Value,
+    pub config: Uuid,
     pub amber_id: Option<Uuid>,
     pub state_file_content: Option<String>,
     pub data_path: Option<String>,
