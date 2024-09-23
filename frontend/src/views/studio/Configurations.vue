@@ -1,36 +1,45 @@
 <template>
-    <div class="configurations">
-      <h2>Configurations</h2>
-      <button @click="showEditor = true" class="create-button">Create New Configuration</button>
-      <table v-if="configurations.length">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="configuration in configurations" :key="configuration.id">
-            <td>{{ configuration.name }}</td>
-            <td>
-              <button @click="editConfiguration(configuration)" class="edit-button">Edit</button>
-              <button @click="configuration.id && deleteConfiguration(configuration.id)" class="delete-button">Delete</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else>No configurations available.</p>
-      <p v-if="error" class="error">{{ error }}</p>
-      <p v-if="isLoading" class="loading">Loading...</p>
-  
-      <ConfigurationEditor
-        v-if="showEditor"
-        :data="selectedConfiguration"
-        @save="handleSave"
-        @cancel="showEditor = false"
-      />
+  <div class="configurations">
+    <div class="configurations-header">
+      <h1>Configurations</h1>
+      <button @click="showEditor = true" class="add-button">
+        <i class="fas fa-plus"></i> Create New Configuration
+      </button>
     </div>
-  </template>
+
+    <!-- Configuration Editor Modal -->
+    <div v-if="showEditor" class="modal">
+      <div class="modal-content">
+        <ConfigurationEditor
+          :data="selectedConfiguration"
+          @save="handleSave"
+          @cancel="showEditor = false"
+        />
+      </div>
+    </div>
+
+    <!-- List of Configurations -->
+    <div v-if="configurations.length" class="configuration-grid">
+      <div v-for="configuration in configurations" :key="configuration.id" class="configuration-card">
+        <h3>{{ configuration.name }}</h3>
+        <div class="configuration-actions">
+          <button @click="editConfiguration(configuration)" class="edit-button">
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button @click="configuration.id && deleteConfiguration(configuration.id)" class="delete-button">
+            <i class="fas fa-trash"></i> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+    <div v-else class="no-configurations">
+      <p>No configurations available. Click the "Create New Configuration" button to create one.</p>
+    </div>
+
+    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="isLoading" class="loading">Loading...</p>
+  </div>
+</template>
   
   <script setup lang="ts">
   import { ref, onMounted } from 'vue';
@@ -105,34 +114,122 @@
   onMounted(fetchConfigurations);
   </script>
   
-  <style scoped>
-  .configurations {
-    padding: 20px;
-  }
-  .create-button {
-    margin-bottom: 15px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
-  }
-  th {
-    background-color: #f2f2f2;
-  }
-  .edit-button, .delete-button {
-    margin-right: 5px;
-  }
-  .error {
-    color: red;
-    margin-top: 10px;
-  }
-  .loading {
-    color: #3498db;
-    margin-top: 10px;
-  }
-  </style>
+<style scoped>
+.configurations {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.configurations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.add-button {
+  background-color: #3498db;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.add-button:hover {
+  background-color: #2980b9;
+}
+
+.configuration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.configuration-card {
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.configuration-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.2rem;
+}
+
+.configuration-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-button, .delete-button {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-left: 10px;
+  transition: color 0.3s ease;
+}
+
+.edit-button {
+  color: #3498db;
+}
+
+.edit-button:hover {
+  color: #2980b9;
+}
+
+.delete-button {
+  color: #e74c3c;
+}
+
+.delete-button:hover {
+  color: #c0392b;
+}
+
+.no-configurations {
+  text-align: center;
+  color: #7f8c8d;
+  margin-top: 50px;
+}
+
+.error {
+  color: #e74c3c;
+  margin-top: 10px;
+}
+
+.loading {
+  color: #3498db;
+  margin-top: 10px;
+}
+
+.modal {
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: #fefefe;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 5px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+</style>

@@ -2,20 +2,20 @@
   <div class="pipeline-editor">
     <h3>{{ isNew ? 'Create' : 'Edit' }} Pipeline</h3>
     <form @submit.prevent="handleSubmit">
-      <div>
+      <div class="form-group">
         <label for="name">Name:</label>
         <input id="name" v-model="editedPipeline.name" required>
       </div>
-      <div>
+      <div class="form-group">
         <label for="data">Data (YAML):</label>
         <textarea id="data" v-model="yamlData" rows="10" required @input="validateYaml"></textarea>
       </div>
       <div v-if="yamlError" class="error">
         {{ yamlError }}
       </div>
-      <div>
-        <button type="submit" :disabled="!!yamlError">Save</button>
-        <button type="button" @click="$emit('cancel')">Cancel</button>
+      <div class="form-actions">
+        <button type="submit" :disabled="!!yamlError" class="save-button">Save</button>
+        <button type="button" @click="$emit('cancel')" class="cancel-button">Cancel</button>
       </div>
     </form>
   </div>
@@ -114,24 +114,82 @@ const handleSubmit = () => {
 
 <style scoped>
 .pipeline-editor {
-  margin-top: 20px;
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
 }
-form > div {
-  margin-bottom: 15px;
+
+.pipeline-editor h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
 }
+
+.form-group {
+  margin-bottom: 20px;
+}
+
 label {
   display: block;
   margin-bottom: 5px;
+  font-weight: bold;
 }
-textarea {
+
+input[type="text"], textarea {
   width: 100%;
-  padding: 5px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 1rem;
 }
-button {
+
+textarea {
+  resize: vertical;
+}
+
+.error {
+  color: #e74c3c;
+  margin-bottom: 10px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.save-button, .cancel-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.save-button {
+  background-color: #2ecc71;
+  color: #fff;
   margin-right: 10px;
 }
-.error {
-  color: red;
-  margin-bottom: 10px;
+
+.save-button:hover:not(:disabled) {
+  background-color: #27ae60;
+}
+
+.save-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  background-color: #e74c3c;
+  color: #fff;
+}
+
+.cancel-button:hover {
+  background-color: #c0392b;
 }
 </style>

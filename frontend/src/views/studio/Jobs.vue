@@ -1,50 +1,43 @@
 <template>
   <div class="jobs">
-    <h2>Jobs</h2>
-    <button @click="showEditor = true" class="create-button">Create New Job</button>
-    <table v-if="jobs.length">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Worker Type</th>
-          <th>Configuration</th>
-          <th>Pipeline</th>
-          <th>Amber Store</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-       <tr v-for="job in jobs" :key="job.id">
-        <td>{{ job.id }}</td>
-        <td>{{ getDockerFileName(job.worker_type) }}</td>
-        <td>{{ getConfigurationName(job.config) }}</td>
-        <td>{{ getPipelineName(job.pipeline_id) }}</td>
-        <td>{{ getAmberStoreName(job.amber_id) }}</td>
-        <td>{{ job.status }}</td>
-        <td>
+    <div class="jobs-header">
+      <h2>Jobs</h2>
+      <button @click="showEditor = true" class="add-button">Create New Job</button>
+    </div>
+    
+    <div v-if="jobs.length" class="job-grid">
+      <div v-for="job in jobs" :key="job.id" class="job-card">
+        <h3>Job ID: {{ job.id }}</h3>
+        <p>Worker Type: {{ getDockerFileName(job.worker_type) }}</p>
+        <p>Configuration: {{ getConfigurationName(job.config) }}</p>
+        <p>Pipeline: {{ getPipelineName(job.pipeline_id) }}</p>
+        <p>Amber Store: {{ getAmberStoreName(job.amber_id) }}</p>
+        <p>Status: {{ job.status }}</p>
+        <div class="job-actions">
           <button @click="editJob(job)" class="edit-button">Edit</button>
           <button @click="deleteJob(job.id!)" class="delete-button">Delete</button>
           <button @click="startJob(job.id!)" class="start-button">Start</button>
           <button @click="stopJob(job.id!)" class="stop-button">Stop</button>
-        </td>
-      </tr>
-      </tbody>
-    </table>
-    <p v-else>No jobs available.</p>
+        </div>
+      </div>
+    </div>
+    <p v-else class="no-jobs">No jobs available.</p>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="isLoading" class="loading">Loading...</p>
 
-    <JobEditor
-      v-if="showEditor"
-      :job="selectedJob"
-      :dockerFiles="dockerFiles"
-      :configurations="configurations"
-      :pipelines="pipelines"
-      :amberStores="amberStores"
-      @save="handleSave"
-      @cancel="showEditor = false"
-    />
+    <div v-if="showEditor" class="modal">
+      <div class="modal-content">
+        <JobEditor
+          :job="selectedJob"
+          :dockerFiles="dockerFiles"
+          :configurations="configurations"
+          :pipelines="pipelines"
+          :amberStores="amberStores"
+          @save="handleSave"
+          @cancel="showEditor = false"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -205,64 +198,136 @@ onMounted(() => {
 
 <style scoped>
 .jobs {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 20px;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
+.jobs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-
-th {
-  background-color: #f2f2f2;
-}
-
-.create-button {
-  background-color: #4CAF50;
-  color: white;
-  padding: 10px 20px;
+.add-button {
+  background-color: #3498db;
+  color: #fff;
   border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
   cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.add-button:hover {
+  background-color: #2980b9;
+}
+
+.job-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.job-card {
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.job-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.2rem;
+}
+
+.job-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .edit-button, .delete-button, .start-button, .stop-button {
-  margin-right: 5px;
-  padding: 5px 10px;
+  background-color: transparent;
+  border: none;
   cursor: pointer;
+  font-size: 0.9rem;
+  margin-left: 10px;
+  transition: color 0.3s ease;
 }
 
 .edit-button {
-  background-color: #008CBA;
-  color: white;
+  color: #3498db;
+}
+
+.edit-button:hover {
+  color: #2980b9;
 }
 
 .delete-button {
-  background-color: #f44336;
-  color: white;
+  color: #e74c3c;
+}
+
+.delete-button:hover {
+  color: #c0392b;
 }
 
 .start-button {
-  background-color: #4CAF50;
-  color: white;
+  color: #2ecc71;
+}
+
+.start-button:hover {
+  color: #27ae60;
 }
 
 .stop-button {
-  background-color: #555555;
-  color: white;
+  color: #95a5a6;
+}
+
+.stop-button:hover {
+  color: #7f8c8d;
+}
+
+.no-jobs {
+  text-align: center;
+  color: #7f8c8d;
+  margin-top: 50px;
 }
 
 .error {
-  color: red;
+  color: #e74c3c;
+  margin-top: 10px;
 }
 
 .loading {
-  color: #888;
+  color: #3498db;
+  margin-top: 10px;
+}
+
+.modal {
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: #fefefe;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 5px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 </style>

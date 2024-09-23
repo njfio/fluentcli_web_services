@@ -49,22 +49,73 @@
   };
   </script>
   
-  <style scoped>
-  .docker-file-editor {
-    margin-top: 20px;
-  }
-  form > div {
-    margin-bottom: 15px;
-  }
-  label {
-    display: block;
-    margin-bottom: 5px;
-  }
-  input[type="text"], textarea {
-    width: 100%;
-    padding: 5px;
-  }
-  button {
-    margin-right: 10px;
-  }
-  </style>
+<<style scoped>
+.docker-file-editor {
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.docker-file-editor h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+input[type="text"], textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 1rem;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 300px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.save-button, .cancel-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.save-button {
+  background-color: #2ecc71;
+  color: #fff;
+  margin-right: 10px;
+}
+
+.save-button:hover {
+  background-color: #27ae60;
+}
+
+.cancel-button {
+  background-color: #e74c3c;
+  color: #fff;
+}
+
+.cancel-button:hover {
+  background-color: #c0392b;
+}
+</style>

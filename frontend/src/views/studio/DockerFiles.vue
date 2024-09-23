@@ -1,34 +1,43 @@
 <template>
   <div class="docker-files">
-    <h2>Docker Files</h2>
-    <button @click="showEditor = true" class="create-button">Create New Docker File</button>
-    <table v-if="dockerFiles.length">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="dockerFile in dockerFiles" :key="dockerFile.id">
-          <td>{{ dockerFile.name }}</td>
-          <td>
-            <button @click="editDockerFile(dockerFile)" class="edit-button">Edit</button>
-            <button @click="dockerFile.id && deleteDockerFile(dockerFile.id)" class="delete-button">Delete</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <p v-else>No Docker files available.</p>
+    <div class="docker-files-header">
+      <h1>Docker Files</h1>
+      <button @click="showEditor = true" class="add-button">
+        <i class="fas fa-plus"></i> Create New Docker File
+      </button>
+    </div>
+
+    <!-- Docker File Editor Modal -->
+    <div v-if="showEditor" class="modal">
+      <div class="modal-content">
+        <DockerFileEditor
+          :dockerFile="selectedDockerFile"
+          @save="handleSave"
+          @cancel="showEditor = false"
+        />
+      </div>
+    </div>
+
+    <!-- List of Docker Files -->
+    <div v-if="dockerFiles.length" class="docker-file-grid">
+      <div v-for="dockerFile in dockerFiles" :key="dockerFile.id" class="docker-file-card">
+        <h3>{{ dockerFile.name }}</h3>
+        <div class="docker-file-actions">
+          <button @click="editDockerFile(dockerFile)" class="edit-button">
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button @click="dockerFile.id && deleteDockerFile(dockerFile.id)" class="delete-button">
+            <i class="fas fa-trash"></i> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+    <div v-else class="no-docker-files">
+      <p>No Docker files available. Click the "Create New Docker File" button to create one.</p>
+    </div>
+
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="isLoading" class="loading">Loading...</p>
-
-    <DockerFileEditor
-      v-if="showEditor"
-      :dockerFile="selectedDockerFile"
-      @save="handleSave"
-      @cancel="showEditor = false"
-    />
   </div>
 </template>
 
@@ -110,32 +119,119 @@ onMounted(fetchDockerFiles);
 
 <style scoped>
 .docker-files {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 20px;
 }
-.create-button {
-  margin-bottom: 15px;
+
+.docker-files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
-table {
-  width: 100%;
-  border-collapse: collapse;
+
+.add-button {
+  background-color: #3498db;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
 }
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
+
+.add-button:hover {
+  background-color: #2980b9;
 }
-th {
-  background-color: #f2f2f2;
+
+.docker-file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
 }
+
+.docker-file-card {
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.docker-file-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.2rem;
+}
+
+.docker-file-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .edit-button, .delete-button {
-  margin-right: 5px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-left: 10px;
+  transition: color 0.3s ease;
 }
+
+.edit-button {
+  color: #3498db;
+}
+
+.edit-button:hover {
+  color: #2980b9;
+}
+
+.delete-button {
+  color: #e74c3c;
+}
+
+.delete-button:hover {
+  color: #c0392b;
+}
+
+.no-docker-files {
+  text-align: center;
+  color: #7f8c8d;
+  margin-top: 50px;
+}
+
 .error {
-  color: red;
+  color: #e74c3c;
   margin-top: 10px;
 }
+
 .loading {
   color: #3498db;
   margin-top: 10px;
+}
+.modal {
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: #fefefe;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 5px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 </style>

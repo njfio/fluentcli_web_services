@@ -1,36 +1,44 @@
 <template>
   <div class="amber-stores">
-    <h2>Amber Stores</h2>
-    <button @click="showEditor = true" class="create-button">Create New Amber Store</button>
-    <table v-if="amberStores.length">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="amberStore in amberStores" :key="amberStore.id">
-          <td>{{ amberStore.id }}</td>
-          <td>{{ amberStore.name }}</td>
-          <td>
-            <button @click="editAmberStore(amberStore)" class="edit-button">Edit</button>
-            <button @click="amberStore.id && deleteAmberStore(amberStore.id)" class="delete-button">Delete</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <p v-else>No amber stores available.</p>
+    <div class="amber-stores-header">
+      <h1>Amber Stores</h1>
+      <button @click="addAmberStore" class="add-button">
+        <i class="fas fa-plus"></i> Add New Amber Store
+      </button>
+    </div>
+
+    <!-- Amber Store Editor Modal -->
+    <div v-if="showEditor" class="modal">
+      <div class="modal-content">
+        <AmberStoreEditor
+          :data="selectedAmberStore"
+          @save="handleSave"
+          @cancel="closeEditor"
+        />
+      </div>
+    </div>
+
+    <!-- List of Amber Stores -->
+    <div v-if="amberStores.length" class="amber-store-grid">
+      <div v-for="amberStore in amberStores" :key="amberStore.id" class="amber-store-card">
+        <h3>{{ amberStore.name }}</h3>
+        <p>ID: {{ amberStore.id }}</p>
+        <div class="amber-store-actions">
+          <button @click="editAmberStore(amberStore)" class="edit-button">
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button @click="deleteAmberStore(amberStore.id)" class="delete-button">
+            <i class="fas fa-trash"></i> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+    <div v-else class="no-amber-stores">
+      <p>No amber stores available. Click the "Add New Amber Store" button to create one.</p>
+    </div>
+
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="isLoading" class="loading">Loading...</p>
-
-    <AmberStoreEditor
-      v-if="showEditor"
-      :data="selectedAmberStore"
-      @save="handleSave"
-      @cancel="showEditor = false"
-    />
   </div>
 </template>
 
@@ -68,6 +76,11 @@ const fetchAmberStores = async () => {
   }
 };
 
+const addAmberStore = () => {
+  selectedAmberStore.value = { name: '', data: '{}', secure_key_hash: '' };
+  showEditor.value = true;
+};
+
 const editAmberStore = (amberStore: AmberStore) => {
   try {
     selectedAmberStore.value = { 
@@ -93,7 +106,7 @@ const handleSave = async (amberStore: AmberStore) => {
       await apiClient.post('/amber_store', amberStore);
     }
     await fetchAmberStores();
-    showEditor.value = false;
+    closeEditor();
   } catch (err: any) {
     error.value = 'Failed to save amber store. Please try again.';
     console.error('Error saving amber store:', err);
@@ -121,37 +134,134 @@ const deleteAmberStore = async (id: string | undefined) => {
   }
 };
 
+const closeEditor = () => {
+  showEditor.value = false;
+  selectedAmberStore.value = { name: '', data: '{}', secure_key_hash: '' };
+};
+
 onMounted(fetchAmberStores);
-  </script>
-  
-  <style scoped>
-  .amber-stores {
-    padding: 20px;
-  }
-  .create-button {
-    margin-bottom: 15px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
-  }
-  th {
-    background-color: #f2f2f2;
-  }
-  .edit-button, .delete-button {
-    margin-right: 5px;
-  }
-  .error {
-    color: red;
-    margin-top: 10px;
-  }
-  .loading {
-    color: #3498db;
-    margin-top: 10px;
-  }
-  </style>
+</script>
+
+<style scoped>
+.amber-stores {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.amber-stores-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.add-button {
+  background-color: #3498db;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.add-button:hover {
+  background-color: #2980b9;
+}
+
+.amber-store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.amber-store-card {
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.amber-store-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.2rem;
+}
+
+.amber-store-card p {
+  margin: 0 0 10px 0;
+  color: #7f8c8d;
+}
+
+.amber-store-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-button, .delete-button {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-left: 10px;
+  transition: color 0.3s ease;
+}
+
+.edit-button {
+  color: #3498db;
+}
+
+.edit-button:hover {
+  color: #2980b9;
+}
+
+.delete-button {
+  color: #e74c3c;
+}
+
+.delete-button:hover {
+  color: #c0392b;
+}
+
+.no-amber-stores {
+  text-align: center;
+  color: #7f8c8d;
+  margin-top: 50px;
+}
+
+.error {
+  color: #e74c3c;
+  margin-top: 10px;
+}
+
+.loading {
+  color: #3498db;
+  margin-top: 10px;
+}
+
+.modal {
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: #fefefe;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 5px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+</style>

@@ -8,34 +8,27 @@
     </header>
   </template>
   
-  <script lang="ts">
-  import { defineComponent, computed } from 'vue';
-  import { useStore } from 'vuex';
-  import AuthService from '@/services/AuthService';
-  import { useRouter } from 'vue-router';
-  
-  export default defineComponent({
-    name: 'StudioHeader',
-    setup() {
-      const store = useStore();
-      const router = useRouter();
-  
-      const userName = computed(() => store.state.user?.name || 'User');
-  
-      const logout = () => {
-        AuthService.logout();
-        store.commit('setLoggedIn', false);
-        store.commit('setUser', null);
-        router.push('/');
-      };
-  
-      return {
-        userName,
-        logout,
-      };
-    },
-  });
-  </script>
+<script setup lang="ts">
+import { computed } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
+import AuthService from '@/services/AuthService';
+
+const store = useStore();
+const router = useRouter();
+
+const userName = computed(() => {
+  const user = store.state.user;
+  return user ? user.name || user.username : 'Guest';
+});
+
+const logout = () => {
+  AuthService.logout();
+  store.commit('setLoggedIn', false);
+  store.commit('setUser', null);
+  router.push('/');
+};
+</script>
   
   <style scoped>
   .studio-header {
