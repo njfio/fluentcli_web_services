@@ -11,6 +11,17 @@ const AuthService = {
     return response.data;
   },
 
+  async validateToken(token: string): Promise<any> {
+    try {
+      const response = await apiClient.get('/users/validate-token', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error('Invalid token');
+    }
+  },
+
   logout() {
     localStorage.removeItem('token');
     delete apiClient.defaults.headers.common['Authorization'];
@@ -24,6 +35,10 @@ const AuthService = {
 
   getToken(): string | null {
     return localStorage.getItem('token');
+  },
+
+  removeToken(): void {
+    localStorage.removeItem('token');
   },
 };
 

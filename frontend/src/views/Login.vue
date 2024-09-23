@@ -29,7 +29,7 @@
           AuthService.setToken(token);
           store.commit('setLoggedIn', true);
           store.commit('setUser', user);
-          router.push('/');
+          router.push('/studio/dashboard');
         } catch (error) {
           console.error('Login failed:', error);
           // Handle login error (e.g., show error message)

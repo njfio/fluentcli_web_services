@@ -1,4 +1,7 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+import { useStore } from 'vuex';
+
+
 import Home from '../views/Home.vue';
 import Login from '../views/Login.vue';
 import Admin from '../views/Admin.vue';
@@ -13,7 +16,6 @@ import DockerFiles from '../views/studio/DockerFiles.vue';
 import AmberStores from '../views/studio/AmberStores.vue';
 import Jobs from '../views/studio/Jobs.vue';
 
-import store from '@/store';
 
 const routes: Array<RouteRecordRaw> = [
   { path: '/', name: 'Home', component: Home },
@@ -30,23 +32,27 @@ const routes: Array<RouteRecordRaw> = [
         path: '/studio/jobs',
         name: 'Jobs',
         component: Jobs,
+        meta: { requiresAuth: true }
       },
-      { path: 'pipelines', name: 'Pipelines', component: Pipelines },
+      { path: 'pipelines', name: 'Pipelines', component: Pipelines, meta: { requiresAuth: true } },
       { path: 'settings', name: 'Settings', component: Settings },
       {
         path: 'dockerfiles',
         name: 'DockerFiles',
         component: DockerFiles,
+        meta: { requiresAuth: true }
       },
       {
         path: '/studio/configurations',
         name: 'Configurations',
-        component: () => import('@/views/studio/Configurations.vue')
+        component: () => import('@/views/studio/Configurations.vue'),
+        meta: { requiresAuth: true }
       },
       {
         path: '/studio/amberstores',
         name: 'AmberStores',
         component: AmberStores,
+        meta: { requiresAuth: true }
       },
     ],
   }
@@ -59,13 +65,17 @@ const router = createRouter({
 
 // Navigation Guard
 router.beforeEach((to, _, next) => {
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const isLoggedIn = store.getters.isLoggedIn;
+  const store = useStore();
+  const isLoggedIn = store.state.isLoggedIn;
 
-  if (requiresAuth && !isLoggedIn) {
-    next('/login');
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    if (!isLoggedIn) {
+      next('/login');
+    } else {
+      next();
+    }
   } else if (to.path === '/login' && isLoggedIn) {
-    next('/');
+    next('/studio/dashboard');
   } else {
     next();
   }

@@ -53,7 +53,7 @@ const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value;
 };
 
-const currentPageTitle = computed(() => {
+computed(() => {
   const routeName = route.name as string;
   return routeName.charAt(0).toUpperCase() + routeName.slice(1);
 });

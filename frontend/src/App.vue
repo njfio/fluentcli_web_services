@@ -1,48 +1,38 @@
 <template>
   <div id="app">
-    <nav>
-      <router-link to="/">Home</router-link> |
-      <router-link to="/admin">Admin</router-link> |
-      <router-link to="/studio">Studio</router-link> |
-      <button @click="handleAuthAction">{{ authButtonText }}</button>
-    </nav>
     <router-view></router-view>
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
-import { useStore } from 'vuex';
+<script setup lang="ts">
+import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import AuthService from './services/AuthService';
 
-export default defineComponent({
-  name: 'App',
-  setup() {
-    const store = useStore();
-    const router = useRouter();
+const router = useRouter();
+const store = useStore();
 
-    const isLoggedIn = computed(() => store.state.isLoggedIn);
-    const authButtonText = computed(() => (isLoggedIn.value ? 'Logout' : 'Login'));
-
-    const handleAuthAction = () => {
-      if (isLoggedIn.value) {
-        // Logout
-        AuthService.logout();
-        store.commit('setLoggedIn', false);
-        store.commit('setUser', null);
-        router.push('/');
-      } else {
-        // Navigate to Login page
-        router.push('/login');
+onMounted(async () => {
+  const token = AuthService.getToken();
+  if (token) {
+    try {
+      const user = await AuthService.validateToken(token);
+      store.commit('setLoggedIn', true);
+      store.commit('setUser', user);
+      if (router.currentRoute.value.path === '/login') {
+        router.push('/studio/dashboard');
       }
-    };
-
-    return {
-      authButtonText,
-      handleAuthAction,
-    };
-  },
+    } catch (error) {
+      console.error('Token validation failed:', error);
+      AuthService.removeToken();
+      store.commit('setLoggedIn', false);
+      store.commit('setUser', null);
+      router.push('/login');
+    }
+  } else {
+    router.push('/login');
+  }
 });
 </script>
 
