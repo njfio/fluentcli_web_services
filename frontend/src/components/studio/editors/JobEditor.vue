@@ -52,8 +52,8 @@
         <input id="status" v-model="editedJob.status" required />
       </div>
       <div>
-        <button type="submit">Save</button>
-        <button type="button" @click="$emit('cancel')">Cancel</button>
+        <button type="submit" class="save-button">Save</button>
+        <button type="button" @click="$emit('cancel')" class="cancel-button">Cancel</button>
       </div>
     </form>
   </div>
@@ -111,9 +111,11 @@ const handleSubmit = () => {
 </script>
 
 <style scoped>
-.job-editor {
-  max-width: 600px;
-  margin: 0 auto;
+.job-editor  {
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
 }
 
 form > div {
@@ -130,7 +132,36 @@ input, select, textarea {
   padding: 0.5rem;
 }
 
-button {
-  margin-right: 1rem;
+.save-button, .cancel-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.save-button {
+  background-color: #2ecc71;
+  color: #fff;
+  margin-right: 10px;
+}
+
+.save-button:hover:not(:disabled) {
+  background-color: #27ae60;
+}
+
+.save-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  background-color: #e74c3c;
+  color: #fff;
+}
+
+.cancel-button:hover {
+  background-color: #c0392b;
 }
 </style>

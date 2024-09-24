@@ -11,8 +11,8 @@
           <textarea id="content" v-model="editedDockerFile.content" rows="10" required></textarea>
         </div>
         <div>
-          <button type="submit">Save</button>
-          <button type="button" @click="$emit('cancel')">Cancel</button>
+        <button type="submit" class="save-button">Save</button>
+        <button type="button" @click="$emit('cancel')" class="cancel-button">Cancel</button>
         </div>
       </form>
     </div>
@@ -50,6 +50,7 @@
   </script>
   
 <<style scoped>
+
 .docker-file-editor {
   background-color: #fff;
   border-radius: 5px;
@@ -86,6 +87,11 @@ textarea {
   min-height: 300px;
 }
 
+.error {
+  color: #e74c3c;
+  margin-bottom: 10px;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -106,8 +112,13 @@ textarea {
   margin-right: 10px;
 }
 
-.save-button:hover {
+.save-button:hover:not(:disabled) {
   background-color: #27ae60;
+}
+
+.save-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
 }
 
 .cancel-button {
