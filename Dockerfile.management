@@ -13,7 +13,6 @@ WORKDIR /app
 # Copy the entire project
 COPY . .
 
-
 # Copy the generate_migrations.sh script
 COPY generate_migrations.sh /app/generate_migrations.sh
 RUN chmod +x /app/generate_migrations.sh

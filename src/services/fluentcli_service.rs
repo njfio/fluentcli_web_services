@@ -1,19 +1,34 @@
 use crate::error::AppError;
-use std::process::Command;
+use crate::models::fluentcli::{CommandRequest, CommandResult};
+use log::{debug, info};
+use reqwest;
+use uuid::Uuid;
+
+const WORKER_ADDRESS: &str = "http://worker:8080"; // Adjust this to match your Docker setup
 
 pub struct FluentCLIService;
 
 impl FluentCLIService {
-    pub fn execute_command(&self, command: &str) -> Result<String, AppError> {
-        let output = Command::new("fluentcli")
-            .args(command.split_whitespace())
-            .output()
-            .map_err(|e| AppError::FluentCLIError(e.to_string()))?;
+    pub async fn execute_command(
+        user_id: Uuid,
+        command: CommandRequest,
+    ) -> Result<CommandResult, AppError> {
+        info!("Executing command for user_id: {}", user_id);
+        debug!("Command request: {:?}", command);
 
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
-        } else {
-            Err(AppError::FluentCLIError(String::from_utf8_lossy(&output.stderr).to_string()))
-        }
+        let client = reqwest::Client::new();
+        let response = client
+            .post(&format!("{}/execute", WORKER_ADDRESS))
+            .json(&command)
+            .send()
+            .await
+            .map_err(|e| AppError::ExternalServiceError(e.to_string()))?;
+
+        let result: CommandResult = response
+            .json()
+            .await
+            .map_err(|e| AppError::ExternalServiceError(e.to_string()))?;
+
+        Ok(result)
     }
 }

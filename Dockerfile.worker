@@ -9,6 +9,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Copy the worker application code
+COPY worker_app /app/worker_app
+
+# Build the worker application
+RUN cd worker_app && cargo build --release
+
 # Install FluentCLI
 RUN cargo install --force --git https://github.com/njfio/fluent_cli --branch v.0.5.5-feature-docker-image fluent
 
@@ -51,6 +57,7 @@ COPY --from=builder /usr/local/cargo/bin/fluent /usr/local/bin/fluent
 COPY --from=builder /usr/local/cargo/bin/amber /usr/local/bin/amber
 COPY --from=builder /.fluent /.fluent
 COPY --from=builder /.fluent/default_config_test.json /app/default_config_test.json
+COPY --from=builder /app/worker_app/target/release/worker_app /app/worker_app
 
 # Set environment variables
 ENV AMBER_YAML=/.fluent/amber.yaml
@@ -60,4 +67,4 @@ ENV AMBER_SECRET=
 
 RUN sed -i 's/"uri": "bolt:\/\/localhost:7687"/"uri": "bolt:\/\/neo4j:7687"/g' /.fluent/default_config_test.json
 
-CMD ["tail", "-f", "/dev/null"]
+CMD ["/app/worker_app"]

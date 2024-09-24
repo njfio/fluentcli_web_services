@@ -1,5 +1,6 @@
 use crate::handlers::{
-    amber_store, api_key, configuration, docker_file, job, pipeline, secure_vault, user, worker,
+    amber_store, api_key, configuration, docker_file, fluentcli, job, pipeline, secure_vault, user,
+    worker,
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, HttpResponse, Scope};
@@ -107,5 +108,10 @@ pub fn configure_routes() -> Scope {
                     "/{id}/deactivate",
                     web::post().to(worker::deactivate_worker),
                 ),
+        )
+        .service(
+            web::scope("/fluentcli")
+                .wrap(Auth)
+                .route("/execute", web::post().to(fluentcli::execute_command)),
         )
 }

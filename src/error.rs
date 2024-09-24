@@ -1,11 +1,11 @@
 // src/error.rs
 
-use thiserror::Error;
-use std::error::Error as StdError;
-use diesel::r2d2;
 use actix_web;
-use actix_web::ResponseError;
 use actix_web::http::StatusCode;
+use actix_web::ResponseError;
+use diesel::r2d2;
+use std::error::Error as StdError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -41,6 +41,9 @@ pub enum AppError {
 
     #[error("Fluent CLI error: {0}")]
     FluentCLIError(String),
+
+    #[error("External service error: {0}")]
+    ExternalServiceError(String),
 }
 
 impl From<Box<dyn StdError + Send + Sync>> for AppError {
@@ -56,6 +59,7 @@ impl ResponseError for AppError {
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::AuthenticationError => StatusCode::UNAUTHORIZED,
+            AppError::ExternalServiceError(_) => StatusCode::BAD_GATEWAY,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

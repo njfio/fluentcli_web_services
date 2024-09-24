@@ -7,3 +7,4 @@ pub mod configuration;
 pub mod pipeline;
 pub mod docker_file;
 pub mod worker;
+pub mod fluentcli;
