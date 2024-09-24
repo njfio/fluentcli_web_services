@@ -3,29 +3,32 @@ use uuid::Uuid;
 use crate::db::DbPool;
 use crate::services::amber_store_service::AmberStoreService;
 use crate::models::amber_store::{NewAmberStore, UpdateAmberStore, NewAmberStorePayload};
+use crate::utils::encryption::hash_secure_key;
+use crate::error::AppError;
 
 
 pub async fn create_amber_store(
     pool: web::Data<DbPool>,
     new_amber_store_payload: web::Json<NewAmberStorePayload>,
     req: HttpRequest,
-) -> impl Responder {
+) -> Result<HttpResponse, actix_web::Error> {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    log::info!("Creating amber store for user_id: {}", user_id);
-    log::info!("Received data: {:?}", new_amber_store_payload);
+    
+    let secure_key_hash = hash_secure_key(&new_amber_store_payload.secure_key_hash)
+        .map_err(|_| actix_web::error::ErrorInternalServerError("Failed to hash secure key"))?;
 
     let new_amber_store = NewAmberStore {
         user_id,
-        data: new_amber_store_payload.data.clone(),
+        name: new_amber_store_payload.name.clone(),
+        data: serde_yaml::to_string(&new_amber_store_payload.data).unwrap(),
+        secure_key_hash,
     };
+
     match AmberStoreService::create_amber_store(&pool, new_amber_store) {
-        Ok(amber_store) => {
-            log::info!("Amber store created successfully: {:?}", amber_store);
-            HttpResponse::Created().json(amber_store)
-        },
+        Ok(amber_store) => Ok(HttpResponse::Created().json(amber_store)),
         Err(e) => {
             log::error!("Error creating amber store: {:?}", e);
-            HttpResponse::InternalServerError().body("Failed to create amber store")
+            Ok(HttpResponse::InternalServerError().body("Failed to create amber store"))
         }
     }
 }
@@ -61,13 +64,21 @@ pub async fn update_amber_store(
     amber_store_id: web::Path<Uuid>,
     update_data: web::Json<UpdateAmberStore>,
     req: HttpRequest,
-) -> impl Responder {
+) -> Result<HttpResponse, actix_web::Error> {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match AmberStoreService::update_amber_store(&pool, amber_store_id.into_inner(), update_data.into_inner(), user_id) {
-        Ok(amber_store) => HttpResponse::Ok().json(amber_store),
+    
+    let mut update_data = update_data.into_inner();
+    if let Some(secure_key) = update_data.secure_key_hash.take() {
+        let secure_key_hash = hash_secure_key(&secure_key)
+            .map_err(|_| actix_web::error::ErrorInternalServerError("Failed to hash secure key"))?;
+        update_data.secure_key_hash = Some(secure_key_hash);
+    }
+
+    match AmberStoreService::update_amber_store(&pool, amber_store_id.into_inner(), update_data, user_id) {
+        Ok(amber_store) => Ok(HttpResponse::Ok().json(amber_store)),
         Err(e) => {
             log::error!("Error updating amber store: {:?}", e);
-            HttpResponse::InternalServerError().body("Failed to update amber store")
+            Ok(HttpResponse::InternalServerError().body("Failed to update amber store"))
         }
     }
 }

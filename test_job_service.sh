@@ -71,11 +71,12 @@ login_response=$(make_request POST "/users/login" '{"username": "testuser", "pas
 token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Token: $token"
 
-# Create a new amber entry
-echo "Creating a new amber entry"
-amber_response=$(make_request POST "/amber_store" '{"name": "test_amber", "data": "test_data"}' "$token" "201")
+# Create a new amber store entry
+echo "Creating a new amber store entry"
+amber_response=$(make_request POST "/amber_store" '{"name": "Test Entry", "data": {"key": "value"}, "secure_key_hash": "secretkey123"}' "$token" "201")
 amber_id=$(echo "$amber_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
-echo "Amber ID: $amber_id"
+echo "Amber Store ID: $amber_id"
+
 
 # Create a new config entry
 echo "Creating a new config entry"
@@ -89,11 +90,18 @@ docker_response=$(make_request POST "/docker_files" '{"name": "test_docker", "co
 docker_id=$(echo "$docker_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Docker ID: $docker_id"
 
+# Create a new pipeline entry
+echo "Creating a new pipeline entry"
+pipeline_response=$(make_request POST "/pipelines" '{"name": "test_pipeline", "data": {"key": "value"}}' "$token" "201")
+pipeline_id=$(echo "$pipeline_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Pipeline ID: $pipeline_id"
+
 # Create a new job entry
 echo "Creating a new job entry"
-job_response=$(make_request POST "/jobs" "{\"uri\": \"some-uri\", \"config\": {\"key\": \"value\"}, \"amber_id\": \"$amber_id\", \"state_file_content\": \"some-content\", \"data_path\": \"some-path\", \"worker_type\": \"$docker_id\", \"triggers\": null, \"timers\": null, \"status\": \"pending\"}" "$token" "201")
+job_response=$(make_request POST "/jobs" "{\"config\": \"$config_id\", \"amber_id\": \"$amber_id\", \"state_file_content\": \"{\\\"content\\\": \\\"some-content\\\"}\", \"data_path\": \"some-path\", \"worker_type\": \"$docker_id\", \"triggers\": null, \"timers\": null, \"status\": \"pending\", \"pipeline_id\": \"$pipeline_id\"}" "$token" "201")
 job_id=$(echo "$job_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Job ID: $job_id"
+echo "Job Response: $job_response"
 
 # List job entries
 echo -e "\n\n\nListing job entries"
@@ -122,6 +130,10 @@ make_request DELETE "/configurations/$config_id" "" "$token" "204"
 # Delete amber entry
 echo -e "\n\n\nDelete amber entry"
 make_request DELETE "/amber_store/$amber_id" "" "$token" "204"
+
+# Delete pipeline entry
+echo -e "\n\n\nDelete pipeline entry"
+make_request DELETE "/pipelines/$pipeline_id" "" "$token" "204"
 
 # Delete user
 echo -e "\n\n\nDelete user"

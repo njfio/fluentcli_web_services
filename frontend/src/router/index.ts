@@ -1,27 +1,84 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+import { useStore } from 'vuex';
+
+
 import Home from '../views/Home.vue';
+import Login from '../views/Login.vue';
 import Admin from '../views/Admin.vue';
 import Studio from '../views/Studio.vue';
-import JobList from '../views/admin/JobList.vue';
-import JobDetails from '../views/admin/JobDetails.vue';
-import JobCreate from '../views/admin/JobCreate.vue';
-import JobEdit from '../views/admin/JobEdit.vue';
-import WorkerTypeList from '../views/WorkerTypeList.vue'; // This one remains in the root views folder
+import Dashboard from '../views/studio/Dashboard.vue';
+
+import Pipelines from '../views/studio/Pipelines.vue';
+import Settings from '../views/studio/Settings.vue';
+
+
+import DockerFiles from '../views/studio/DockerFiles.vue';
+import AmberStores from '../views/studio/AmberStores.vue';
+import Jobs from '../views/studio/Jobs.vue';
+
 
 const routes: Array<RouteRecordRaw> = [
   { path: '/', name: 'Home', component: Home },
+  { path: '/login', name: 'Login', component: Login },
   { path: '/admin', name: 'Admin', component: Admin },
-  { path: '/studio', name: 'Studio', component: Studio },
-  { path: '/admin/jobs', name: 'JobList', component: JobList },
-  { path: '/admin/jobs/:id', name: 'JobDetails', component: JobDetails },
-  { path: '/admin/jobs/create', name: 'JobCreate', component: JobCreate },
-  { path: '/admin/jobs/:id/edit', name: 'JobEdit', component: JobEdit },
-  { path: '/admin/worker-types', name: 'WorkerTypeList', component: WorkerTypeList },
+  {
+    path: '/studio',
+    name: 'Studio',
+    component: Studio,
+    meta: { requiresAuth: true },
+    children: [
+      { path: 'dashboard', name: 'Dashboard', component: Dashboard },
+      {
+        path: '/studio/jobs',
+        name: 'Jobs',
+        component: Jobs,
+        meta: { requiresAuth: true }
+      },
+      { path: 'pipelines', name: 'Pipelines', component: Pipelines, meta: { requiresAuth: true } },
+      { path: 'settings', name: 'Settings', component: Settings },
+      {
+        path: 'dockerfiles',
+        name: 'DockerFiles',
+        component: DockerFiles,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/studio/configurations',
+        name: 'Configurations',
+        component: () => import('@/views/studio/Configurations.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/studio/amberstores',
+        name: 'AmberStores',
+        component: AmberStores,
+        meta: { requiresAuth: true }
+      },
+    ],
+  }
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// Navigation Guard
+router.beforeEach((to, _, next) => {
+  const store = useStore();
+  const isLoggedIn = store.state.isLoggedIn;
+
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    if (!isLoggedIn) {
+      next('/login');
+    } else {
+      next();
+    }
+  } else if (to.path === '/login' && isLoggedIn) {
+    next('/studio/dashboard');
+  } else {
+    next();
+  }
 });
 
 export default router;

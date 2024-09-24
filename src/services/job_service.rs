@@ -63,6 +63,18 @@ impl JobService {
             .map_err(AppError::DatabaseError)
     }
 
+    pub fn pipeline_exists(pool: &DbPool, pipeline_id: Uuid, user_id: Uuid) -> Result<bool, AppError> {
+        use crate::schema::pipelines::dsl::*;
+        let conn = &mut pool.get()?;
+        let exists = diesel::select(diesel::dsl::exists(
+            pipelines
+                .filter(id.eq(pipeline_id))
+                .filter(user_id.eq(user_id))
+        ))
+        .get_result(conn)?;
+        Ok(exists)
+    }
+
     pub fn start_job(pool: &DbPool, job_id: Uuid, user_id: Uuid) -> Result<Job, AppError> {
         // Implement the logic to start a job
         unimplemented!()

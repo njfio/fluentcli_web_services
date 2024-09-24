@@ -1,18 +1,35 @@
-import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
-
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import path from 'path';
 
 export default defineConfig({
   plugins: [vue()],
-  server: {
-    host: '0.0.0.0',
-    port: 1420,
-    strictPort: true,
-  },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-  },
   resolve: {
-  }
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      'monaco-editor': 'monaco-editor/esm/vs/editor/editor.api.js',
+    },
+  },
+  server: {
+    port: 1420,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      '/jobs': {
+          target: 'http://localhost:8000', // Replace with your backend server's URL and port
+          changeOrigin: true,
+          secure: false, 
+          rewrite: (path) => path.replace(/^\/api/, '')// Set to true if using HTTPS on the backend
+        },
+      '/pipelines': {
+          target: 'http://localhost:8000', // Replace with your backend server's URL and port
+          changeOrigin: true,
+          secure: false,
+                rewrite: (path) => path.replace(/^\/api/, ''), // Set to true if using HTTPS on the backend
+        },
+    },
+  },
 });

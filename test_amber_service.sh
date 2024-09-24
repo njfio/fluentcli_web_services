@@ -71,46 +71,46 @@ token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head
 echo "Token: $token"
 
 # Create a new amber store entry
-# Create a new amber store entry
 echo "Creating a new amber store entry"
-response=$(make_request POST "/amber_store" '{"data": {"key": "value"}}' "$token" "201")
+response=$(make_request POST "/amber_store" '{"name": "Test Entry", "data": {"key": "value"}, "secure_key_hash": "secretkey123"}' "$token" "201")
 amber_store_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Amber Store ID: $amber_store_id"
 echo "$response"
 
-# # List amber store entries
- echo -e "\n\n\nListing amber store entries"
- make_request GET "/amber_store" "" "$token" "200"
+# List amber store entries
+echo -e "\n\n\nListing amber store entries"
+make_request GET "/amber_store" "" "$token" "200"
 
-# # Get amber store entry details
- echo -e "\n\n\nGet amber store entry details"
- make_request GET "/amber_store/$amber_store_id" "" "$token" "200"
 
-# # Update amber store entry
- echo -e "\n\n\nUpdate amber store entry"
- make_request PUT "/amber_store/$amber_store_id" '{"data": {"key": "updated_value"}}' "$token" "200"
+# Get amber store entry details
+echo -e "\n\n\nGet amber store entry details"
+make_request GET "/amber_store/$amber_store_id" "" "$token" "200"
 
-# # Verify the update
- echo -e "\n\n\nVerify amber store entry update"
- make_request GET "/amber_store/$amber_store_id" "" "$token" "200"
+# Update amber store entry
+echo -e "\n\n\nUpdate amber store entry"
+make_request PUT "/amber_store/$amber_store_id" '{"name": "Updated Test Entry", "data": "{\"key\": \"new_value\", \"nested\": {\"subkey\": \"new_subvalue\"}}", "secure_key_hash": "newsecretkey456"}' "$token" "200"
 
-# # Delete amber store entry
- echo -e "\n\n\nDelete amber store entry"
- make_request DELETE "/amber_store/$amber_store_id" "" "$token" "204"
+# Verify the update
+echo -e "\n\n\nVerify amber store entry update"
+make_request GET "/amber_store/$amber_store_id" "" "$token" "200"
 
-# # Verify the deletion
- echo -e "\n\n\nVerify amber store entry deletion"
+# Delete amber store entry
+echo -e "\n\n\nDelete amber store entry"
+make_request DELETE "/amber_store/$amber_store_id" "" "$token" "204"
+
+# Verify the deletion
+echo -e "\n\n\nVerify amber store entry deletion"
 make_request GET "/amber_store/$amber_store_id" "" "$token" "500"
 
-# # Delete the user
+# Delete the user
 echo -e "\n\n\nDeleting the user"
 make_request DELETE "/users/$user_id" "" "$token" "204"
 
-# # Print summary
- echo "\n\nTest Summary:"
- echo "Total tests: $TOTAL_TESTS"
- echo "Passed tests: $PASSED_TESTS"
- echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
- echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
+# Print summary
+echo -e "\n\nTest Summary:"
+echo "Total tests: $TOTAL_TESTS"
+echo "Passed tests: $PASSED_TESTS"
+echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
 
- echo "Amber store testing completed."
+echo "Amber store testing completed."

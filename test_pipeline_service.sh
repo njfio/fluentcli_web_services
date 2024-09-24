@@ -86,7 +86,7 @@ make_request GET "/pipelines/$pipeline_id" "" "$token" "200"
 
 # Update pipeline entry
 echo -e "\n\n\nUpdate pipeline entry"
-make_request PUT "/pipelines/$pipeline_id" '{"name": "updated_pipeline", "data": {"key": "updated_value"}}' "$token" "200"
+make_request PUT "/pipelines/$pipeline_id" '{"name": "updated_pipeline", "data": "updated_data"}' "$token" "200"
 
 # Verify the update
 echo -e "\n\n\nVerify pipeline entry update"

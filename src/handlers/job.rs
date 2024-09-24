@@ -1,40 +1,50 @@
-use actix_web::{web, HttpResponse, Responder, HttpRequest, HttpMessage};
-use uuid::Uuid;
 use crate::db::DbPool;
+use crate::models::job::{NewJob, NewJobPayload, UpdateJob};
 use crate::services::job_service::JobService;
-use crate::models::job::{NewJob, UpdateJob, NewJobPayload};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
+use uuid::Uuid;
 
 pub async fn create_job(
     pool: web::Data<DbPool>,
     new_job_payload: web::Json<NewJobPayload>,
     req: HttpRequest,
-) -> impl Responder {
+) -> Result<HttpResponse, actix_web::Error> {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    log::info!("Creating job for user_id: {}", user_id);
-    log::info!("Received data: {:?}", new_job_payload);
+
+    // Convert worker_type from String to Uuid
+    let worker_type = Uuid::parse_str(&new_job_payload.worker_type)
+        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid worker_type UUID"))?;
+
+    // Convert state_file_content from Option<String> to Option<Value>
+    let state_file_content = new_job_payload
+        .state_file_content
+        .as_ref()
+        .map(|content| {
+            serde_json::from_str(content)
+                .map_err(|_| actix_web::error::ErrorBadRequest("Invalid state_file_content JSON"))
+        })
+        .transpose()?;
 
     let new_job = NewJob {
         user_id,
-        uri: new_job_payload.uri.clone(),
-        config: new_job_payload.config.clone(),
+        uri: Uuid::new_v4(), // Generate a new UUID for uri
+        config: new_job_payload.config,
         amber_id: new_job_payload.amber_id,
-        state_file_content: new_job_payload.state_file_content.clone(),
+        state_file_content,
         data_path: new_job_payload.data_path.clone(),
-        worker_type: new_job_payload.worker_type.clone(),
+        worker_type,
         triggers: new_job_payload.triggers.clone(),
         timers: new_job_payload.timers.clone(),
         status: new_job_payload.status.clone(),
+        pipeline_id: new_job_payload.pipeline_id,
+        results: new_job_payload.results.clone(),
     };
-    log::info!("New job data: {:?}", new_job);
 
     match JobService::create_job(&pool, new_job) {
-        Ok(job) => {
-            log::info!("Job created successfully: {:?}", job);
-            HttpResponse::Created().json(job)
-        },
+        Ok(job) => Ok(HttpResponse::Created().json(job)),
         Err(e) => {
             log::error!("Error creating job: {:?}", e);
-            HttpResponse::InternalServerError().body("Failed to create job")
+            Ok(HttpResponse::InternalServerError().body("Failed to create job"))
         }
     }
 }
@@ -72,7 +82,12 @@ pub async fn update_job(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match JobService::update_job(&pool, job_id.into_inner(), update_data.into_inner(), user_id) {
+    match JobService::update_job(
+        &pool,
+        job_id.into_inner(),
+        update_data.into_inner(),
+        user_id,
+    ) {
         Ok(job) => HttpResponse::Ok().json(job),
         Err(e) => {
             log::error!("Error updating job: {:?}", e);
