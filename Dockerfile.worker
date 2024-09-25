@@ -22,13 +22,14 @@ RUN cargo install --force --git https://github.com/njfio/fluent_cli --branch v.0
 RUN cargo install --git https://github.com/fpco/amber amber
 
 # Create necessary directories
-RUN mkdir -p /.fluent/state_store /.fluent/example_configurations
+RUN mkdir -p /.fluent/state_store /.fluent/example_configurations /.fluent/example_pipelines/
+
 
 # Copy FluentCLI configuration files
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/default_config_test.json /.fluent/
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/amber.yaml /.fluent/
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/example_configurations/*.json /.fluent/example_configurations/
-
+RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/example_pipelines/*.yaml /.fluent/example_pipelines/
 # Final stage
 FROM debian:buster-slim
 

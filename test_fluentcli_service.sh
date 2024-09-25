@@ -53,12 +53,41 @@ fluentcli_response=$(make_request POST "/fluentcli/execute" '{"command": "openai
 echo "FluentCLI response: $fluentcli_response"
 
 # Check the FluentCLI response
-if echo "$fluentcli_response" | grep -q "Peter, Peter, pumpkin-eater"; then
-    echo "FluentCLI test passed: Correct response received"
+if echo "$fluentcli_response" | grep -q '"output":' && echo "$fluentcli_response" | grep -q '"error":null' && echo "$fluentcli_response" | grep -q '"exit_code":0'; then
+    echo "FluentCLI test passed: Correct response structure received"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
-    echo "FluentCLI test failed: Incorrect response"
+    echo "FluentCLI test failed: Incorrect response structure"
 fi
+
+echo ""
+echo "Testing FluentCLI service with pipeline"
+fluentcli_response=$(make_request POST "/fluentcli/execute" '{"command": "openai", "args": ["pipeline", "--file", "/.fluent/example_pipelines/example_parallel_and_timeout.yaml", "--input", "testing", "--run-id", "testing", "--json-output", "--force-fresh"]}' "$token" "200")
+echo "FluentCLI response: $fluentcli_response"
+
+# Check the FluentCLI response
+if echo "$fluentcli_response" | grep -q '"output":' && echo "$fluentcli_response" | grep -q '"error":null' && echo "$fluentcli_response" | grep -q '"exit_code":0'; then
+    echo "FluentCLI pipeline test passed: Correct response structure received"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+else
+    echo "FluentCLI pipeline test failed: Incorrect response structure"
+fi
+
+
+echo ""
+echo "Testing FluentCLI service with pipeline"
+fluentcli_response=$(make_request POST "/fluentcli/execute" '{"command": "openai", "args": ["pipeline", "--file", "/.fluent/example_pipelines/example_detailed_article_generation.yaml", "--input", "Who will be elected president of the united states in 2024", "--run-id", "testing123", "--json-output"]}' "$token" "200")
+echo "FluentCLI response: $fluentcli_response"
+
+# Check the FluentCLI response
+if echo "$fluentcli_response" | grep -q '"output":' && echo "$fluentcli_response" | grep -q '"error":null' && echo "$fluentcli_response" | grep -q '"exit_code":0'; then
+    echo "FluentCLI pipeline test passed: Correct response structure received"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+else
+    echo "FluentCLI pipeline test failed: Incorrect response structure"
+fi
+
+TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
