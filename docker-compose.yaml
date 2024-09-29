@@ -15,6 +15,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    volumes:
+      - shared_tmp:/shared_tmp
     environment:
       - AMBER_SECRET=${AMBER_SECRET}
       - AMBER_YAML=/.fluent/amber.yaml
@@ -25,6 +27,7 @@ services:
       - NEO4J_PASSWORD=system2024!
       - NEO4J_DB=neo4j
       - RUST_LOG=debug
+      - SHARED_TMP_PATH=/shared_tmp
     ports:
       - "8080:8080"
     networks:
@@ -48,6 +51,8 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
+    volumes:
+      - shared_tmp:/shared_tmp
     environment:
       - WORKER_ADDRESS=http://worker:8080/execute
       - DATABASE_URL=postgres://user:password@db:5432/fws_db
@@ -56,8 +61,10 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - RUST_LOG=debug
+      - SHARED_TMP_PATH=/shared_tmp
     networks:
       - fws_network
+
 
   management:
     build:
@@ -123,6 +130,7 @@ services:
 volumes:
   postgres_data:
   neo4j_data:
+  shared_tmp:
 
 networks:
   fws_network:

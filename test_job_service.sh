@@ -92,7 +92,44 @@ echo "Docker ID: $docker_id"
 
 # Create a new pipeline entry
 echo "Creating a new pipeline entry"
-pipeline_response=$(make_request POST "/pipelines" '{"name": "test_pipeline", "data": {"key": "value"}}' "$token" "201")
+pipeline_content=$(cat <<EOF
+name: parallel_and_timeout_example
+steps:
+  - !Parallel
+    name: concurrent_operations
+    steps:
+      - !ShellCommand
+        name: task1
+        command: sleep 2 && echo "Task 1 completed"
+        save_output: task1_result
+      - !ShellCommand
+        name: task2
+        command: sleep 1 && echo "Task 2 completed"
+        save_output: task2_result
+      - !Timeout
+        name: timed_task
+        duration: 3
+        step:
+          !ShellCommand
+          name: long_task
+          command: sleep 5 && echo "This should time out"
+          save_output: long_task_result
+
+  - !PrintOutput
+    name: final_output
+    value: |
+      Parallel Execution Results:
+        Task 1: ${task1_result}
+        Task 2: ${task2_result}
+        Timed Task: ${long_task_result}
+      Errors (if any):
+        ${error_0}
+        ${error_1}
+        ${error_2}
+EOF
+)
+
+pipeline_response=$(make_request POST "/pipelines" "{\"name\": \"test_pipeline\", \"data\": $(echo "$pipeline_content" | jq -R -s '.')}" "$token" "201")
 pipeline_id=$(echo "$pipeline_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Pipeline ID: $pipeline_id"
 
@@ -103,17 +140,67 @@ job_id=$(echo "$job_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 
 echo "Job ID: $job_id"
 echo "Job Response: $job_response"
 
-# List job entries
-echo -e "\n\n\nListing job entries"
-make_request GET "/jobs" "" "$token" "200"
+# Start the job
+echo -e "\n\n\nStarting the job"
+make_request POST "/jobs/$job_id/start" "" "$token" "200"
 
-# Get job entry details
-echo -e "\n\n\nGet job entry details"
-make_request GET "/jobs/$job_id" "" "$token" "200"
+echo -e "\n\n\nChecking job status"
+# Checking job status
+max_attempts=30
+attempt=0
+while [ $attempt -lt $max_attempts ]; do
+    status_response=$(make_request GET "/jobs/$job_id/status" "" "$token" "200")
+    echo "Status Response: $status_response"
+    
+    # Extract the response body correctly
+    body=$(echo "$status_response" | grep -o '==== Response Body ====' -A 1 | tail -n 1)
+    status=$(echo "$body" | tr -d '[:space:]' | tr -d '"')
+    
+    echo "Current status: $status"
+    
+    case $status in
+        "completed" | "failed")
+            echo "Condition met: status is completed or failed"
+            echo "Job finished with status: $status"
+            break
+            ;;
+        "running")
+            echo "Condition met: status is running"
+            echo "Job status: $status. Waiting..."
+            sleep 30
+            ;;
+        *)
+            echo "Condition met: status is neither completed, failed, nor running"
+            echo "Job status: $status. Waiting..."
+            sleep 5
+            ;;
+    esac
+    
+    attempt=$((attempt + 1))
+    echo "Attempt: $attempt"
+done
+
+if [ "$status" != "completed" ] && [ "$status" != "failed" ]; then
+    echo "Final condition: status is not completed and not failed"
+    echo "Job did not complete within the expected time."
+    exit 1
+fi
+
+# Get job output
+echo -e "\n\n\nGetting job output"
+make_request GET "/jobs/$job_id/output" "" "$token" "200"
+
+# Get job logs
+echo -e "\n\n\nGetting job logs"
+make_request GET "/jobs/$job_id/logs" "" "$token" "200"
 
 # Update job entry
 echo -e "\n\n\nUpdate job entry"
-make_request PUT "/jobs/$job_id" "{\"status\": \"running\"}" "$token" "200"
+make_request PUT "/jobs/$job_id" "{\"status\": \"archived\"}" "$token" "200"
+
+# Stop the job (this should fail as the job is already completed)
+echo -e "\n\n\nAttempting to stop the completed job"
+make_request POST "/jobs/$job_id/stop" "" "$token" "400"
 
 # Delete job entry
 echo -e "\n\n\nDelete job entry"

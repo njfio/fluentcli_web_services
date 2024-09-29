@@ -117,7 +117,7 @@ pub async fn start_job(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match JobService::start_job(&pool, job_id.into_inner(), user_id) {
+    match JobService::start_job(&pool, job_id.into_inner(), user_id).await {
         Ok(job) => HttpResponse::Ok().json(job),
         Err(e) => {
             log::error!("Error starting job: {:?}", e);
@@ -132,7 +132,7 @@ pub async fn stop_job(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match JobService::stop_job(&pool, job_id.into_inner(), user_id) {
+    match JobService::stop_job(&pool, job_id.into_inner(), user_id).await {
         Ok(job) => HttpResponse::Ok().json(job),
         Err(e) => {
             log::error!("Error stopping job: {:?}", e);
@@ -147,7 +147,7 @@ pub async fn get_job_status(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match JobService::get_job_status(&pool, job_id.into_inner(), user_id) {
+    match JobService::get_job_status(&pool, job_id.into_inner(), user_id).await {
         Ok(status) => HttpResponse::Ok().json(status),
         Err(e) => {
             log::error!("Error getting job status: {:?}", e);
@@ -162,7 +162,7 @@ pub async fn get_job_output(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match JobService::get_job_output(&pool, job_id.into_inner(), user_id) {
+    match JobService::get_job_output(&pool, job_id.into_inner(), user_id).await {
         Ok(output) => HttpResponse::Ok().json(output),
         Err(e) => {
             log::error!("Error getting job output: {:?}", e);
@@ -177,7 +177,7 @@ pub async fn get_job_logs(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match JobService::get_job_logs(&pool, job_id.into_inner(), user_id) {
+    match JobService::get_job_logs(&pool, job_id.into_inner(), user_id).await {
         Ok(logs) => HttpResponse::Ok().json(logs),
         Err(e) => {
             log::error!("Error getting job logs: {:?}", e);

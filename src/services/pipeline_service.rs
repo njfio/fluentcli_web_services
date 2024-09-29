@@ -65,4 +65,24 @@ impl PipelineService {
             .map_err(AppError::DatabaseError)?;
         Ok(())
     }
+
+    pub fn fetch_pipeline_content(
+        pool: &DbPool,
+        pipeline_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<String, AppError> {
+        use crate::schema::pipelines::dsl::*;
+        let conn = &mut pool.get()?;
+        let pipeline_content = pipelines
+            .filter(id.eq(pipeline_id).and(user_id.eq(user_id)))
+            .select(data)
+            .first::<String>(conn)
+            .map_err(AppError::DatabaseError)?;
+        Ok(pipeline_content
+            .replace("\\n", "\n")
+            .replace("\\\"", "\"")
+            .trim_end()
+            .trim_matches('"')
+            .to_string())
+    }
 }

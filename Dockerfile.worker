@@ -67,5 +67,6 @@ ENV FLUENT_CLI_V2_CONFIG_PATH=/.fluent/default_config_test.json
 ENV AMBER_SECRET=
 
 RUN sed -i 's/"uri": "bolt:\/\/localhost:7687"/"uri": "bolt:\/\/neo4j:7687"/g' /.fluent/default_config_test.json
+RUN mkdir -p /shared_tmp
 
 CMD ["/app/worker_app"]
