@@ -22,7 +22,7 @@ RUN cargo install --force --git https://github.com/njfio/fluent_cli --branch v.0
 RUN cargo install --git https://github.com/fpco/amber amber
 
 # Create necessary directories
-RUN mkdir -p /.fluent/state_store /.fluent/example_configurations /.fluent/example_pipelines/
+RUN mkdir -p /.fluent/state_store /.fluent/example_configurations /.fluent/example_pipelines/ /shared_tmp/state_store
 
 
 # Copy FluentCLI configuration files
@@ -62,7 +62,7 @@ COPY --from=builder /app/worker_app/target/release/worker_app /app/worker_app
 
 # Set environment variables
 ENV AMBER_YAML=/.fluent/amber.yaml
-ENV FLUENT_STATE_STORE=/.fluent/state_store
+ENV FLUENT_STATE_STORE=/shared_tmp/state_store
 ENV FLUENT_CLI_V2_CONFIG_PATH=/.fluent/default_config_test.json
 ENV AMBER_SECRET=
 

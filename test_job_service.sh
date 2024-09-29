@@ -203,24 +203,24 @@ echo -e "\n\n\nAttempting to stop the completed job"
 make_request POST "/jobs/$job_id/stop" "" "$token" "400"
 
 # Delete job entry
-echo -e "\n\n\nDelete job entry"
-make_request DELETE "/jobs/$job_id" "" "$token" "204"
+#echo -e "\n\n\nDelete job entry"
+#make_request DELETE "/jobs/$job_id" "" "$token" "204"
 
 # Delete docker entry
-echo -e "\n\n\nDelete docker entry"
-make_request DELETE "/docker_files/$docker_id" "" "$token" "204"
+#echo -e "\n\n\nDelete docker entry"
+#make_request DELETE "/docker_files/$docker_id" "" "$token" "204"
 
 # Delete config entry
-echo -e "\n\n\nDelete config entry"
-make_request DELETE "/configurations/$config_id" "" "$token" "204"
+#echo -e "\n\n\nDelete config entry"
+#make_request DELETE "/configurations/$config_id" "" "$token" "204"
 
 # Delete amber entry
-echo -e "\n\n\nDelete amber entry"
-make_request DELETE "/amber_store/$amber_id" "" "$token" "204"
+#echo -e "\n\n\nDelete amber entry"
+#make_request DELETE "/amber_store/$amber_id" "" "$token" "204"
 
 # Delete pipeline entry
-echo -e "\n\n\nDelete pipeline entry"
-make_request DELETE "/pipelines/$pipeline_id" "" "$token" "204"
+#echo -e "\n\n\nDelete pipeline entry"
+#make_request DELETE "/pipelines/$pipeline_id" "" "$token" "204"
 
 # Delete user
 echo -e "\n\n\nDelete user"

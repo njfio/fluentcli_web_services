@@ -125,7 +125,10 @@ impl JobService {
         let shared_tmp_path =
             std::env::var("SHARED_TMP_PATH").map_err(|e| AppError::EnvVarError(e))?;
 
-        // Create a temporary file with the pipeline content in the shared path
+        // Get the Fluent state store path from environment variable
+        let fluent_state_store =
+            std::env::var("FLUENT_STATE_STORE").map_err(|e| AppError::EnvVarError(e))?;
+
         // Create a temporary file with the pipeline content in the shared path
         let temp_file_path = format!("{}/pipeline_{}.yaml", shared_tmp_path, job_id);
         log::debug!("Creating temp file at: {}", temp_file_path);
@@ -134,13 +137,14 @@ impl JobService {
             pipeline_content.trim_end().trim_matches('"'),
         )
         .map_err(|e| AppError::TempFileError(format!("Failed to write file: {}", e)))?;
+
         // Verify the file was created
         if std::path::Path::new(&temp_file_path).exists() {
             log::debug!("Temp file successfully created at: {}", temp_file_path);
         } else {
             log::error!("Failed to create temp file at: {}", temp_file_path);
             return Err(AppError::TempFileError(
-                "Failed to create temporary file".to_string(),
+                "Failed to create temp file".to_string(),
             ));
         }
 
@@ -168,63 +172,89 @@ impl JobService {
         let pool_clone = pool.clone();
         let job_id_clone = job.id;
 
-        // Execute the command asynchronously
         tokio::spawn(async move {
             let result = FluentCLIService::execute_command(job.user_id, command_request).await;
 
             if let Ok(mut conn) = pool_clone.get() {
+                let state_file_pattern = format!("*-{}.json", job_id_clone);
+                log::debug!(
+                    "Looking for state file with pattern: {} in directory: {}",
+                    state_file_pattern,
+                    fluent_state_store
+                );
+
+                // Add a delay before reading the state file (e.g., 5 seconds)
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+                let state_file_path =
+                    std::fs::read_dir(&fluent_state_store)
+                        .ok()
+                        .and_then(|entries| {
+                            entries
+                                .filter_map(Result::ok)
+                                .find(|entry| {
+                                    entry
+                                        .file_name()
+                                        .to_string_lossy()
+                                        .ends_with(&state_file_pattern)
+                                })
+                                .map(|entry| entry.path())
+                        });
+
+                let state_file_content_str = if let Some(path) = state_file_path.as_ref() {
+                    log::debug!("Found matching state file: {:?}", path);
+                    std::fs::read_to_string(path).unwrap_or_else(|e| {
+                        log::warn!("Failed to read state file {:?}: {}", path, e);
+                        "{}".to_string()
+                    })
+                } else {
+                    log::warn!(
+                        "No state file found for job {} in directory {}",
+                        job_id_clone,
+                        fluent_state_store
+                    );
+                    "{}".to_string()
+                };
+
+                let state_file_json =
+                    serde_json::from_str::<serde_json::Value>(&state_file_content_str)
+                        .unwrap_or_else(|e| {
+                            log::warn!("Failed to parse state file as JSON: {}", e);
+                            serde_json::Value::Null
+                        });
+
                 match result {
                     Ok(command_result) => {
-                        // Read the state file content
-                        let state_file_path =
-                            format!("{}/state_file_{}.json", shared_tmp_path, job_id_clone);
-                        let file_content = std::fs::read_to_string(&state_file_path)
-                            .unwrap_or_else(|_| "{}".to_string());
-
-                        // Update job with results and state file content
                         let _ = diesel::update(jobs.find(job_id_clone))
                             .set((
                                 status.eq("completed"),
                                 completed_at.eq(diesel::dsl::now),
                                 results.eq(serde_json::to_value(command_result)
                                     .unwrap_or(serde_json::Value::Null)),
-                                state_file_content
-                                    .eq(serde_json::from_str::<serde_json::Value>(&file_content)
-                                        .unwrap_or(serde_json::Value::Null)),
+                                state_file_content.eq(state_file_json),
                             ))
                             .execute(&mut conn);
-                        // Add a delay before file deletion (e.g., 10 seconds)
-                        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-
-                        if std::path::Path::new(&temp_file_path).exists() {
-                            log::debug!(
-                                "Temp file still exists before deletion: {}",
-                                temp_file_path
-                            );
-                        } else {
-                            log::warn!(
-                                "Temp file no longer exists before deletion: {}",
-                                temp_file_path
-                            );
-                        }
-                        // Clean up the temporary files
-                        let _ = std::fs::remove_file(&temp_file_path);
-                        let _ = std::fs::remove_file(&state_file_path);
                     }
                     Err(e) => {
-                        // Update job with error status
                         let _ = diesel::update(jobs.find(job_id_clone))
                             .set((
                                 status.eq("failed"),
                                 completed_at.eq(diesel::dsl::now),
                                 results.eq(serde_json::to_value(e.to_string())
                                     .unwrap_or(serde_json::Value::Null)),
+                                state_file_content.eq(state_file_json),
                             ))
                             .execute(&mut conn);
-
-                        // Clean up the temporary file
-                        let _ = std::fs::remove_file(&temp_file_path);
                     }
+                }
+
+                // Add a delay before file deletion (e.g., 10 seconds)
+                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+                // Clean up the temporary files
+                let _ = std::fs::remove_file(&temp_file_path);
+                if let Some(path) = state_file_path {
+                    let _ = std::fs::remove_file(path);
                 }
             }
         });
