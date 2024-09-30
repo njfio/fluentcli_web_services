@@ -93,39 +93,139 @@ echo "Docker ID: $docker_id"
 # Create a new pipeline entry
 echo "Creating a new pipeline entry"
 pipeline_content=$(cat <<EOF
-name: parallel_and_timeout_example
+name: my_pipeline
 steps:
-  - !Parallel
-    name: concurrent_operations
-    steps:
-      - !ShellCommand
-        name: task1
-        command: sleep 2 && echo "Task 1 completed"
-        save_output: task1_result
-      - !ShellCommand
-        name: task2
-        command: sleep 1 && echo "Task 2 completed"
-        save_output: task2_result
-      - !Timeout
-        name: timed_task
-        duration: 3
-        step:
-          !ShellCommand
-          name: long_task
-          command: sleep 5 && echo "This should time out"
-          save_output: long_task_result
+  - !Command
+      name: create_story
+      command: fluent openai-mini "'${input}'" -o temperature=1
+      save_output: raw_data
 
-  - !PrintOutput
-    name: final_output
-    value: |
-      Parallel Execution Results:
-        Task 1: ${task1_result}
-        Task 2: ${task2_result}
-        Timed Task: ${long_task_result}
-      Errors (if any):
-        ${error_0}
-        ${error_1}
-        ${error_2}
+  - !ShellCommand
+      name: create_initial_image_prompt
+      command: |
+        fluent openai-mini 'create an image prompt that captures the essence of this text.  Only output the prompt.' -o temperature=1  <<EOT
+        ${raw_data}
+        EOT
+      save_output: initial_image_prompt_data
+
+  - !ShellCommand
+    name: create_refined_image_prompt
+    command: |
+      fluent cohere 'refine this image prompt to produce a masterpiece that captures the essence of the text.  It must
+      be less than 1000 characters..  Only output the prompt.' <<EOT
+      ${initial_image_prompt_data}
+      EOT
+    save_output: image_prompt_data
+
+
+  - !ShellCommand
+      name: generate_images
+      command: |
+        fluent dalleVertical '' --download-media /shared_tmp/state_store <<EOT &
+        ${image_prompt_data}
+        EOT
+        pid1=$!
+
+        fluent leonardoVertical '' --download-media /shared_tmp/state_store <<EOT &
+        ${image_prompt_data}
+        EOT
+        pid2=$!
+
+        fluent stabilityUltraVertical '' --download-media /shared_tmp/state_store <<EOT &
+        ${image_prompt_data}
+        EOT
+        pid3=$!
+
+        wait $pid1 $pid2 $pid3
+      save_output: image_data
+
+
+  - !ShellCommand
+      name: extract_summary
+      command: |
+        fluent sonnet3.5 'summarize the sentiment of this text in less than 3 words.  Only output the words.' <<EOT & 
+        ${raw_data}
+        EOT
+      save_output: sentiment_data
+
+  - !ShellCommand
+      name: extract_semantics
+      command: |
+        fluent llama3-groq "summarize the semantic meaning of this text in less than 5 words.  Only output the words." <<EOT &
+        ${raw_data}
+        EOT
+      save_output: semantic_data
+
+  - !ShellCommand
+      name: extract_triples
+      command: |
+        fluent openai-mini "give me an output of all the meaningful triples in this text.  Only output the cypher in Neo4j format. use single quotes" --parse-code <<EOT &
+        ${raw_data}
+        EOT
+      save_output: triples_data
+
+  - !ShellCommand
+    name: add_triples
+    command: |
+      fluent neo4j --generate-cypher "create a cypher that adds these triples to the graph,  ${triples_data}"
+    save_output: add_triples_data
+
+  - !ShellCommand
+      name: extract_theme
+      command: |
+        fluent  llama3-groq  'give me up to 5 words describing the theme of this text, output as a comma-separated list:' <<EOT &
+        ${raw_data}
+        EOT
+      save_output: theme_data
+
+  - !ShellCommand
+      name: extract_3_keywords
+      command: |
+        fluent llama3-groq "Output the 3 keywords in a comma seperated list.  Output the list only."  <<EOT &
+        ${raw_data}
+        EOT
+      save_output: 3_keywords_data
+
+  - !ShellCommand
+      name: sentiment_number
+      command: |
+        fluent gemma-groq 'on a decimal scale of -1.0 to 1.0 grade what the sentiment of this text, output the number only' <<EOT &
+        ${raw_data}
+        EOT
+      save_output: sentiment_number_data
+
+  - !ShellCommand
+      name: trending_sentiment
+      command: |
+        fluent llama3-groq 'analyze the trending sentiment of this text, only output the trending sentiment, no formatting' <<EOT &
+        ${raw_data}
+        EOT
+      save_output: trending_sentiment_data
+
+  - !ShellCommand
+      name: debug_variables
+      command: |
+        echo <<"""EOT"""
+          raw_data: ${raw_data}
+        
+          theme_data: ${theme_data}
+        EOT
+      save_output: debug_output_data
+
+  - !ShellCommand
+      name: count_theme_words
+      command: |
+        wc -w <<< "${theme_data}" | awk '{print $1}'
+      save_output: word_count
+
+  - !Condition
+      name: validate_data
+      condition: "[ ${word_count} -le 5 ]"
+      if_true: |
+        echo "Theme data is correct"
+      if_false: |
+        echo "Theme data is not correct"
+
 EOF
 )
 

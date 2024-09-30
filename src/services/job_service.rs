@@ -8,10 +8,11 @@ use crate::services::pipeline_service::PipelineService;
 use diesel::prelude::*;
 use serde_json;
 use std::fmt::Debug;
-use std::fs::File;
-use std::io::Write;
 use tempfile::NamedTempFile;
 use tokio;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
+use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 pub struct JobService;
 
@@ -121,6 +122,14 @@ impl JobService {
         let pipeline_content =
             PipelineService::fetch_pipeline_content(pool, job.pipeline_id, job.user_id)?;
 
+        // Parse the YAML to get the pipeline name
+        let pipeline_yaml: serde_yaml::Value = serde_yaml::from_str(&pipeline_content)
+            .map_err(|e| AppError::YamlParseError(e.to_string()))?;
+        let pipeline_name = pipeline_yaml["name"]
+            .as_str()
+            .ok_or_else(|| AppError::YamlParseError("Pipeline name not found".to_string()))?
+            .to_string();
+
         // Get the shared temporary path from environment variable
         let shared_tmp_path =
             std::env::var("SHARED_TMP_PATH").map_err(|e| AppError::EnvVarError(e))?;
@@ -132,14 +141,15 @@ impl JobService {
         // Create a temporary file with the pipeline content in the shared path
         let temp_file_path = format!("{}/pipeline_{}.yaml", shared_tmp_path, job_id);
         log::debug!("Creating temp file at: {}", temp_file_path);
-        std::fs::write(
+        tokio::fs::write(
             &temp_file_path,
             pipeline_content.trim_end().trim_matches('"'),
         )
+        .await
         .map_err(|e| AppError::TempFileError(format!("Failed to write file: {}", e)))?;
 
         // Verify the file was created
-        if std::path::Path::new(&temp_file_path).exists() {
+        if tokio::fs::metadata(&temp_file_path).await.is_ok() {
             log::debug!("Temp file successfully created at: {}", temp_file_path);
         } else {
             log::error!("Failed to create temp file at: {}", temp_file_path);
@@ -171,39 +181,69 @@ impl JobService {
         // Clone the pool for use in the spawned task
         let pool_clone = pool.clone();
         let job_id_clone = job.id;
+        let fluent_state_store_clone = fluent_state_store.clone();
+        let temp_file_path_clone = temp_file_path.clone();
 
         tokio::spawn(async move {
             let result = FluentCLIService::execute_command(job.user_id, command_request).await;
 
             if let Ok(mut conn) = pool_clone.get() {
-                let state_file_pattern = format!("*-{}.json", job_id_clone);
+                let state_file_pattern = format!("{}-{}.json", pipeline_name, job_id_clone);
                 log::debug!(
                     "Looking for state file with pattern: {} in directory: {}",
                     state_file_pattern,
-                    fluent_state_store
+                    fluent_state_store_clone
                 );
 
-                // Add a delay before reading the state file (e.g., 5 seconds)
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                // Add a delay before reading the state file
+                sleep(Duration::from_secs(5)).await;
 
-                let state_file_path =
-                    std::fs::read_dir(&fluent_state_store)
-                        .ok()
-                        .and_then(|entries| {
-                            entries
-                                .filter_map(Result::ok)
-                                .find(|entry| {
-                                    entry
-                                        .file_name()
-                                        .to_string_lossy()
-                                        .ends_with(&state_file_pattern)
-                                })
-                                .map(|entry| entry.path())
-                        });
+                let mut attempts = 0;
+                const MAX_ATTEMPTS: u32 = 10;
+                const RETRY_DELAY: Duration = Duration::from_secs(5);
+
+                let state_file_path = loop {
+                    attempts += 1;
+                    let mut found_path = None;
+                    match tokio::fs::read_dir(&fluent_state_store).await {
+                        Ok(mut entries) => {
+                            while let Ok(Some(entry)) = entries.next_entry().await {
+                                let file_name = entry.file_name();
+                                if file_name.to_string_lossy() == state_file_pattern {
+                                    found_path = Some(entry.path());
+                                    break;
+                                }
+                            }
+                            if let Some(path) = found_path {
+                                log::debug!("Found matching state file: {:?}", path);
+                                break Some(path);
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Error reading directory: {:?}", e);
+                        }
+                    }
+
+                    if attempts >= MAX_ATTEMPTS {
+                        log::warn!(
+                            "No state file found for job {} in directory {} after {} attempts",
+                            job_id_clone,
+                            fluent_state_store,
+                            MAX_ATTEMPTS
+                        );
+                        break None;
+                    }
+
+                    log::debug!(
+                        "State file not found, attempt {} of {}",
+                        attempts,
+                        MAX_ATTEMPTS
+                    );
+                    sleep(RETRY_DELAY).await;
+                };
 
                 let state_file_content_str = if let Some(path) = state_file_path.as_ref() {
-                    log::debug!("Found matching state file: {:?}", path);
-                    std::fs::read_to_string(path).unwrap_or_else(|e| {
+                    tokio::fs::read_to_string(path).await.unwrap_or_else(|e| {
                         log::warn!("Failed to read state file {:?}: {}", path, e);
                         "{}".to_string()
                     })
@@ -252,16 +292,15 @@ impl JobService {
                 tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
                 // Clean up the temporary files
-                let _ = std::fs::remove_file(&temp_file_path);
+                let _ = tokio::fs::remove_file(&temp_file_path).await;
                 if let Some(path) = state_file_path {
-                    let _ = std::fs::remove_file(path);
+                    let _ = tokio::fs::remove_file(path).await;
                 }
             }
         });
 
         Ok(updated_job)
     }
-
     pub async fn stop_job(pool: &DbPool, job_id: Uuid, user_id: Uuid) -> Result<Job, AppError> {
         use crate::schema::jobs::dsl::*;
         let conn = &mut pool.get()?;

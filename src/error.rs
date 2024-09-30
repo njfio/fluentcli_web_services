@@ -68,6 +68,9 @@ pub enum AppError {
 
     #[error("Serialization error: {0}")]
     SerializationError(String),
+
+    #[error("Yaml parse error: {0}")]
+    YamlParseError(String),
 }
 
 impl From<Box<dyn StdError + Send + Sync>> for AppError {
