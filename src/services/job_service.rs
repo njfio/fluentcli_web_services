@@ -6,7 +6,7 @@ use crate::models::job::{Job, NewJob, UpdateJob};
 use crate::services::fluentcli_service::FluentCLIService;
 use crate::services::pipeline_service::PipelineService;
 use diesel::prelude::*;
-use serde_json;
+use serde_json::json;
 use std::fmt::Debug;
 use tempfile::NamedTempFile;
 use tokio;
@@ -301,6 +301,7 @@ impl JobService {
 
         Ok(updated_job)
     }
+
     pub async fn stop_job(pool: &DbPool, job_id: Uuid, user_id: Uuid) -> Result<Job, AppError> {
         use crate::schema::jobs::dsl::*;
         let conn = &mut pool.get()?;
@@ -361,16 +362,45 @@ impl JobService {
         pool: &DbPool,
         job_id: Uuid,
         user_id: Uuid,
-    ) -> Result<String, AppError> {
+    ) -> Result<Option<serde_json::Value>, AppError> {
         use crate::schema::jobs::dsl::*;
         let conn = &mut pool.get()?;
 
-        let job = jobs
+        let job_results = jobs
             .filter(id.eq(job_id).and(user_id.eq(user_id)))
-            .first::<Job>(conn)?;
+            .select(results)
+            .first::<Option<serde_json::Value>>(conn)?;
 
-        // TODO: Implement actual log fetching mechanism
-        // For now, we'll return a placeholder message
-        Ok(format!("Logs for job {} are not yet implemented", job_id))
+        Ok(job_results)
+    }
+
+    pub async fn get_job_data(
+        pool: &DbPool,
+        job_id: Uuid,
+        user_id: Uuid,
+        filter_key: Option<String>,
+    ) -> Result<Option<serde_json::Value>, AppError> {
+        use crate::schema::jobs::dsl::*;
+        let conn = &mut pool.get()?;
+
+        let job_state_file_content = jobs
+            .filter(id.eq(job_id).and(user_id.eq(user_id)))
+            .select(state_file_content)
+            .first::<Option<serde_json::Value>>(conn)?;
+
+        if let Some(content) = job_state_file_content {
+            if let Some(key) = filter_key {
+                if let Some(data) = content.get("data") {
+                    if let Some(filtered_value) = data.get(&key) {
+                        return Ok(Some(json!({ key: filtered_value })));
+                    }
+                }
+                Ok(None)
+            } else {
+                Ok(Some(content))
+            }
+        } else {
+            Ok(None)
+        }
     }
 }

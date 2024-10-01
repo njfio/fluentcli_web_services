@@ -35,6 +35,7 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}", web::get().to(job::get_job))
                 .route("/{id}", web::put().to(job::update_job))
                 .route("/{id}", web::delete().to(job::delete_job))
+                .route("/{id}/data", web::get().to(job::get_job_data))
                 .route("/{id}/start", web::post().to(job::start_job))
                 .route("/{id}/stop", web::post().to(job::stop_job))
                 .route("/{id}/status", web::get().to(job::get_job_status))

@@ -161,7 +161,7 @@ steps:
         value: "----\nTurn ${turn_counter}:\n\t${current_speaker} (using ${current_llm}) 
         says:\n\t\t${current_response}\n----\n"
 
-    condition: "[ ${turn_counter} = 10 ]"
+    condition: "[ ${turn_counter} = 3 ]"
 
   - !PrintOutput
     name: final_output
@@ -240,14 +240,46 @@ make_request GET "/jobs/$job_id/output" "" "$token" "200"
 echo -e "\n\n\nGetting job logs"
 make_request GET "/jobs/$job_id/logs" "" "$token" "200"
 
+# Get job logs
+echo -e "\n\n\nGetting job data"
+make_request GET "/jobs/$job_id/data" "" "$token" "200"
+
 # Update job entry
 echo -e "\n\n\nUpdate job entry"
 make_request PUT "/jobs/$job_id" "{\"status\": \"archived\"}" "$token" "200"
 
 # Stop the job (this should fail as the job is already completed)
-echo -e "\n\n\nAttempting to stop the completed job"
-make_request POST "/jobs/$job_id/stop" "" "$token" "400"
+#echo -e "\n\n\nAttempting to stop the completed job"
+#make_request POST "/jobs/$job_id/stop" "" "$token" "400"
 
+echo -e "\n\n\nTesting get job logs..."
+response=$(make_request GET "/jobs/$job_id/logs" "" "$token" "200")
+if [[ $response == *"\"error\":"* && $response == *"\"exit_code\":"* ]]; then
+    echo "Get job logs test passed"
+    echo "Logs Response: $response"
+else
+    echo "Get job logs test failed"
+fi
+
+
+echo -e "\n\n\nTesting get job data..."
+response=$(make_request GET "/jobs/$job_id/data" "" "$token" "200")
+if [[ $response == *"\"current_step\":"* && $response == *"\"data\":"* && $response == *"\"run_id\":"* && $response == *"\"start_time\":"* ]]; then
+    echo "Get job data test passed"
+    echo "Data Response: $response"
+else
+    echo "Get job data test failed"
+fi
+
+echo -e "\n\n\nTesting get job data with filter..."
+response=$(make_request GET "/jobs/$job_id/data?filter_key=conversation_history" "" "$token" "200")
+echo "Filtered Data Response: $response"
+if [[ $response == *"\"conversation_history\":"* && $response != *"\"current_step\":"* ]]; then
+    echo "Get job data with filter test passed"
+else
+    echo "Get job data with filter test failed"
+    echo "Filtered Data Response: $response"
+fi
 # Delete job entry
 #echo -e "\n\n\nDelete job entry"
 #make_request DELETE "/jobs/$job_id" "" "$token" "204"

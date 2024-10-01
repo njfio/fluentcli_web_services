@@ -2,8 +2,8 @@ use crate::db::DbPool;
 use crate::models::job::{NewJob, NewJobPayload, UpdateJob};
 use crate::services::job_service::JobService;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
+use std::collections::HashMap;
 use uuid::Uuid;
-
 pub async fn create_job(
     pool: web::Data<DbPool>,
     new_job_payload: web::Json<NewJobPayload>,
@@ -182,6 +182,25 @@ pub async fn get_job_logs(
         Err(e) => {
             log::error!("Error getting job logs: {:?}", e);
             HttpResponse::InternalServerError().body("Failed to get job logs")
+        }
+    }
+}
+
+pub async fn get_job_data(
+    pool: web::Data<DbPool>,
+    job_id: web::Path<Uuid>,
+    req: HttpRequest,
+    query: web::Query<HashMap<String, String>>,
+) -> impl Responder {
+    let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
+    let filter_key = query.get("filter_key").cloned();
+
+    match JobService::get_job_data(&pool, job_id.into_inner(), user_id, filter_key).await {
+        Ok(Some(data)) => HttpResponse::Ok().json(data),
+        Ok(None) => HttpResponse::NotFound().body("No matching data found"),
+        Err(e) => {
+            log::error!("Error getting job data: {:?}", e);
+            HttpResponse::InternalServerError().body("Failed to get job data")
         }
     }
 }
