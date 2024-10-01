@@ -1,0 +1,52 @@
+# Node modules for frontend
+frontend/node_modules
+frontend/dist
+
+# Ignore debug build artifacts but allow release artifacts
+**/target/debug
+!**/target/release
+
+# Rust/Cargo related
+**/Cargo.lock
+**/Cargo.toml.orig
+**/*.rs.bk
+
+# Ignore Git files
+.git
+.gitignore
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Documentation and markdown files
+*.md
+*.markdown
+
+# Temporary files and directories
+*.bak
+*.tmp
+*.swp
+*.swo
+*.log
+*.pid
+*.seed
+*.log
+*.seed
+*.pem
+
+# Configuration files
+.env
+.env.local
+.env.production
+.env.development
+env.*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+.cache
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
