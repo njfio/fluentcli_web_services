@@ -18,5 +18,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY --from=builder /app/target/release/fws /app/fws
 
+ENV RUST_LOG=debug
+
 EXPOSE 8
+RUN mkdir -p /shared_tmp
 CMD ["/app/fws"]

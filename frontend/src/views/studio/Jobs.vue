@@ -5,22 +5,45 @@
       <button @click="showEditor = true" class="add-button">Create New Job</button>
     </div>
     
-    <div v-if="jobs.length" class="job-grid">
-      <div v-for="job in jobs" :key="job.id" class="job-card">
-        <h3>Job ID: {{ job.id }}</h3>
-        <p>Worker Type: {{ getDockerFileName(job.worker_type) }}</p>
-        <p>Configuration: {{ getConfigurationName(job.config) }}</p>
-        <p>Pipeline: {{ getPipelineName(job.pipeline_id) }}</p>
-        <p>Amber Store: {{ getAmberStoreName(job.amber_id) }}</p>
-        <p>Status: {{ job.status }}</p>
-        <div class="job-actions">
-          <button @click="editJob(job)" class="edit-button">Edit</button>
-          <button @click="deleteJob(job.id!)" class="delete-button">Delete</button>
-          <button @click="startJob(job.id!)" class="start-button">Start</button>
-          <button @click="stopJob(job.id!)" class="stop-button">Stop</button>
-        </div>
-      </div>
-    </div>
+    <table v-if="jobs.length" class="job-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Worker Type</th>
+          <th>Configuration</th>
+          <th>Pipeline</th>
+          <th>Amber Store</th>
+          <th>Status</th>
+          <th>Created At</th>
+          <th>Updated At</th>
+          <th>Started At</th>
+          <th>Completed At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+<tr v-for="job in jobs" :key="job.id">
+  <td><router-link :to="`/studio/jobs/${job.id}`">{{ job.id }}</router-link></td>
+  <td>{{ getDockerFileName(job.worker_type) }}</td>
+  <td>{{ getConfigurationName(job.config) }}</td>
+  <td>{{ getPipelineName(job.pipeline_id) }}</td>
+  <td>{{ getAmberStoreName(job.amber_id) }}</td>
+  <td>{{ job.status }}</td>
+  <td>{{ formatDate(job.created_at) }}</td>
+  <td>{{ formatDate(job.updated_at) }}</td>
+  <td>{{ formatDate(job.started_at) }}</td>
+  <td>{{ formatDate(job.completed_at) }}</td>
+  <td>
+    <button @click="openJobEditor(job)" class="edit-button">Edit</button>
+    <button @click="deleteJob(job.id!)" class="delete-button">Delete</button>
+    <button @click="startJob(job.id!)" class="start-button">Start</button>
+    <button @click="stopJob(job.id!)" class="stop-button">Stop</button>
+    <router-link :to="`/studio/jobs/${job.id}/data`" class="data-button">Data</router-link>
+    <router-link :to="`/studio/jobs/${job.id}/logs`" class="log-button">Logs</router-link>
+  </td>
+</tr>
+      </tbody>
+    </table>
     <p v-else class="no-jobs">No jobs available.</p>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="isLoading" class="loading">Loading...</p>
@@ -41,10 +64,12 @@
   </div>
 </template>
 
+
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import JobEditor from '@/components/studio/editors/JobEditor.vue';
 import apiClient from '@/services/apiClient';
+import { formatDate } from '@/utils/dateFormatter';
 
 interface Job {
   id?: string;
@@ -58,6 +83,10 @@ interface Job {
   status: string;
   pipeline_id: string;
   results?: any;
+  created_at?: string;
+  updated_at?: string;
+  started_at?: string;
+  completed_at?: string;
 }
 
 const jobs = ref<Job[]>([]);
@@ -65,12 +94,15 @@ const showEditor = ref(false);
 const selectedJob = ref<Job | null>(null);
 const error = ref<string | null>(null);
 const isLoading = ref(false);
+const openJobEditor = (job: Job) => {
+  selectedJob.value = { ...job };
+  showEditor.value = true;
+};
 
 const dockerFiles = ref<{ id: string; name: string }[]>([]);
 const configurations = ref<{ id: string; name: string }[]>([]);
 const pipelines = ref<{ id: string; name: string }[]>([]);
 const amberStores = ref<{ id: string; name: string }[]>([]);
-
 const fetchJobs = async () => {
   isLoading.value = true;
   error.value = null;
@@ -123,10 +155,6 @@ const getAmberStoreName = (id: string | null | undefined) => {
   return amber ? amber.name : 'Unknown';
 };
 
-const editJob = (job: Job) => {
-  selectedJob.value = { ...job };
-  showEditor.value = true;
-};
 
 const handleSave = async (job: Job) => {
   isLoading.value = true;
@@ -188,13 +216,15 @@ const stopJob = async (id: string) => {
   } finally {
     isLoading.value = false;
   }
-};
+}
+
 
 onMounted(() => {
   fetchJobs();
   fetchRelatedData();
 });
 </script>
+
 
 <style scoped>
 .jobs {
@@ -225,69 +255,48 @@ onMounted(() => {
   background-color: #2980b9;
 }
 
-.job-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+.job-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.job-card {
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+.job-table th,
+.job-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
 }
 
-.job-card h3 {
-  margin: 0 0 10px 0;
-  font-size: 1.2rem;
+.job-table th {
+  background-color: #f2f2f2;
 }
 
-.job-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.edit-button, .delete-button, .start-button, .stop-button {
+.edit-button, .delete-button, .start-button, .stop-button, .data-button, .log-button {
   background-color: transparent;
   border: none;
   cursor: pointer;
   font-size: 0.9rem;
-  margin-left: 10px;
+  margin-right: 5px;
   transition: color 0.3s ease;
 }
 
-.edit-button {
-  color: #3498db;
-}
+.edit-button { color: #3498db; }
+.edit-button:hover { color: #2980b9; }
 
-.edit-button:hover {
-  color: #2980b9;
-}
+.delete-button { color: #e74c3c; }
+.delete-button:hover { color: #c0392b; }
 
-.delete-button {
-  color: #e74c3c;
-}
+.start-button { color: #2ecc71; }
+.start-button:hover { color: #27ae60; }
 
-.delete-button:hover {
-  color: #c0392b;
-}
+.stop-button { color: #95a5a6; }
+.stop-button:hover { color: #7f8c8d; }
 
-.start-button {
-  color: #2ecc71;
-}
+.data-button { color: #f39c12; }
+.data-button:hover { color: #d35400; }
 
-.start-button:hover {
-  color: #27ae60;
-}
-
-.stop-button {
-  color: #95a5a6;
-}
-
-.stop-button:hover {
-  color: #7f8c8d;
-}
+.log-button { color: #9b59b6; }
+.log-button:hover { color: #8e44ad; }
 
 .no-jobs {
   text-align: center;

@@ -15,6 +15,9 @@ import Settings from '../views/studio/Settings.vue';
 import DockerFiles from '../views/studio/DockerFiles.vue';
 import AmberStores from '../views/studio/AmberStores.vue';
 import Jobs from '../views/studio/Jobs.vue';
+import JobDetail from '@/views/studio/JobDetail.vue'
+import JobData from '@/views/studio/JobData.vue'
+import JobLogs from '@/views/studio/JobLogs.vue'
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -33,6 +36,21 @@ const routes: Array<RouteRecordRaw> = [
         name: 'Jobs',
         component: Jobs,
         meta: { requiresAuth: true }
+      },
+      {
+        path: '/studio/jobs/:id',
+        name: 'JobDetail',
+        component: JobDetail
+      },
+      {
+        path: '/studio/jobs/:id/data',
+        name: 'JobData',
+        component: JobData
+      },
+      {
+        path: '/studio/jobs/:id/logs',
+        name: 'JobLogs',
+        component: JobLogs
       },
       { path: 'pipelines', name: 'Pipelines', component: Pipelines, meta: { requiresAuth: true } },
       { path: 'settings', name: 'Settings', component: Settings },

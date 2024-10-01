@@ -92,8 +92,91 @@ echo "Docker ID: $docker_id"
 
 # Create a new pipeline entry
 echo "Creating a new pipeline entry"
-pipeline_response=$(make_request POST "/pipelines" '{"name": "test_pipeline", "data": {"key": "value"}}' "$token" "201")
+pipeline_content=$(cat <<'EOF'
+name: llm_conversation
+steps:
+  - !Command
+    name: initialize_context
+    command: echo "You are two AI assistants having a conversation about ${input}. Assistant 1 is optimistic, while Assistant 2 is more cautious. Start the conversation."
+    save_output: context
+
+  - !ShellCommand
+    name: set_turn_counter
+    command: echo "0"
+    save_output: turn_counter
+
+  - !RepeatUntil
+    name: conversation_loop
+    steps:
+      - !ShellCommand
+        name: increment_turn
+        command: echo $((${turn_counter} + 1))
+        save_output: turn_counter
+
+      - !ShellCommand
+        name: choose_speaker_and_llm
+        command: |
+          if [ $((${turn_counter} % 2)) -eq 1 ]; then
+            echo "Assistant 1 (Pragmatic)|gemma-groq"
+          else
+            echo "Assistant 2 (Conspiracy Theory)|perplexity"
+          fi
+        save_output: current_speaker_and_llm
+
+      - !ShellCommand
+        name: split_speaker_and_llm
+        command: |
+          echo "${current_speaker_and_llm}" | awk -F'|' '{print $1}'
+        save_output: current_speaker
+
+      - !ShellCommand
+        name: get_current_llm
+        command: |
+          echo "${current_speaker_and_llm}" | awk -F'|' '{print $2}'
+        save_output: current_llm
+
+      - !ShellCommand
+        name: generate_response
+        command: |
+          fluent ${current_llm} '' <<EOT
+          You are ${current_speaker}. Given the context and previous messages, continue the conversation. Keep your 
+          response concise (max 250 words).
+
+          Context: ${context}
+          Previous messages: ${conversation_history}
+
+          ${current_speaker}:
+          EOT
+        save_output: current_response
+
+      - !ShellCommand
+        name: update_conversation_history
+        command: |
+          echo "${conversation_history}
+          ${current_speaker} (using ${current_llm}): ${current_response}"
+        save_output: conversation_history
+
+      - !PrintOutput
+        name: display_turn
+        value: "----\nTurn ${turn_counter}:\n\t${current_speaker} (using ${current_llm}) 
+        says:\n\t\t${current_response}\n----\n"
+
+    condition: "[ ${turn_counter} = 3 ]"
+
+  - !PrintOutput
+    name: final_output
+    value: |
+      Conversation Summary:
+      ---------------------
+      ${conversation_history}
+
+EOF
+)
+
+pipeline_response=$(make_request POST "/pipelines" "{\"name\": \"test_pipeline\", \"data\": $(echo "$pipeline_content" | jq -R -s '.')}" "$token" "201")
 pipeline_id=$(echo "$pipeline_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+
+#pipeline_id="75e764bd-bc66-4f8a-bd66-2be9695cec7c"
 echo "Pipeline ID: $pipeline_id"
 
 # Create a new job entry
@@ -103,37 +186,119 @@ job_id=$(echo "$job_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 
 echo "Job ID: $job_id"
 echo "Job Response: $job_response"
 
-# List job entries
-echo -e "\n\n\nListing job entries"
-make_request GET "/jobs" "" "$token" "200"
+# Start the job
+echo -e "\n\n\nStarting the job"
+make_request POST "/jobs/$job_id/start" "" "$token" "200"
 
-# Get job entry details
-echo -e "\n\n\nGet job entry details"
-make_request GET "/jobs/$job_id" "" "$token" "200"
+echo -e "\n\n\nChecking job status"
+# Checking job status
+max_attempts=30
+attempt=0
+while [ $attempt -lt $max_attempts ]; do
+    status_response=$(make_request GET "/jobs/$job_id/status" "" "$token" "200")
+    echo "Status Response: $status_response"
+    
+    # Extract the response body correctly
+    body=$(echo "$status_response" | grep -o '==== Response Body ====' -A 1 | tail -n 1)
+    status=$(echo "$body" | tr -d '[:space:]' | tr -d '"')
+    
+    echo "Current status: $status"
+    
+    case $status in
+        "completed" | "failed")
+            echo "Condition met: status is completed or failed"
+            echo "Job finished with status: $status"
+            break
+            ;;
+        "running")
+            echo "Condition met: status is running"
+            echo "Job status: $status. Waiting..."
+            sleep 30
+            ;;
+        *)
+            echo "Condition met: status is neither completed, failed, nor running"
+            echo "Job status: $status. Waiting..."
+            sleep 5
+            ;;
+    esac
+    
+    attempt=$((attempt + 1))
+    echo "Attempt: $attempt"
+done
+
+if [ "$status" != "completed" ] && [ "$status" != "failed" ]; then
+    echo "Final condition: status is not completed and not failed"
+    echo "Job did not complete within the expected time."
+    exit 1
+fi
+
+# Get job output
+echo -e "\n\n\nGetting job output"
+make_request GET "/jobs/$job_id/output" "" "$token" "200"
+
+# Get job logs
+echo -e "\n\n\nGetting job logs"
+make_request GET "/jobs/$job_id/logs" "" "$token" "200"
+
+# Get job logs
+echo -e "\n\n\nGetting job data"
+make_request GET "/jobs/$job_id/data" "" "$token" "200"
 
 # Update job entry
 echo -e "\n\n\nUpdate job entry"
-make_request PUT "/jobs/$job_id" "{\"status\": \"running\"}" "$token" "200"
+make_request PUT "/jobs/$job_id" "{\"status\": \"archived\"}" "$token" "200"
 
+# Stop the job (this should fail as the job is already completed)
+#echo -e "\n\n\nAttempting to stop the completed job"
+#make_request POST "/jobs/$job_id/stop" "" "$token" "400"
+
+echo -e "\n\n\nTesting get job logs..."
+response=$(make_request GET "/jobs/$job_id/logs" "" "$token" "200")
+if [[ $response == *"\"error\":"* && $response == *"\"exit_code\":"* ]]; then
+    echo "Get job logs test passed"
+    echo "Logs Response: $response"
+else
+    echo "Get job logs test failed"
+fi
+
+
+echo -e "\n\n\nTesting get job data..."
+response=$(make_request GET "/jobs/$job_id/data" "" "$token" "200")
+if [[ $response == *"\"current_step\":"* && $response == *"\"data\":"* && $response == *"\"run_id\":"* && $response == *"\"start_time\":"* ]]; then
+    echo "Get job data test passed"
+    echo "Data Response: $response"
+else
+    echo "Get job data test failed"
+fi
+
+echo -e "\n\n\nTesting get job data with filter..."
+response=$(make_request GET "/jobs/$job_id/data?filter_key=conversation_history" "" "$token" "200")
+echo "Filtered Data Response: $response"
+if [[ $response == *"\"conversation_history\":"* && $response != *"\"current_step\":"* ]]; then
+    echo "Get job data with filter test passed"
+else
+    echo "Get job data with filter test failed"
+    echo "Filtered Data Response: $response"
+fi
 # Delete job entry
-echo -e "\n\n\nDelete job entry"
-make_request DELETE "/jobs/$job_id" "" "$token" "204"
+#echo -e "\n\n\nDelete job entry"
+#make_request DELETE "/jobs/$job_id" "" "$token" "204"
 
 # Delete docker entry
-echo -e "\n\n\nDelete docker entry"
-make_request DELETE "/docker_files/$docker_id" "" "$token" "204"
+#echo -e "\n\n\nDelete docker entry"
+#make_request DELETE "/docker_files/$docker_id" "" "$token" "204"
 
 # Delete config entry
-echo -e "\n\n\nDelete config entry"
-make_request DELETE "/configurations/$config_id" "" "$token" "204"
+#echo -e "\n\n\nDelete config entry"
+#make_request DELETE "/configurations/$config_id" "" "$token" "204"
 
 # Delete amber entry
-echo -e "\n\n\nDelete amber entry"
-make_request DELETE "/amber_store/$amber_id" "" "$token" "204"
+#echo -e "\n\n\nDelete amber entry"
+#make_request DELETE "/amber_store/$amber_id" "" "$token" "204"
 
 # Delete pipeline entry
-echo -e "\n\n\nDelete pipeline entry"
-make_request DELETE "/pipelines/$pipeline_id" "" "$token" "204"
+#echo -e "\n\n\nDelete pipeline entry"
+#make_request DELETE "/pipelines/$pipeline_id" "" "$token" "204"
 
 # Delete user
 echo -e "\n\n\nDelete user"

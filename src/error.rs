@@ -1,11 +1,11 @@
 // src/error.rs
 
-use thiserror::Error;
-use std::error::Error as StdError;
-use diesel::r2d2;
 use actix_web;
-use actix_web::ResponseError;
 use actix_web::http::StatusCode;
+use actix_web::ResponseError;
+use diesel::r2d2;
+use std::error::Error as StdError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -41,6 +41,36 @@ pub enum AppError {
 
     #[error("Fluent CLI error: {0}")]
     FluentCLIError(String),
+
+    #[error("External service error: {0}")]
+    ExternalServiceError(String),
+
+    #[error("Pipeline error: {0}")]
+    PipelineError(String),
+
+    #[error("Job error: {0}")]
+    JobError(String),
+
+    #[error("Docker file error: {0}")]
+    DockerFileError(String),
+
+    #[error("Trigger error: {0}")]
+    TriggerError(String),
+
+    #[error("Timer error: {0}")]
+    TimerError(String),
+
+    #[error("Worker error: {0}")]
+    WorkerError(String),
+
+    #[error("Temp file error: {0}")]
+    TempFileError(String),
+
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+
+    #[error("Yaml parse error: {0}")]
+    YamlParseError(String),
 }
 
 impl From<Box<dyn StdError + Send + Sync>> for AppError {
@@ -56,6 +86,7 @@ impl ResponseError for AppError {
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::AuthenticationError => StatusCode::UNAUTHORIZED,
+            AppError::ExternalServiceError(_) => StatusCode::BAD_GATEWAY,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

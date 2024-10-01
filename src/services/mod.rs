@@ -1,9 +1,9 @@
-pub mod job_service;
-pub mod fluentcli_service;
-pub mod user_service;
 pub mod amber_store_service;
 pub mod configuration_service;
 pub mod docker_file_service;
+pub mod fluentcli_service;
+pub mod job_service;
 pub mod pipeline_service;
-pub mod worker_service;
 pub mod secure_vault_service;
+pub mod user_service;
+pub mod worker_service;

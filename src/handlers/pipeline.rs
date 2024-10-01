@@ -18,7 +18,7 @@ pub async fn create_pipeline(
     let new_pipeline = NewPipeline {
         user_id,
         name: new_pipeline_payload.name.clone(),
-        data: yaml_data,
+        data: yaml_data.trim_matches('"').to_string(),
     };
 
     match PipelineService::create_pipeline(&pool, new_pipeline) {
