@@ -9,7 +9,6 @@
             {{ dockerFile.name }}
           </option>
         </select>
-        <router-link to="/studio/dockerfiles">Manage Docker Files</router-link>
       </div>
       <div>
         <label for="config">Configuration:</label>
@@ -18,7 +17,6 @@
             {{ config.name }}
           </option>
         </select>
-        <router-link to="/studio/configurations">Manage Configurations</router-link>
       </div>
       <div>
         <label for="pipeline">Pipeline:</label>
@@ -27,7 +25,6 @@
             {{ pipeline.name }}
           </option>
         </select>
-        <router-link to="/studio/pipelines">Manage Pipelines</router-link>
       </div>
       <div>
         <label for="amber_store">Amber Store:</label>
@@ -37,15 +34,10 @@
             {{ amberStore.name }}
           </option>
         </select>
-        <router-link to="/studio/amberstores">Manage Amber Stores</router-link>
       </div>
       <div>
         <label for="state_file_content">State File Content:</label>
         <textarea id="state_file_content" v-model="editedJob.state_file_content"></textarea>
-      </div>
-      <div>
-        <label for="data_path">Data Path:</label>
-        <input id="data_path" v-model="editedJob.data_path" />
       </div>
       <div>
         <label for="status">Status:</label>
@@ -60,20 +52,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 
 interface Job {
   id?: string;
   config: string;
   amber_id?: string | null;
   state_file_content?: string;
-  data_path?: string;
   worker_type: string;
-  triggers?: any;
-  timers?: any;
   status: string;
   pipeline_id: string;
-  results?: any;
 }
 
 const props = defineProps<{
@@ -98,70 +86,7 @@ const editedJob = ref<Job>(props.job ? { ...props.job } : {
 
 const isNew = computed(() => !props.job?.id);
 
-
-watch(() => props.job, (newJob) => {
-  if (newJob) {
-    editedJob.value = { ...newJob };
-  }
-}, { deep: true });
-
 const handleSubmit = () => {
   emit('save', editedJob.value);
 };
 </script>
-
-<style scoped>
-.job-editor  {
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-}
-
-form > div {
-  margin-bottom: 1rem;
-}
-
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-input, select, textarea {
-  width: 100%;
-  padding: 0.5rem;
-}
-
-.save-button, .cancel-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.save-button {
-  background-color: #2ecc71;
-  color: #fff;
-  margin-right: 10px;
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: #27ae60;
-}
-
-.save-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-}
-
-.cancel-button {
-  background-color: #e74c3c;
-  color: #fff;
-}
-
-.cancel-button:hover {
-  background-color: #c0392b;
-}
-</style>

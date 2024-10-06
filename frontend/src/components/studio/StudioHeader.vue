@@ -1,64 +1,35 @@
 <template>
-    <header class="studio-header">
-      <button class="menu-button" @click="$emit('toggleSidebar')">☰</button>
-      <div class="user-info">
-        <span>Welcome, {{ userName }}</span>
-        <button @click="logout">Logout</button>
+  <header class="bg-white shadow-sm">
+    <div class="flex justify-between items-center p-4">
+      <h2 class="text-2xl font-semibold text-gray-800">{{ pageTitle }}</h2>
+      <div class="flex items-center">
+        <span v-if="user" class="mr-4 text-gray-600">{{ user.name }}</span>
+        <button @click="logout" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+          Logout
+        </button>
       </div>
-    </header>
-  </template>
-  
+    </div>
+  </header>
+</template>
+
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
-import AuthService from '@/services/AuthService';
 
-const store = useStore();
+const route = useRoute();
 const router = useRouter();
+const store = useStore();
 
-const userName = computed(() => {
-  const user = store.state.user;
-  return user ? user.name || user.username : 'Guest';
+const pageTitle = computed(() => {
+  const routeName = route.name as string;
+  return routeName.charAt(0).toUpperCase() + routeName.slice(1);
 });
 
+const user = computed(() => store.state.user);
+
 const logout = () => {
-  AuthService.logout();
-  store.commit('setLoggedIn', false);
-  store.commit('setUser', null);
-  router.push('/');
+  store.dispatch('logout');
+  router.push('/login');
 };
 </script>
-  
-  <style scoped>
-  .studio-header {
-    height: 60px;
-    background-color: #ecf0f1;
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-    justify-content: space-between;
-    border-bottom: 1px solid #bdc3c7;
-  }
-  
-  .menu-button {
-    font-size: 24px;
-    background: none;
-    border: none;
-    cursor: pointer;
-  }
-  
-  .user-info {
-    display: flex;
-    align-items: center;
-  }
-  
-  .user-info span {
-    margin-right: 15px;
-  }
-  
-  .user-info button {
-    padding: 5px 10px;
-    cursor: pointer;
-  }
-  </style>

@@ -1,75 +1,70 @@
 <template>
-  <div class="jobs">
-    <div class="jobs-header">
-      <h2>Jobs</h2>
-      <button @click="showEditor = true" class="add-button">Create New Job</button>
+  <div class="container mx-auto px-4 py-8">
+    <h2 class="text-2xl font-bold mb-4">Jobs</h2>
+    <div class="overflow-x-auto bg-white shadow-md rounded-lg">
+      <table class="min-w-full leading-normal">
+        <thead>
+          <tr>
+            <th v-for="header in tableHeaders" :key="header" class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              {{ header }}
+            </th>
+            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="job in sortedJobs" :key="job.id" class="hover:bg-gray-50">
+            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ job.id }}</td>
+            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ getDockerFileName(job.worker_type) }}</td>
+            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+              <a href="#" @click.prevent="handleConfigurationClick(job.config)" class="text-blue-600 hover:text-blue-800">
+                {{ getConfigurationName(job.config) }}
+              </a>
+            </td>
+            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ getPipelineName(job.pipeline_id) }}</td>
+            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ job.status }}</td>
+            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+              <router-link :to="{ name: 'JobDetail', params: { id: job.id } }" class="text-indigo-600 hover:text-indigo-900 mr-2">
+                View
+              </router-link>
+              <button @click="openJobEditor(job)" class="text-indigo-600 hover:text-indigo-900 mr-2">
+                Edit
+              </button>
+              <button @click="job.id && deleteJob(job.id)" class="text-red-600 hover:text-red-900">
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-    
-    <table v-if="jobs.length" class="job-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Worker Type</th>
-          <th>Configuration</th>
-          <th>Pipeline</th>
-          <th>Amber Store</th>
-          <th>Status</th>
-          <th>Created At</th>
-          <th>Updated At</th>
-          <th>Started At</th>
-          <th>Completed At</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-<tr v-for="job in jobs" :key="job.id">
-  <td><router-link :to="`/studio/jobs/${job.id}`">{{ job.id }}</router-link></td>
-  <td>{{ getDockerFileName(job.worker_type) }}</td>
-  <td>{{ getConfigurationName(job.config) }}</td>
-  <td>{{ getPipelineName(job.pipeline_id) }}</td>
-  <td>{{ getAmberStoreName(job.amber_id) }}</td>
-  <td>{{ job.status }}</td>
-  <td>{{ formatDate(job.created_at) }}</td>
-  <td>{{ formatDate(job.updated_at) }}</td>
-  <td>{{ formatDate(job.started_at) }}</td>
-  <td>{{ formatDate(job.completed_at) }}</td>
-  <td>
-    <button @click="openJobEditor(job)" class="edit-button">Edit</button>
-    <button @click="deleteJob(job.id!)" class="delete-button">Delete</button>
-    <button @click="startJob(job.id!)" class="start-button">Start</button>
-    <button @click="stopJob(job.id!)" class="stop-button">Stop</button>
-    <router-link :to="`/studio/jobs/${job.id}/data`" class="data-button">Data</router-link>
-    <router-link :to="`/studio/jobs/${job.id}/logs`" class="log-button">Logs</router-link>
-  </td>
-</tr>
-      </tbody>
-    </table>
-    <p v-else class="no-jobs">No jobs available.</p>
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="isLoading" class="loading">Loading...</p>
 
-    <div v-if="showEditor" class="modal">
-      <div class="modal-content">
-        <JobEditor
-          :job="selectedJob"
-          :dockerFiles="dockerFiles"
-          :configurations="configurations"
-          :pipelines="pipelines"
-          :amberStores="amberStores"
-          @save="handleSave"
-          @cancel="showEditor = false"
-        />
-      </div>
-    </div>
+    <JobEditor
+      v-if="showEditor"
+      :job="selectedJob"
+      :dockerFiles="dockerFiles"
+      :configurations="configurations"
+      :pipelines="pipelines"
+      :amberStores="amberStores"
+      @save="handleSave"
+      @cancel="showEditor = false"
+    />
+    <ConfigurationEditor
+      v-if="editConfigurationId && editingConfiguration"
+      :data="editingConfiguration"
+      @save="handleSaveConfiguration"
+      @cancel="closeConfigurationEditor"
+    />
   </div>
 </template>
 
-
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import JobEditor from '@/components/studio/editors/JobEditor.vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import apiClient from '@/services/apiClient';
-import { formatDate } from '@/utils/dateFormatter';
+import JobEditor from '@/components/studio/editors/JobEditor.vue';
+import ConfigurationEditor from '@/components/studio/editors/ConfigurationEditor.vue';
 
 interface Job {
   id?: string;
@@ -89,20 +84,40 @@ interface Job {
   completed_at?: string;
 }
 
-const jobs = ref<Job[]>([]);
-const showEditor = ref(false);
-const selectedJob = ref<Job | null>(null);
-const error = ref<string | null>(null);
-const isLoading = ref(false);
-const openJobEditor = (job: Job) => {
-  selectedJob.value = { ...job };
-  showEditor.value = true;
-};
+interface Configuration {
+  id?: string;
+  name: string;
+  data: any;
+}
 
+const route = useRoute();
+const router = useRouter();
+const jobs = ref<Job[]>([]);
 const dockerFiles = ref<{ id: string; name: string }[]>([]);
 const configurations = ref<{ id: string; name: string }[]>([]);
 const pipelines = ref<{ id: string; name: string }[]>([]);
 const amberStores = ref<{ id: string; name: string }[]>([]);
+const showEditor = ref(false);
+const selectedJob = ref<Job | null>(null);
+const error = ref<string | null>(null);
+const isLoading = ref(false);
+const sortColumn = ref('id');
+const sortDirection = ref<'asc' | 'desc'>('asc');
+const editConfigurationId = ref<string | null>(null);
+const editingConfiguration = ref<Configuration | null>(null);
+
+const tableHeaders = ['ID', 'Worker Type', 'Configuration', 'Pipeline', 'Status'];
+
+const sortedJobs = computed(() => {
+  return [...jobs.value].sort((a, b) => {
+    const aValue = a[sortColumn.value as keyof Job];
+    const bValue = b[sortColumn.value as keyof Job];
+    if (aValue < bValue) return sortDirection.value === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+});
+
 const fetchJobs = async () => {
   isLoading.value = true;
   error.value = null;
@@ -134,27 +149,10 @@ const fetchRelatedData = async () => {
   }
 };
 
-const getDockerFileName = (id: string) => {
-  const docker = dockerFiles.value.find(d => d.id === id);
-  return docker ? docker.name : 'Unknown';
+const openJobEditor = (job: Job) => {
+  selectedJob.value = { ...job };
+  showEditor.value = true;
 };
-
-const getConfigurationName = (id: string) => {
-  const config = configurations.value.find(c => c.id === id);
-  return config ? config.name : 'Unknown';
-};
-
-const getPipelineName = (id: string) => {
-  const pipeline = pipelines.value.find(p => p.id === id);
-  return pipeline ? pipeline.name : 'Unknown';
-};
-
-const getAmberStoreName = (id: string | null | undefined) => {
-  if (!id) return 'N/A';
-  const amber = amberStores.value.find(a => a.id === id);
-  return amber ? amber.name : 'Unknown';
-};
-
 
 const handleSave = async (job: Job) => {
   isLoading.value = true;
@@ -190,153 +188,87 @@ const deleteJob = async (id: string) => {
   }
 };
 
-const startJob = async (id: string) => {
-  isLoading.value = true;
-  error.value = null;
-  try {
-    await apiClient.post(`/jobs/${id}/start`);
-    await fetchJobs();
-  } catch (err: any) {
-    error.value = 'Failed to start job. Please try again.';
-    console.error('Error starting job:', err);
-  } finally {
-    isLoading.value = false;
+
+
+const getDockerFileName = (id: string) => {
+  const docker = dockerFiles.value.find(d => d.id === id);
+  return docker ? docker.name : 'Unknown';
+};
+
+const handleConfigurationClick = async (configId: string) => {
+  if (configId) {
+    console.log(`Configuration ID clicked: ${configId}`);
+    editConfigurationId.value = configId;
+    try {
+      const response = await apiClient.get(`/configurations/${configId}`);
+      editingConfiguration.value = response.data;
+      console.log('Configuration loaded:', editingConfiguration.value);
+    } catch (error) {
+      console.error('Error fetching configuration:', error);
+    }
   }
 };
 
-const stopJob = async (id: string) => {
-  isLoading.value = true;
-  error.value = null;
+const openConfigurationEditor = async (id: string) => {
   try {
-    await apiClient.post(`/jobs/${id}/stop`);
-    await fetchJobs();
-  } catch (err: any) {
-    error.value = 'Failed to stop job. Please try again.';
-    console.error('Error stopping job:', err);
-  } finally {
-    isLoading.value = false;
+    const response = await apiClient.get(`/configurations/${id}`);
+    editingConfiguration.value = response.data;
+    showEditor.value = false; // Close the job editor if it's open
+    router.push({ query: { ...route.query, editConfiguration: id } });
+    console.log('Opened Configuration Editor with:', response.data);
+  } catch (error) {
+    console.error('Error fetching configuration:', error);
   }
-}
+};
 
+const closeConfigurationEditor = () => {
+  editConfigurationId.value = null;
+  editingConfiguration.value = null;
+  router.replace({ query: {} });
+  console.log('Configuration Editor closed.');
+};
 
-onMounted(() => {
-  fetchJobs();
-  fetchRelatedData();
+const handleSaveConfiguration = async (configuration: Configuration) => {
+  try {
+    if (configuration.id) {
+      await apiClient.put(`/configurations/${configuration.id}`, configuration);
+    } else {
+      const response = await apiClient.post('/configurations', configuration);
+      configuration.id = response.data.id;
+    }
+    await fetchJobs();
+    closeConfigurationEditor();
+    console.log('Configuration saved:', configuration);
+  } catch (error) {
+    console.error('Error updating configuration:', error);
+  }
+};
+
+const getConfigurationName = (id: string) => {
+  const config = configurations.value.find(c => c.id === id);
+  return config ? config.name : 'Unknown';
+};
+
+const getPipelineName = (id: string) => {
+  const pipeline = pipelines.value.find(p => p.id === id);
+  return pipeline ? pipeline.name : 'Unknown';
+};
+
+onMounted(async () => {
+  await fetchJobs();
+  await fetchRelatedData();
+  const { editConfiguration } = route.query;
+  if (typeof editConfiguration === 'string') {
+    console.log(`Initial route query editConfiguration: ${editConfiguration}`);
+    await openConfigurationEditor(editConfiguration);
+  }
 });
+
+watch(
+  () => editConfigurationId.value,
+  (newValue) => {
+    console.log('editConfigurationId changed:', newValue);
+    console.log('editingConfiguration:', editingConfiguration.value);
+  }
+);
 </script>
-
-
-<style scoped>
-.jobs {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-.jobs-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.add-button {
-  background-color: #3498db;
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.add-button:hover {
-  background-color: #2980b9;
-}
-
-.job-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.job-table th,
-.job-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-
-.job-table th {
-  background-color: #f2f2f2;
-}
-
-.edit-button, .delete-button, .start-button, .stop-button, .data-button, .log-button {
-  background-color: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  margin-right: 5px;
-  transition: color 0.3s ease;
-}
-
-.edit-button { color: #3498db; }
-.edit-button:hover { color: #2980b9; }
-
-.delete-button { color: #e74c3c; }
-.delete-button:hover { color: #c0392b; }
-
-.start-button { color: #2ecc71; }
-.start-button:hover { color: #27ae60; }
-
-.stop-button { color: #95a5a6; }
-.stop-button:hover { color: #7f8c8d; }
-
-.data-button { color: #f39c12; }
-.data-button:hover { color: #d35400; }
-
-.log-button { color: #9b59b6; }
-.log-button:hover { color: #8e44ad; }
-
-.no-jobs {
-  text-align: center;
-  color: #7f8c8d;
-  margin-top: 50px;
-}
-
-.error {
-  color: #e74c3c;
-  margin-top: 10px;
-}
-
-.loading {
-  color: #3498db;
-  margin-top: 10px;
-}
-
-.modal {
-  position: fixed;
-  z-index: 1;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0,0,0,0.4);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-content {
-  background-color: #fefefe;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 90%;
-  max-width: 1200px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 5px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-</style>

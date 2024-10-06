@@ -35,16 +35,16 @@
     <div v-else class="no-configurations">
       <p>No configurations available. Click the "Create New Configuration" button to create one.</p>
     </div>
-
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="isLoading" class="loading">Loading...</p>
-  </div>
+    </div>  
 </template>
   
   <script setup lang="ts">
-  import { ref, onMounted } from 'vue';
+  import { ref, onMounted, watch } from 'vue';
   import ConfigurationEditor from '@/components/studio/editors/ConfigurationEditor.vue';
   import apiClient from '@/services/apiClient';
+  import { useRoute } from 'vue-router';
+
+const route = useRoute();
   
   interface Configuration {
     id?: string;
@@ -111,7 +111,30 @@
     }
   };
   
-  onMounted(fetchConfigurations);
+const openEditorForId = async (id: string) => {
+  try {
+    const response = await apiClient.get(`/configurations/${id}`);
+    selectedConfiguration.value = response.data;
+    showEditor.value = true;
+  } catch (error) {
+    console.error('Failed to fetch configuration:', error);
+  }
+};
+
+onMounted(async () => {
+  await fetchConfigurations();
+  if (route.params.id) {
+    await openEditorForId(route.params.id as string);
+  }
+});
+
+watch(() => route.params.id, async (newId) => {
+  if (newId) {
+    await openEditorForId(newId as string);
+  } else {
+    showEditor.value = false;
+  }
+});
   </script>
   
 <style scoped>

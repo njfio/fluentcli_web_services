@@ -18,43 +18,45 @@
   </div>
 </template>
   
-  <script setup lang="ts">
-  import { ref, computed, watch } from 'vue';
-  
-  interface Configuration {
-    id?: string;
-    name: string;
-    data: any;
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+
+interface Configuration {
+  id?: string;
+  name: string;
+  data: any;
+}
+
+const props = defineProps<{
+  data: Configuration;
+}>();
+
+const emit = defineEmits<{
+  (e: 'save', configuration: Configuration): void;
+  (e: 'cancel'): void;
+}>();
+
+const editedConfiguration = ref<Configuration>({ ...props.data });
+const jsonData = ref(JSON.stringify(props.data.data, null, 2));
+
+const isNew = computed(() => !props.data.id);
+
+watch(() => props.data, (newData) => {
+  console.log('ConfigurationEditor received new data:', newData);
+  editedConfiguration.value = { ...newData };
+  jsonData.value = JSON.stringify(newData.data, null, 2);
+}, { deep: true });
+
+const handleSubmit = () => {
+  try {
+    editedConfiguration.value.data = JSON.parse(jsonData.value);
+    console.log('ConfigurationEditor submitting:', editedConfiguration.value);
+    emit('save', editedConfiguration.value);
+  } catch (error) {
+    alert('Invalid JSON data. Please check your input.');
   }
-  
-  const props = defineProps<{
-    data: Configuration;
-  }>();
-  
-  const emit = defineEmits<{
-    (e: 'save', configuration: Configuration): void;
-    (e: 'cancel'): void;
-  }>();
-  
-  const editedConfiguration = ref<Configuration>({ ...props.data });
-  const jsonData = ref(JSON.stringify(props.data.data, null, 2));
-  
-  const isNew = computed(() => !props.data.id);
-  
-  watch(() => props.data, (newData) => {
-    editedConfiguration.value = { ...newData };
-    jsonData.value = JSON.stringify(newData.data, null, 2);
-  }, { deep: true });
-  
-  const handleSubmit = () => {
-    try {
-      editedConfiguration.value.data = JSON.parse(jsonData.value);
-      emit('save', editedConfiguration.value);
-    } catch (error) {
-      alert('Invalid JSON data. Please check your input.');
-    }
-  };
-  </script>
+};
+</script>
   
 <style scoped>
 .form-group {

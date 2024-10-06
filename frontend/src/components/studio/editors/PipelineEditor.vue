@@ -1,29 +1,45 @@
 <template>
-  <div class="pipeline-editor">
-    <h3>{{ isNew ? 'Create' : 'Edit' }} Pipeline</h3>
-    <form @submit.prevent="handleSubmit">
-      <div class="form-group">
-        <label for="name">Name:</label>
-        <input id="name" v-model="editedPipeline.name" required>
+  <div class="pipeline-editor bg-white rounded-lg shadow-md p-6 w-full h-full flex flex-col">
+    <h3 class="text-2xl font-bold mb-6">{{ isNew ? 'Create' : 'Edit' }} Pipeline</h3>
+    <form @submit.prevent="handleSubmit" class="flex flex-col flex-grow">
+      <div class="mb-4">
+        <label for="name" class="block text-sm font-medium text-gray-700">Name:</label>
+        <input id="name" v-model="editedPipeline.name" required
+               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
       </div>
-      <div class="form-group">
-        <label for="data">Data (YAML):</label>
-        <textarea id="data" v-model="yamlData" rows="10" required @input="validateYaml"></textarea>
+      <div class="flex-grow flex flex-col">
+        <label for="data" class="block text-sm font-medium text-gray-700 mb-2">Data (YAML):</label>
+        <div class="relative flex-grow">
+          <textarea id="data" v-model="yamlData" required @input="handleInput"
+                    class="absolute inset-0 w-full h-full resize-none opacity-0"></textarea>
+          <pre class="absolute inset-0 w-full h-full overflow-auto"><code class="language-yaml" v-html="highlightedYaml"></code></pre>
+        </div>
       </div>
-      <div v-if="yamlError" class="error">
+      <div v-if="yamlError" class="text-red-600 text-sm mt-2">
         {{ yamlError }}
       </div>
-      <div class="form-actions">
-        <button type="submit" :disabled="!!yamlError" class="save-button">Save</button>
-        <button type="button" @click="$emit('cancel')" class="cancel-button">Cancel</button>
+      <div class="flex justify-end space-x-4 mt-4">
+        <button type="button" @click="$emit('cancel')" 
+                class="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+          Cancel
+        </button>
+        <button type="submit" :disabled="!!yamlError"
+                class="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed">
+          Save
+        </button>
       </div>
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import * as yaml from 'js-yaml';
+import hljs from 'highlight.js/lib/core';
+import yamlLang from 'highlight.js/lib/languages/yaml';
+import 'highlight.js/styles/github.css';
+
+hljs.registerLanguage('yaml', yamlLang);
 
 interface Pipeline {
   id: string;
@@ -74,6 +90,7 @@ function formatYaml(data: string): string {
 const editedPipeline = ref<Pipeline>({ ...props.data });
 const yamlData = ref(formatYaml(props.data.data));
 const yamlError = ref('');
+const highlightedYaml = ref('');
 
 const isNew = computed(() => !props.data.id);
 
@@ -81,7 +98,19 @@ watch(() => props.data, (newData) => {
   console.log('New data received:', newData);
   editedPipeline.value = { ...newData };
   yamlData.value = formatYaml(newData.data);
+  updateHighlightedYaml();
 }, { deep: true });
+
+function updateHighlightedYaml() {
+  highlightedYaml.value = hljs.highlight(yamlData.value, { language: 'yaml' }).value;
+}
+
+function handleInput(event: Event) {
+  const target = event.target as HTMLTextAreaElement;
+  yamlData.value = target.value;
+  validateYaml();
+  updateHighlightedYaml();
+}
 
 function validateYaml() {
   try {
@@ -100,94 +129,13 @@ function validateYaml() {
 
 const handleSubmit = () => {
   console.log('Handling submit');
-  if (!yamlError.value) {
-    editedPipeline.value.data = yamlData.value;
-    const parsedData = yaml.load(yamlData.value, { schema: CUSTOM_SCHEMA });
-    editedPipeline.value.data = JSON.stringify(parsedData);
-    console.log('Emitting save with:', editedPipeline.value);
-    emit('save', editedPipeline.value);
-  } else {
-    console.error('Cannot submit due to YAML error:', yamlError.value);
-  }
+  editedPipeline.value.data = yamlData.value; // Save as text
+  console.log('Emitting save with:', editedPipeline.value);
+  emit('save', editedPipeline.value);
 };
+
+onMounted(() => {
+  updateHighlightedYaml();
+});
 </script>
 
-<style scoped>
-.pipeline-editor  {
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-}
-
-.pipeline-editor  h3 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  font-size: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-input[type="text"], textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  font-size: 1rem;
-}
-
-textarea {
-  resize: vertical;
-}
-
-.error {
-  color: #e74c3c;
-  margin-bottom: 10px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.save-button, .cancel-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.save-button {
-  background-color: #2ecc71;
-  color: #fff;
-  margin-right: 10px;
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: #27ae60;
-}
-
-.save-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-}
-
-.cancel-button {
-  background-color: #e74c3c;
-  color: #fff;
-}
-
-.cancel-button:hover {
-  background-color: #c0392b;
-}
-</style>

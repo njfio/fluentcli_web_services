@@ -2,7 +2,7 @@
   <div class="modal">
     <div class="modal-content">
       <h3>Job Data</h3>
-      <pre v-if="jobData" v-html="highlightedData"></pre>
+      <pre v-if="jobData" v-html="highlightJSON"></pre>
       <p v-else-if="error">{{ error }}</p>
       <p v-else>Loading job data...</p>
       <button @click="$emit('close')">Close</button>
@@ -36,10 +36,15 @@ const fetchJobData = async () => {
   }
 };
 
-const highlightedData = computed(() => {
+const highlightJSON = computed(() => {
   if (!jobData.value) return '';
-  const formatted = JSON.stringify(jobData.value, null, 2);
-  return hljs.highlight(formatted, { language: 'json' }).value;
+  try {
+    const formatted = JSON.stringify(jobData.value, null, 2);
+    return hljs.highlight(formatted, { language: 'json' }).value;
+  } catch (error) {
+    console.error('Error parsing JSON:', error);
+    return typeof jobData.value === 'string' ? jobData.value : JSON.stringify(jobData.value, null, 2);
+  }
 });
 
 onMounted(fetchJobData);

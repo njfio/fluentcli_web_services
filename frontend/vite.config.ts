@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import path from 'path';
+import tailwindcss from 'tailwindcss';
+import autoprefixer from 'autoprefixer';
 
 export default defineConfig({
   plugins: [vue()],
+  css: {
+    postcss: {
+      plugins: [
+        tailwindcss,
+        autoprefixer,
+      ],
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -19,17 +29,17 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
       '/jobs': {
-          target: 'http://localhost:8000', // Replace with your backend server's URL and port
-          changeOrigin: true,
-          secure: false, 
-          rewrite: (path) => path.replace(/^\/api/, '')// Set to true if using HTTPS on the backend
-        },
+        target: 'http://localhost:8000', // Replace with your backend server's URL and port
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '')// Set to true if using HTTPS on the backend
+      },
       '/pipelines': {
-          target: 'http://localhost:8000', // Replace with your backend server's URL and port
-          changeOrigin: true,
-          secure: false,
-                rewrite: (path) => path.replace(/^\/api/, ''), // Set to true if using HTTPS on the backend
-        },
+        target: 'http://localhost:8000', // Replace with your backend server's URL and port
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''), // Set to true if using HTTPS on the backend
+      },
     },
   },
 });

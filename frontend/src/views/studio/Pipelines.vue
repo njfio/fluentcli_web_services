@@ -1,48 +1,48 @@
 <template>
-  <div class="pipelines">
-    <div class="pipelines-header">
-      <h1>Pipelines</h1>
-      <button @click="addPipeline" class="add-button">
-        <i class="fas fa-plus"></i> Add New Pipeline
-      </button>
-    </div>
-
-    <!-- Pipeline Editor Modal -->
-    <div v-if="showEditor && selectedPipeline" class="modal">
-      <div class="modal-content">
-        <PipelineEditor
-          :data="selectedPipeline"
-          @save="handleSave"
-          @cancel="closeEditor"
-        />
+  <div class="pipelines h-screen flex flex-col">
+    <div v-if="!showEditor" class="pipelines-list flex-grow">
+      <div class="pipelines-header">
+        <h1>Pipelines</h1>
+        <button @click="addPipeline" class="add-button">
+          <i class="fas fa-plus"></i> Add New Pipeline
+        </button>
       </div>
-    </div>
 
-    <!-- List of Pipelines -->
-    <div v-if="pipelines.length" class="pipeline-grid">
-      <div v-for="pipeline in pipelines" :key="pipeline.id" class="pipeline-card">
-        <h3>{{ pipeline.name }}</h3>
-        <div class="pipeline-actions">
-          <button @click="editPipeline(pipeline)" class="edit-button">
-            <i class="fas fa-edit"></i> Edit
-          </button>
-          <button @click="deletePipeline(pipeline.id)" class="delete-button">
-            <i class="fas fa-trash"></i> Delete
-          </button>
+      <div v-if="pipelines.length" class="pipeline-grid">
+        <div v-for="pipeline in pipelines" :key="pipeline.id" class="pipeline-card">
+          <h3>{{ pipeline.name }}</h3>
+          <div class="pipeline-actions">
+            <button @click="editPipeline(pipeline.id)" class="edit-button">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button @click="deletePipeline(pipeline.id)" class="delete-button">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
         </div>
       </div>
+      <div v-else class="no-pipelines">
+        <p>No pipelines available. Click the "Add New Pipeline" button to create one.</p>
+      </div>
     </div>
-    <div v-else class="no-pipelines">
-      <p>No pipelines available. Click the "Add New Pipeline" button to create one.</p>
+
+    <div v-if="showEditor && selectedPipeline" class="pipeline-editor-container flex-grow flex">
+      <PipelineEditor
+        :data="selectedPipeline"
+        @save="handleSave"
+        @cancel="closeEditor"
+        class="flex-grow"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import PipelineEditor from '@/components/studio/editors/PipelineEditor.vue';
 import apiClient from '@/services/apiClient';
-import * as yaml from 'js-yaml';
+
 
 interface Pipeline {
   id: string;
@@ -50,6 +50,8 @@ interface Pipeline {
   data: string;
 }
 
+const route = useRoute();
+const router = useRouter();
 const pipelines = ref<Pipeline[]>([]);
 const showEditor = ref(false);
 const selectedPipeline = ref<Pipeline | null>(null);
@@ -63,38 +65,30 @@ const fetchPipelines = async () => {
   }
 };
 
+const props = defineProps<{
+  returnToJobDetails?: boolean;
+}>();
+
 const addPipeline = () => {
   selectedPipeline.value = {
-    id: '',  // Use an empty string as a temporary ID
+    id: '',
     name: '',
     data: '',
   };
   showEditor.value = true;
 };
 
-const editPipeline = (pipeline: Pipeline) => {
-  selectedPipeline.value = { ...pipeline };
-  showEditor.value = true;
-};
-
-const handleSave = async (updatedPipeline: Pipeline) => {
+const editPipeline = async (id: string) => {
   try {
-    const pipelineData = {
-      ...updatedPipeline,
-      data: yaml.load(updatedPipeline.data),
-    };
-
-    if (updatedPipeline.id) {
-      await apiClient.put(`/pipelines/${updatedPipeline.id}`, pipelineData);
-    } else {
-      await apiClient.post('/pipelines', pipelineData);
-    }
-    await fetchPipelines();
-    closeEditor();
+    const response = await apiClient.get(`/pipelines/${id}`);
+    selectedPipeline.value = response.data;
+    showEditor.value = true;
   } catch (error) {
-    console.error('Failed to save pipeline:', error);
+    console.error('Failed to fetch pipeline:', error);
   }
 };
+
+
 
 const deletePipeline = async (id: string | undefined) => {
   if (!id) {
@@ -111,13 +105,52 @@ const deletePipeline = async (id: string | undefined) => {
   }
 };
 
+const handleSave = async (updatedPipeline: Pipeline) => {
+  try {
+    const pipelineData = {
+      ...updatedPipeline,
+      // No YAML parsing here, just use the data as-is
+      data: updatedPipeline.data,
+    };
+
+    if (updatedPipeline.id) {
+      await apiClient.put(`/pipelines/${updatedPipeline.id}`, pipelineData);
+    } else {
+      await apiClient.post('/pipelines', pipelineData);
+    }
+    await fetchPipelines();
+    closeEditor();
+    
+    if (props.returnToJobDetails) {
+      router.go(-1);
+    }
+  } catch (error) {
+    console.error('Failed to save pipeline:', error);
+  }
+};
+
 const closeEditor = () => {
   showEditor.value = false;
   selectedPipeline.value = null;
+  
+  if (props.returnToJobDetails) {
+    router.go(-1);
+  }
 };
 
-onMounted(() => {
-  fetchPipelines();
+onMounted(async () => {
+  await fetchPipelines();
+  if (route.params.id) {
+    await editPipeline(route.params.id as string);
+  }
+});
+
+watch(() => route.params.id, async (newId) => {
+  if (newId) {
+    await editPipeline(newId as string);
+  } else {
+    closeEditor();
+  }
 });
 </script>
 

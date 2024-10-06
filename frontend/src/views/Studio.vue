@@ -1,40 +1,24 @@
 <template>
-  <div class="studio">
-    <nav class="studio-sidebar" :class="{ 'collapsed': isSidebarCollapsed }">
-      <div class="sidebar-header">
-        <button @click="toggleSidebar" class="toggle-sidebar">
-          <i class="fas fa-bars"></i>
+  <div class="flex h-screen bg-gray-100">
+    <nav class="w-64 bg-white shadow-lg" :class="{ 'w-20': isSidebarCollapsed }">
+      <div class="p-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-indigo-600" v-if="!isSidebarCollapsed">FluentCLI Studio</h1>
+        <button @click="toggleSidebar" class="text-gray-500 hover:text-indigo-600">
+          <i :class="isSidebarCollapsed ? 'fas fa-bars' : 'fas fa-times'"></i>
         </button>
-        <h1>FluentCLI Studio</h1>
       </div>
-      <router-link to="/studio/dashboard">
-        <i class="fas fa-tachometer-alt"></i>
-        <span>Dashboard</span>
-      </router-link>
-      <router-link to="/studio/jobs">
-        <i class="fas fa-tasks"></i>
-        <span>Jobs</span>
-      </router-link>
-      <router-link to="/studio/pipelines">
-        <i class="fas fa-project-diagram"></i>
-        <span>Pipelines</span>
-      </router-link>
-      <router-link to="/studio/dockerfiles">
-        <i class="fab fa-docker"></i>
-        <span>Docker Files</span>
-      </router-link>
-      <router-link to="/studio/configurations">
-        <i class="fas fa-cogs"></i>
-        <span>Configurations</span>
-      </router-link>
-      <router-link to="/studio/amberstores">
-        <i class="fas fa-database"></i>
-        <span>Amber Stores</span>
-      </router-link>
+      <ul class="mt-6">
+        <li v-for="(link, index) in sidebarLinks" :key="index" class="mb-2">
+          <router-link :to="link.to" class="flex items-center p-3 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors duration-200">
+            <i :class="link.icon + ' w-5 h-5'" :title="link.title"></i>
+            <span v-if="!isSidebarCollapsed" class="ml-3">{{ link.title }}</span>
+          </router-link>
+        </li>
+      </ul>
     </nav>
-    <main class="studio-main">
+    <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
       <StudioHeader @toggleSidebar="toggleSidebar" />
-      <div class="content-area">
+      <div class="p-6">
         <router-view />
       </div>
     </main>
@@ -42,126 +26,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref } from 'vue';
 import StudioHeader from '@/components/studio/StudioHeader.vue';
 
 const isSidebarCollapsed = ref(false);
-const route = useRoute();
 
 const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value;
 };
 
-computed(() => {
-  const routeName = route.name as string;
-  return routeName.charAt(0).toUpperCase() + routeName.slice(1);
-});
+const sidebarLinks = [
+  { to: '/studio/dashboard', icon: 'fas fa-tachometer-alt', title: 'Dashboard' },
+  { to: '/studio/jobs', icon: 'fas fa-tasks', title: 'Jobs' },
+  { to: '/studio/pipelines', icon: 'fas fa-project-diagram', title: 'Pipelines' },
+  { to: '/studio/dockerfiles', icon: 'fab fa-docker', title: 'Docker Files' },
+  { to: '/studio/configurations', icon: 'fas fa-cogs', title: 'Configurations' },
+  { to: '/studio/amberstores', icon: 'fas fa-database', title: 'Amber Stores' },
+];
 </script>
-
-<style scoped>
-.studio {
-  display: flex;
-  height: 100vh;
-  font-family: 'Arial', sans-serif;
-}
-
-.studio-sidebar {
-  width: 250px;
-  background-color: #2c3e50;
-  color: #ecf0f1;
-  transition: width 0.3s ease;
-}
-
-.studio-sidebar.collapsed {
-  width: 60px;
-}
-
-.sidebar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-}
-
-.sidebar-header h1 {
-  font-size: 1.2rem;
-  margin: 0;
-}
-
-.toggle-sidebar {
-  background: none;
-  border: none;
-  color: #ecf0f1;
-  cursor: pointer;
-  font-size: 1.2rem;
-}
-
-.studio-sidebar a {
-  display: flex;
-  align-items: center;
-  color: #ecf0f1;
-  text-decoration: none;
-  padding: 15px 20px;
-  transition: background-color 0.3s ease;
-}
-
-.studio-sidebar a:hover {
-  background-color: #34495e;
-}
-
-.studio-sidebar a.router-link-active {
-  background-color: #3498db;
-}
-
-.studio-sidebar i {
-  margin-right: 10px;
-  width: 20px;
-  text-align: center;
-}
-
-.studio-main {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  background-color: #f5f5f5;
-}
-
-.studio-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.studio-header h2 {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-.user-menu {
-  display: flex;
-  align-items: center;
-}
-
-.user-menu span {
-  margin-right: 10px;
-}
-
-.logout-button {
-  background-color: #e74c3c;
-  color: #fff;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.content-area {
-  flex-grow: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
-</style>

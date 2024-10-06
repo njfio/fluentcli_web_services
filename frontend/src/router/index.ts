@@ -52,7 +52,13 @@ const routes: Array<RouteRecordRaw> = [
         name: 'JobLogs',
         component: JobLogs
       },
-      { path: 'pipelines', name: 'Pipelines', component: Pipelines, meta: { requiresAuth: true } },
+      {
+        path: 'pipelines/:id?',
+        name: 'PipelineEditor',
+        component: Pipelines,
+        props: (route) => ({ returnToJobDetails: route.query.returnToJobDetails === 'true' }),
+        meta: { requiresAuth: true }
+      },
       { path: 'settings', name: 'Settings', component: Settings },
       {
         path: 'dockerfiles',
@@ -67,11 +73,29 @@ const routes: Array<RouteRecordRaw> = [
         meta: { requiresAuth: true }
       },
       {
+        path: '/studio/configurations',
+        name: 'ConfigurationsList',
+        component: () => import('@/views/studio/Configurations.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/studio/configurations/:id?',
+        name: 'ConfigurationEditor',
+        component: () => import('@/views/studio/Configurations.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/configurations/:id?',
+        name: 'Configurations',
+        component: () => import('@/views/studio/Configurations.vue')
+      },
+      {
         path: '/studio/amberstores',
         name: 'AmberStores',
         component: AmberStores,
         meta: { requiresAuth: true }
       },
+
     ],
   }
 ];
