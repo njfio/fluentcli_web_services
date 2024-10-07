@@ -1,151 +1,183 @@
 <template>
-  <div class="amber-stores">
-    <div class="amber-stores-header">
-      <h1>Amber Stores</h1>
-      <button @click="addAmberStore" class="add-button">
-        <i class="fas fa-plus"></i> Add New Amber Store
-      </button>
-    </div>
-
-    <!-- Amber Store Editor Modal -->
-    <div v-if="showEditor" class="modal">
-      <div class="modal-content">
-        <AmberStoreEditor
-          :data="selectedAmberStore"
-          @save="handleSave"
-          @cancel="closeEditor"
-        />
-      </div>
-    </div>
-
-    <!-- List of Amber Stores -->
-    <div v-if="amberStores.length" class="amber-store-grid">
-      <div v-for="amberStore in amberStores" :key="amberStore.id" class="amber-store-card">
-        <h3>{{ amberStore.name }}</h3>
-        <p>ID: {{ amberStore.id }}</p>
-        <div class="amber-store-actions">
-          <button @click="editAmberStore(amberStore)" class="edit-button">
-            <i class="fas fa-edit"></i> Edit
-          </button>
-          <button @click="deleteAmberStore(amberStore.id)" class="delete-button">
-            <i class="fas fa-trash"></i> Delete
+  <div class="amber-stores h-screen flex flex-col">
+    <div class="amber-stores-list flex-grow">
+      <div class="amber-stores-header">
+        <h1 class="text-2xl font-bold">Amber Stores</h1>
+        <div class="flex items-center">
+          <input v-model="searchQuery" type="text" placeholder="Search Amber Stores" class="search-input mr-4">
+          <button @click="createNewAmberStore" class="add-button">
+            <i class="fas fa-plus"></i> Create New Amber Store
           </button>
         </div>
       </div>
-    </div>
-    <div v-else class="no-amber-stores">
-      <p>No amber stores available. Click the "Add New Amber Store" button to create one.</p>
-    </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="isLoading" class="loading">Loading...</p>
+      <div v-if="loading" class="text-center py-4">
+        <i class="fas fa-spinner fa-spin fa-2x"></i>
+      </div>
+      <div v-else-if="error" class="text-red-500 py-4">{{ error }}</div>
+      <div v-else-if="filteredAmberStores.length" class="amber-store-table-container">
+        <table class="amber-store-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Created At</th>
+              <th>Last Modified</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="amberStore in paginatedAmberStores" :key="amberStore.id">
+              <td>{{ amberStore.name }}</td>
+              <td>{{ amberStore.description }}</td>
+              <td>{{ formatDate(amberStore.createdAt) }}</td>
+              <td>{{ formatDate(amberStore.lastModified) }}</td>
+              <td>
+                <button @click="editAmberStore(amberStore.id)" class="edit-button">
+                  <i class="fas fa-edit"></i> Edit
+                </button>
+                <button @click="deleteAmberStore(amberStore.id)" class="delete-button">
+                  <i class="fas fa-trash"></i> Delete
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pagination">
+          <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Previous</button>
+          <span>Page {{ currentPage }} of {{ totalPages }}</span>
+          <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
+        </div>
+      </div>
+      <div v-else class="no-amber-stores">
+        <p>No Amber Stores available. Click the "Create New Amber Store" button to create one.</p>
+      </div>
+    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import * as yaml from 'js-yaml';
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
+import { formatDate } from '@/utils/dateFormatter';
+import { Store } from 'vuex';
+import { RootState } from '@/store/types';
+import { AmberStore } from '@/store/modules/studio';
 
-import AmberStoreEditor from '@/components/studio/editors/AmberStoreEditor.vue';
-import apiClient from '@/services/apiClient';
+export default defineComponent({
+  name: 'AmberStores',
+  setup() {
+    const store = useStore<Store<RootState>>();
+    const router = useRouter();
+    const loading = ref(false);
+    const error = ref('');
+    const searchQuery = ref('');
+    const currentPage = ref(1);
+    const itemsPerPage = 10;
 
-interface AmberStore {
-  id?: string;
-  name: string;
-  data: string;
-  secure_key_hash: string;
-}
+    const amberStores = computed(() => store.getters['studio/getAmberStores'] as AmberStore[]);
 
-const amberStores = ref<AmberStore[]>([]);
-const showEditor = ref(false);
-const selectedAmberStore = ref<AmberStore>({ name: '', data: '{}', secure_key_hash: '' });
-const error = ref<string | null>(null);
-const isLoading = ref(false);
+    const filteredAmberStores = computed(() => {
+      return amberStores.value.filter(store =>
+        store.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        store.description.toLowerCase().includes(searchQuery.value.toLowerCase())
+      );
+    });
 
-const fetchAmberStores = async () => {
-  isLoading.value = true;
-  error.value = null;
-  try {
-    const response = await apiClient.get('/amber_store');
-    amberStores.value = response.data;
-  } catch (err: any) {
-    error.value = 'Failed to fetch amber stores. Please try again.';
-    console.error('Error fetching amber stores:', err);
-  } finally {
-    isLoading.value = false;
-  }
-};
+    const totalPages = computed(() => Math.ceil(filteredAmberStores.value.length / itemsPerPage));
 
-const addAmberStore = () => {
-  selectedAmberStore.value = { name: '', data: '{}', secure_key_hash: '' };
-  showEditor.value = true;
-};
+    const paginatedAmberStores = computed(() => {
+      const start = (currentPage.value - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      return filteredAmberStores.value.slice(start, end);
+    });
 
-const editAmberStore = (amberStore: AmberStore) => {
-  try {
-    selectedAmberStore.value = { 
-      ...amberStore,
-      data: typeof amberStore.data === 'string' 
-        ? yaml.dump(yaml.load(amberStore.data) || {}, { indent: 2 })
-        : yaml.dump(amberStore.data || {}, { indent: 2 })
+    onMounted(async () => {
+      await fetchAmberStores();
+    });
+
+    const fetchAmberStores = async () => {
+      loading.value = true;
+      error.value = '';
+      try {
+        console.log('Fetching Amber Stores...');
+        await store.dispatch('studio/fetchAmberStores');
+        console.log('Amber Stores fetched successfully:', store.getters['studio/getAmberStores']);
+      } catch (err: any) {
+        console.error('Error fetching Amber Stores:', err);
+        if (err.response) {
+          console.error('Error response:', err.response.data);
+          console.error('Error status:', err.response.status);
+          console.error('Error headers:', err.response.headers);
+        } else if (err.request) {
+          console.error('Error request:', err.request);
+        } else {
+          console.error('Error message:', err.message);
+        }
+        error.value = `Error fetching Amber Stores: ${err.message || 'Unknown error'}`;
+      } finally {
+        loading.value = false;
+      }
     };
-    showEditor.value = true;
-  } catch (err) {
-    console.error('Error parsing AmberStore data:', err);
-    error.value = 'Invalid data format in AmberStore. Unable to edit.';
-  }
-};
 
-const handleSave = async (amberStore: AmberStore) => {
-  isLoading.value = true;
-  error.value = null;
-  try {
-    if (amberStore.id) {
-      await apiClient.put(`/amber_store/${amberStore.id}`, amberStore);
-    } else {
-      await apiClient.post('/amber_store', amberStore);
-    }
-    await fetchAmberStores();
-    closeEditor();
-  } catch (err: any) {
-    error.value = 'Failed to save amber store. Please try again.';
-    console.error('Error saving amber store:', err);
-  } finally {
-    isLoading.value = false;
-  }
-};
+    const createNewAmberStore = () => {
+      router.push({ name: 'AmberStoreEditor' });
+    };
 
-const deleteAmberStore = async (id: string | undefined) => {
-  if (!id) {
-    console.error('Cannot delete amber store: ID is undefined');
-    return;
-  }
-  if (!confirm('Are you sure you want to delete this amber store?')) return;
-  isLoading.value = true;
-  error.value = null;
-  try {
-    await apiClient.delete(`/amber_store/${id}`);
-    await fetchAmberStores();
-  } catch (err: any) {
-    error.value = 'Failed to delete amber store. Please try again.';
-    console.error('Error deleting amber store:', err);
-  } finally {
-    isLoading.value = false;
-  }
-};
+    const editAmberStore = (id: string) => {
+      router.push({ name: 'AmberStoreEditor', params: { id } });
+    };
 
-const closeEditor = () => {
-  showEditor.value = false;
-  selectedAmberStore.value = { name: '', data: '{}', secure_key_hash: '' };
-};
+    const deleteAmberStore = async (id: string) => {
+      if (confirm('Are you sure you want to delete this Amber Store?')) {
+        try {
+          await store.dispatch('studio/deleteAmberStore', id);
+          await fetchAmberStores();
+        } catch (err: any) {
+          console.error('Error deleting Amber Store:', err);
+          error.value = `Error deleting Amber Store: ${err.message || 'Unknown error'}`;
+        }
+      }
+    };
 
-onMounted(fetchAmberStores);
+    const prevPage = () => {
+      if (currentPage.value > 1) {
+        currentPage.value--;
+      }
+    };
+
+    const nextPage = () => {
+      if (currentPage.value < totalPages.value) {
+        currentPage.value++;
+      }
+    };
+
+    return {
+      amberStores,
+      filteredAmberStores,
+      paginatedAmberStores,
+      loading,
+      error,
+      searchQuery,
+      currentPage,
+      totalPages,
+      createNewAmberStore,
+      editAmberStore,
+      deleteAmberStore,
+      prevPage,
+      nextPage,
+      formatDate,
+    };
+  },
+});
 </script>
 
 <style scoped>
 .amber-stores {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 20px;
 }
 
 .amber-stores-header {
@@ -155,7 +187,14 @@ onMounted(fetchAmberStores);
   margin-bottom: 20px;
 }
 
-.add-button {
+.search-input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.add-button, .pagination-button {
   background-color: #3498db;
   color: #fff;
   border: none;
@@ -166,44 +205,44 @@ onMounted(fetchAmberStores);
   transition: background-color 0.3s ease;
 }
 
-.add-button:hover {
+.add-button:hover, .pagination-button:hover {
   background-color: #2980b9;
 }
 
-.amber-store-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+.amber-store-table-container {
+  overflow-x: auto;
 }
 
-.amber-store-card {
+.amber-store-table {
+  width: 100%;
+  border-collapse: collapse;
   background-color: #fff;
-  border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
 }
 
-.amber-store-card h3 {
-  margin: 0 0 10px 0;
-  font-size: 1.2rem;
+.amber-store-table th,
+.amber-store-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.amber-store-card p {
-  margin: 0 0 10px 0;
-  color: #7f8c8d;
+.amber-store-table th {
+  background-color: #f5f5f5;
+  font-weight: bold;
 }
 
-.amber-store-actions {
-  display: flex;
-  justify-content: flex-end;
+.amber-store-table tr:hover {
+  background-color: #f9f9f9;
 }
 
-.edit-button, .delete-button {
+.edit-button,
+.delete-button {
   background-color: transparent;
   border: none;
   cursor: pointer;
   font-size: 0.9rem;
-  margin-left: 10px;
+  margin-right: 10px;
   transition: color 0.3s ease;
 }
 
@@ -229,39 +268,19 @@ onMounted(fetchAmberStores);
   margin-top: 50px;
 }
 
-.error {
-  color: #e74c3c;
-  margin-top: 10px;
-}
-
-.loading {
-  color: #3498db;
-  margin-top: 10px;
-}
-
-.modal {
-  position: fixed;
-  z-index: 1;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0,0,0,0.4);
+.pagination {
   display: flex;
   justify-content: center;
   align-items: center;
+  margin-top: 20px;
 }
 
-.modal-content {
-  background-color: #fefefe;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 90%;
-  max-width: 1200px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 5px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.pagination-button {
+  margin: 0 10px;
+}
+
+.pagination-button:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
 }
 </style>

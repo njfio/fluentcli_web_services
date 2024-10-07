@@ -2,7 +2,8 @@
   <div class="modal">
     <div class="modal-content">
       <h3>Job Logs</h3>
-<pre v-if="jobLogs" v-html="highlightJSON"></pre>      <p v-else-if="error">{{ error }}</p>
+      <pre v-if="jobLogs" v-html="highlightJSON"></pre>
+      <p v-else-if="error">{{ error }}</p>
       <p v-else>Loading job logs...</p>
       <button @click="$emit('close')">Close</button>
     </div>
@@ -27,7 +28,7 @@ const error = ref<string | null>(null);
 
 const fetchJobLogs = async () => {
   try {
-    const response = await apiClient.get(`/jobs/${props.jobId}/logs`);
+    const response = await apiClient.fetchJobLogs(props.jobId);
     jobLogs.value = JSON.stringify(response.data, null, 2);
     console.log('Fetched job logs:', jobLogs.value);
   } catch (err) {

@@ -4,13 +4,19 @@
       <div class="px-6 py-4 bg-indigo-600 text-white">
         <h2 class="text-2xl font-bold">Job Details</h2>
       </div>
-      <div v-if="job" class="p-6">
+      <div v-if="loading" class="p-6 text-center">
+        <p class="text-gray-600">Loading job details...</p>
+      </div>
+      <div v-else-if="error" class="p-6 text-center">
+        <p class="text-red-600">{{ error }}</p>
+      </div>
+      <div v-else-if="job" class="p-6">
         <div class="grid grid-cols-2 gap-4">
           <div v-for="(value, key) in jobDetails" :key="key" class="mb-4">
             <p class="font-semibold">{{ formatLabel(key) }}:</p>
             <p v-if="isLinkableField(key)" class="text-blue-600 hover:text-blue-800">
               <router-link :to="getLinkForField(key, value)">
-                {{ getDisplayValue(value) }}
+                {{ getLinkedItemName(key, value) }}
               </router-link>
             </p>
             <p v-else>{{ formatValue(key, value) }}</p>
@@ -29,35 +35,30 @@
           </button>
         </div>
       </div>
-      <div v-else class="p-6">Loading job details...</div>
+      <div v-else class="p-6 text-center">
+        <p class="text-gray-600">No job details found.</p>
+      </div>
     </div>
     <JobDataModal v-if="showJobDataModal && job?.id" :jobId="job.id" @close="showJobDataModal = false" />
     <JobLogsModal v-if="showJobLogsModal && job?.id" :jobId="job.id" @close="showJobLogsModal = false" />
   </div>
 </template>
 
-
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import apiClient from '@/services/apiClient';
+import { useStore } from 'vuex';
 import JobDataModal from '@/components/JobDataModal.vue';
 import JobLogsModal from '@/components/JobLogsModal.vue';
 
-interface Job {
-  id?: string;
-  config: string;
-  amber_id?: string | null;
-  state_file_content?: string;
-  worker_type: string;
-  status: string;
-  pipeline_id: string;
-}
-
 const route = useRoute();
-const job = ref<Job | null>(null);
+const store = useStore();
 const showJobDataModal = ref(false);
 const showJobLogsModal = ref(false);
+const loading = ref(false);
+const error = ref<string | null>(null);
+
+const job = computed(() => store.getters['studio/getCurrentJob']);
 
 const jobDetails = computed(() => {
   if (!job.value) return {};
@@ -66,11 +67,19 @@ const jobDetails = computed(() => {
 });
 
 const fetchJobDetails = async () => {
+  if (!route.params.id || route.params.id === 'true') {
+    error.value = 'Invalid job ID';
+    return;
+  }
+  loading.value = true;
+  error.value = null;
   try {
-    const response = await apiClient.get(`/jobs/${route.params.id}`);
-    job.value = response.data;
-  } catch (error) {
-    console.error('Error fetching job details:', error);
+    await store.dispatch('studio/fetchJobById', route.params.id);
+  } catch (err: any) {
+    error.value = `Error fetching job details: ${err.message}`;
+    console.error('Error fetching job details:', err);
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -93,22 +102,31 @@ const getLinkForField = (key: string, value: any) => {
   if (!value) return '';
   switch (key) {
     case 'worker_type':
-      return { name: 'Jobs', query: { editDockerFile: value } };
+      return { name: 'DockerFileEditor', params: { id: value }, query: { returnToJobDetails: route.params.id } };
     case 'config':
-      return { name: 'ConfigurationEditor', params: { id: value } };
+      return { name: 'ConfigurationEditor', params: { id: value }, query: { returnToJobDetails: route.params.id } };
     case 'pipeline_id':
-      return { name: 'PipelineEditor', params: { id: value }, query: { returnToJobDetails: 'true' } };
+      return { name: 'PipelineEditor', params: { id: value }, query: { returnToJobDetails: route.params.id } };
     case 'amber_id':
-      return { name: 'Jobs', query: { editAmberStore: value } };
+      return { name: 'AmberStoreEditor', params: { id: value }, query: { returnToJobDetails: route.params.id } };
     default:
       return { name: 'JobDetail', params: { id: value } };
   }
 };
 
-const getDisplayValue = (value: any) => {
-  // Here you would fetch the name of the related item based on its ID
-  // For now, we'll just return the ID
-  return value;
+const getLinkedItemName = (key: string, value: any) => {
+  switch (key) {
+    case 'worker_type':
+      return store.getters['studio/getDockerFiles'].find((df: any) => df.id === value)?.name || value;
+    case 'config':
+      return store.getters['studio/getConfigurations'].find((c: any) => c.id === value)?.name || value;
+    case 'pipeline_id':
+      return store.getters['studio/getPipelines'].find((p: any) => p.id === value)?.name || value;
+    case 'amber_id':
+      return store.getters['studio/getAmberStores'].find((as: any) => as.id === value)?.name || value;
+    default:
+      return value;
+  }
 };
 
 const showJobData = () => {
@@ -119,7 +137,10 @@ const showJobLogs = () => {
   showJobLogsModal.value = true;
 };
 
-onMounted(fetchJobDetails);
+onMounted(async () => {
+  await store.dispatch('studio/fetchAllData');
+  await fetchJobDetails();
+});
 </script>
 
 <style scoped>

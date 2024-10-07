@@ -45,7 +45,7 @@
       </div>
       <div>
         <button type="submit" class="save-button">Save</button>
-        <button type="button" @click="$emit('cancel')" class="cancel-button">Cancel</button>
+        <button type="button" @click="handleCancel" class="cancel-button">Cancel</button>
       </div>
     </form>
   </div>
@@ -53,6 +53,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 interface Job {
   id?: string;
@@ -70,12 +71,15 @@ const props = defineProps<{
   configurations: { id: string; name: string }[];
   pipelines: { id: string; name: string }[];
   amberStores: { id: string; name: string }[];
+  returnToJobDetails?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'save', job: Job): void;
   (e: 'cancel'): void;
 }>();
+
+const router = useRouter();
 
 const editedJob = ref<Job>(props.job ? { ...props.job } : {
   config: '',
@@ -86,7 +90,18 @@ const editedJob = ref<Job>(props.job ? { ...props.job } : {
 
 const isNew = computed(() => !props.job?.id);
 
-const handleSubmit = () => {
-  emit('save', editedJob.value);
+const handleSubmit = async () => {
+  await emit('save', editedJob.value);
+  if (props.returnToJobDetails && editedJob.value.id) {
+    router.push({ name: 'JobDetail', params: { id: editedJob.value.id } });
+  }
+};
+
+const handleCancel = () => {
+  if (props.returnToJobDetails && props.job?.id) {
+    router.push({ name: 'JobDetail', params: { id: props.job.id } });
+  } else {
+    emit('cancel');
+  }
 };
 </script>

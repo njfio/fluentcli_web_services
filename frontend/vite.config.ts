@@ -29,16 +29,21 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
       '/jobs': {
-        target: 'http://localhost:8000', // Replace with your backend server's URL and port
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '')// Set to true if using HTTPS on the backend
+        rewrite: (path) => path.replace(/^\/api/, '')
       },
       '/pipelines': {
-        target: 'http://localhost:8000', // Replace with your backend server's URL and port
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ''), // Set to true if using HTTPS on the backend
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      '/amber_store': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
       },
     },
   },

@@ -48,7 +48,7 @@
   
   const fetchPipelines = async () => {
     try {
-      const response = await apiClient.get('/pipelines');
+      const response = await apiClient.fetchPipelines();
       pipelines.value = response.data;
     } catch (error: any) {
       errorMessage.value = error.response?.data?.message || 'Failed to load pipelines.';
@@ -60,7 +60,7 @@
   const deletePipeline = async (id: number) => {
     if (!confirm('Are you sure you want to delete this pipeline?')) return;
     try {
-      await apiClient.delete(`/pipelines/${id}`);
+      await apiClient.deletePipeline(id.toString());
       pipelines.value = pipelines.value.filter(pipeline => pipeline.id !== id);
     } catch (error: any) {
       alert('Failed to delete the pipeline. Please try again.');

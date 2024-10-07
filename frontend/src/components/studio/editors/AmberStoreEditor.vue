@@ -1,159 +1,120 @@
 <template>
   <div class="amber-store-editor">
-    <h3>{{ isNew ? 'Create' : 'Edit' }} Amber Store</h3>
-    <form @submit.prevent="handleSubmit">
-      <div class="form-group">
-        <label for="name">Name:</label>
-        <input id="name" v-model="editedAmberStore.name" required>
+    <h2 class="text-2xl font-bold mb-4">{{ isEditing ? 'Edit' : 'Create' }} Amber Store</h2>
+    <form @submit.prevent="saveAmberStore">
+      <div class="mb-4">
+        <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+        <input
+          type="text"
+          id="name"
+          v-model="amberStore.name"
+          required
+          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+        />
       </div>
-      <div class="form-group">
-        <label for="data">Data (YAML):</label>
-        <textarea id="data" v-model="yamlData" rows="10" required @input="validateYaml"></textarea>
+      <div class="mb-4">
+        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+        <textarea
+          id="description"
+          v-model="amberStore.description"
+          rows="3"
+          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+        ></textarea>
       </div>
-      <div class="form-group">
-        <label for="secure_key_hash">Secure Key Hash:</label>
-        <input id="secure_key_hash" v-model="editedAmberStore.secure_key_hash" required>
+      <div class="mb-4">
+        <label for="data" class="block text-sm font-medium text-gray-700">Data</label>
+        <textarea
+          id="data"
+          v-model="amberStore.data"
+          rows="10"
+          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+        ></textarea>
       </div>
-      <div v-if="yamlError" class="error">
-        {{ yamlError }}
-      </div>
-      <div class="form-actions">
-        <button type="submit" :disabled="!!yamlError" class="save-button">Save</button>
-        <button type="button" @click="$emit('cancel')" class="cancel-button">Cancel</button>
+      <div class="flex justify-end">
+        <button
+          type="button"
+          @click="cancel"
+          class="mr-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          {{ isEditing ? 'Update' : 'Create' }}
+        </button>
       </div>
     </form>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import * as yaml from 'js-yaml';
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter, useRoute } from 'vue-router';
+import { AmberStore } from '@/store/modules/studio';
 
-interface AmberStore {
-  id?: string;
-  name: string;
-  data: string;
-  secure_key_hash: string;
-}
+export default defineComponent({
+  name: 'AmberStoreEditor',
+  setup() {
+    const store = useStore();
+    const router = useRouter();
+    const route = useRoute();
 
-const props = defineProps<{
-  data: AmberStore;
-}>();
+    const amberStore = ref<AmberStore>({
+      id: '',
+      name: '',
+      description: '',
+      data: '',
+      secure_key_hash: '',
+      createdAt: '',
+      lastModified: '',
+    });
 
-const emit = defineEmits<{
-  (e: 'save', amberStore: AmberStore): void;
-  (e: 'cancel'): void;
-}>();
+    const isEditing = computed(() => !!route.params.id);
 
-const editedAmberStore = ref<AmberStore>({ ...props.data });
-const yamlData = ref(yaml.dump(yaml.load(props.data.data) || {}, { indent: 2 }));
-const yamlError = ref('');
+    onMounted(async () => {
+      if (isEditing.value) {
+        const id = route.params.id as string;
+        try {
+          const fetchedStore = await store.dispatch('studio/fetchAmberStoreById', id);
+          amberStore.value = { ...fetchedStore };
+        } catch (error) {
+          console.error('Error fetching Amber Store:', error);
+          // Handle error (e.g., show error message to user)
+        }
+      }
+    });
 
-const isNew = computed(() => !props.data.id);
+    const saveAmberStore = async () => {
+      try {
+        await store.dispatch('studio/saveAmberStore', amberStore.value);
+        router.push({ name: 'AmberStores' });
+      } catch (error) {
+        console.error('Error saving Amber Store:', error);
+        // Handle error (e.g., show error message to user)
+      }
+    };
 
-watch(() => props.data, (newData) => {
-  editedAmberStore.value = { ...newData };
-  yamlData.value = yaml.dump(yaml.load(newData.data) || {}, { indent: 2 });
-}, { deep: true });
+    const cancel = () => {
+      router.push({ name: 'AmberStores' });
+    };
 
-function validateYaml() {
-  try {
-    yaml.load(yamlData.value);
-    yamlError.value = '';
-  } catch (error) {
-    if (error instanceof Error) {
-      yamlError.value = `Invalid YAML: ${error.message}`;
-    } else {
-      yamlError.value = 'Invalid YAML';
-    }
-  }
-}
-
-const handleSubmit = () => {
-  if (!yamlError.value) {
-    editedAmberStore.value.data = yamlData.value;
-    emit('save', editedAmberStore.value);
-  }
-};
+    return {
+      amberStore,
+      isEditing,
+      saveAmberStore,
+      cancel,
+    };
+  },
+});
 </script>
 
 <style scoped>
 .amber-store-editor {
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  margin: 0 auto;
   padding: 20px;
-}
-
-.amber-store-editor h3 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  font-size: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-input[type="text"], textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  font-size: 1rem;
-}
-
-textarea {
-  resize: vertical;
-  min-height: 300px;
-}
-
-.error {
-  color: #e74c3c;
-  margin-bottom: 10px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.save-button, .cancel-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.save-button {
-  background-color: #2ecc71;
-  color: #fff;
-  margin-right: 10px;
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: #27ae60;
-}
-
-.save-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-}
-
-.cancel-button {
-  background-color: #e74c3c;
-  color: #fff;
-}
-
-.cancel-button:hover {
-  background-color: #c0392b;
 }
 </style>

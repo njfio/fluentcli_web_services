@@ -65,6 +65,7 @@ import { useRoute, useRouter } from 'vue-router';
 import apiClient from '@/services/apiClient';
 import JobEditor from '@/components/studio/editors/JobEditor.vue';
 import ConfigurationEditor from '@/components/studio/editors/ConfigurationEditor.vue';
+import { StudioConfiguration } from '@/store/modules/studio';
 
 interface Job {
   id?: string;
@@ -84,17 +85,11 @@ interface Job {
   completed_at?: string;
 }
 
-interface Configuration {
-  id?: string;
-  name: string;
-  data: any;
-}
-
 const route = useRoute();
 const router = useRouter();
 const jobs = ref<Job[]>([]);
 const dockerFiles = ref<{ id: string; name: string }[]>([]);
-const configurations = ref<{ id: string; name: string }[]>([]);
+const configurations = ref<StudioConfiguration[]>([]);
 const pipelines = ref<{ id: string; name: string }[]>([]);
 const amberStores = ref<{ id: string; name: string }[]>([]);
 const showEditor = ref(false);
@@ -104,7 +99,7 @@ const isLoading = ref(false);
 const sortColumn = ref('id');
 const sortDirection = ref<'asc' | 'desc'>('asc');
 const editConfigurationId = ref<string | null>(null);
-const editingConfiguration = ref<Configuration | null>(null);
+const editingConfiguration = ref<StudioConfiguration | null>(null);
 
 const tableHeaders = ['ID', 'Worker Type', 'Configuration', 'Pipeline', 'Status'];
 
@@ -122,7 +117,7 @@ const fetchJobs = async () => {
   isLoading.value = true;
   error.value = null;
   try {
-    const response = await apiClient.get('/jobs');
+    const response = await apiClient.fetchJobs();
     jobs.value = response.data;
   } catch (err: any) {
     error.value = 'Failed to fetch jobs. Please try again.';
@@ -133,20 +128,20 @@ const fetchJobs = async () => {
 };
 
 const fetchRelatedData = async () => {
-  try {
-    const [dockerResponse, configResponse, pipelineResponse, amberResponse] = await Promise.all([
-      apiClient.get('/docker_files'),
-      apiClient.get('/configurations'),
-      apiClient.get('/pipelines'),
-      apiClient.get('/amber_store')
-    ]);
-    dockerFiles.value = dockerResponse.data;
-    configurations.value = configResponse.data;
-    pipelines.value = pipelineResponse.data;
-    amberStores.value = amberResponse.data;
-  } catch (err: any) {
-    console.error('Error fetching related data:', err);
-  }
+  const fetchData = async (fetchFunction: () => Promise<any>, errorMessage: string) => {
+    try {
+      const response = await fetchFunction();
+      return response.data;
+    } catch (err: any) {
+      console.error(errorMessage, err);
+      return [];
+    }
+  };
+
+  dockerFiles.value = await fetchData(apiClient.fetchDockerFiles, 'Error fetching docker files:');
+  configurations.value = await fetchData(apiClient.fetchConfigurations, 'Error fetching configurations:');
+  pipelines.value = await fetchData(apiClient.fetchPipelines, 'Error fetching pipelines:');
+  amberStores.value = await fetchData(apiClient.fetchAmberStores, 'Error fetching amber stores:');
 };
 
 const openJobEditor = (job: Job) => {
@@ -159,9 +154,9 @@ const handleSave = async (job: Job) => {
   error.value = null;
   try {
     if (job.id) {
-      await apiClient.put(`/jobs/${job.id}`, job);
+      await apiClient.updateJob(job.id, job);
     } else {
-      await apiClient.post('/jobs', job);
+      await apiClient.createJob(job);
     }
     await fetchJobs();
     showEditor.value = false;
@@ -178,7 +173,7 @@ const deleteJob = async (id: string) => {
   isLoading.value = true;
   error.value = null;
   try {
-    await apiClient.delete(`/jobs/${id}`);
+    await apiClient.deleteJob(id);
     await fetchJobs();
   } catch (err: any) {
     error.value = 'Failed to delete job. Please try again.';
@@ -187,8 +182,6 @@ const deleteJob = async (id: string) => {
     isLoading.value = false;
   }
 };
-
-
 
 const getDockerFileName = (id: string) => {
   const docker = dockerFiles.value.find(d => d.id === id);
@@ -200,9 +193,14 @@ const handleConfigurationClick = async (configId: string) => {
     console.log(`Configuration ID clicked: ${configId}`);
     editConfigurationId.value = configId;
     try {
-      const response = await apiClient.get(`/configurations/${configId}`);
-      editingConfiguration.value = response.data;
-      console.log('Configuration loaded:', editingConfiguration.value);
+      const response = await apiClient.fetchConfigurations();
+      const configuration = response.data.find((config: StudioConfiguration) => config.id === configId);
+      if (configuration) {
+        editingConfiguration.value = configuration;
+        console.log('Configuration loaded:', editingConfiguration.value);
+      } else {
+        console.error('Configuration not found');
+      }
     } catch (error) {
       console.error('Error fetching configuration:', error);
     }
@@ -211,11 +209,16 @@ const handleConfigurationClick = async (configId: string) => {
 
 const openConfigurationEditor = async (id: string) => {
   try {
-    const response = await apiClient.get(`/configurations/${id}`);
-    editingConfiguration.value = response.data;
-    showEditor.value = false; // Close the job editor if it's open
-    router.push({ query: { ...route.query, editConfiguration: id } });
-    console.log('Opened Configuration Editor with:', response.data);
+    const response = await apiClient.fetchConfigurations();
+    const configuration = response.data.find((config: StudioConfiguration) => config.id === id);
+    if (configuration) {
+      editingConfiguration.value = configuration;
+      showEditor.value = false; // Close the job editor if it's open
+      router.push({ query: { ...route.query, editConfiguration: id } });
+      console.log('Opened Configuration Editor with:', configuration);
+    } else {
+      console.error('Configuration not found');
+    }
   } catch (error) {
     console.error('Error fetching configuration:', error);
   }
@@ -228,12 +231,12 @@ const closeConfigurationEditor = () => {
   console.log('Configuration Editor closed.');
 };
 
-const handleSaveConfiguration = async (configuration: Configuration) => {
+const handleSaveConfiguration = async (configuration: StudioConfiguration) => {
   try {
     if (configuration.id) {
-      await apiClient.put(`/configurations/${configuration.id}`, configuration);
+      await apiClient.updateConfiguration(configuration.id, configuration);
     } else {
-      const response = await apiClient.post('/configurations', configuration);
+      const response = await apiClient.createConfiguration(configuration);
       configuration.id = response.data.id;
     }
     await fetchJobs();

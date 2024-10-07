@@ -1,258 +1,383 @@
 <template>
   <div class="configurations">
-    <div class="configurations-header">
-      <h1>Configurations</h1>
-      <button @click="showEditor = true" class="add-button">
-        <i class="fas fa-plus"></i> Create New Configuration
-      </button>
-    </div>
-
-    <!-- Configuration Editor Modal -->
-    <div v-if="showEditor" class="modal">
-      <div class="modal-content">
-        <ConfigurationEditor
-          :data="selectedConfiguration"
-          @save="handleSave"
-          @cancel="showEditor = false"
-        />
+    <h1 class="text-2xl font-bold mb-4">Configurations</h1>
+    <div class="mb-4 relative">
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Search configurations..."
+        class="w-full px-3 py-2 border border-gray-300 rounded-md"
+        @keydown.enter="handleEnterKey"
+        @keydown.esc="clearSearch"
+      />
+      <div v-if="isSearching" class="absolute right-3 top-2">
+        <div class="spinner-small"></div>
       </div>
     </div>
+    <div v-if="loading" class="text-center py-4">
+      <div class="spinner"></div>
+      <p class="mt-2">Loading configurations...</p>
+    </div>
+    <div v-else-if="error" class="text-center py-4">
+      <p class="text-red-500">{{ error }}</p>
+      <button @click="fetchConfigurations()" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded">Retry</button>
+    </div>
+    <div v-else>
+      <div class="overflow-x-auto">
+        <table v-if="filteredConfigurations.length" class="min-w-full bg-white border border-gray-300">
+          <thead>
+            <tr>
+              <th v-for="column in columns" :key="column.key" @click="sort(column.key)" class="py-2 px-4 border-b cursor-pointer">
+                {{ column.label }}
+                <span v-if="sortKey === column.key">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="py-2 px-4 border-b">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="config in filteredConfigurations" :key="config.id">
+              <td v-for="column in columns" :key="column.key" class="py-2 px-4 border-b">{{ config[column.key] }}</td>
+              <td class="py-2 px-4 border-b">
+                <button @click="editConfiguration(config.id)" class="bg-blue-500 text-white px-2 py-1 rounded mr-2">Edit</button>
+                <button @click="confirmDelete(config)" class="bg-red-500 text-white px-2 py-1 rounded" :disabled="isDeleting">
+                  {{ isDeleting && configToDelete?.id === config.id ? 'Deleting...' : 'Delete' }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-if="!filteredConfigurations.length" class="text-center py-4">No configurations found.</p>
 
-    <!-- List of Configurations -->
-    <div v-if="configurations.length" class="configuration-grid">
-      <div v-for="configuration in configurations" :key="configuration.id" class="configuration-card">
-        <h3>{{ configuration.name }}</h3>
-        <div class="configuration-actions">
-          <button @click="editConfiguration(configuration)" class="edit-button">
-            <i class="fas fa-edit"></i> Edit
-          </button>
-          <button @click="configuration.id && deleteConfiguration(configuration.id)" class="delete-button">
-            <i class="fas fa-trash"></i> Delete
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="mt-4 flex justify-center">
+        <button
+          v-for="page in totalPages"
+          :key="page"
+          @click="() => changePage(page)"
+          :class="['mx-1 px-3 py-1 rounded', currentPage === page ? 'bg-blue-500 text-white' : 'bg-gray-200']"
+        >
+          {{ page }}
+        </button>
+      </div>
+    </div>
+    <button @click="createNewConfiguration" class="mt-4 bg-green-500 text-white px-4 py-2 rounded">Create New Configuration</button>
+
+    <!-- Confirmation Dialog -->
+    <div v-if="showConfirmDialog" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+      <div class="bg-white p-5 rounded-lg shadow-lg">
+        <h2 class="text-xl font-bold mb-4">Confirm Deletion</h2>
+        <p>Are you sure you want to delete the configuration "{{ configToDelete?.name }}"?</p>
+        <div class="mt-4 flex justify-end">
+          <button @click="cancelDelete" class="bg-gray-300 text-black px-4 py-2 rounded mr-2">Cancel</button>
+          <button @click="deleteConfiguration" class="bg-red-500 text-white px-4 py-2 rounded" :disabled="isDeleting">
+            {{ isDeleting ? 'Deleting...' : 'Delete' }}
           </button>
         </div>
       </div>
     </div>
-    <div v-else class="no-configurations">
-      <p>No configurations available. Click the "Create New Configuration" button to create one.</p>
+
+    <!-- Success Message -->
+    <div v-if="showSuccessMessage" class="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg">
+      {{ successMessage }}
     </div>
-    </div>  
+  </div>
 </template>
-  
-  <script setup lang="ts">
-  import { ref, onMounted, watch } from 'vue';
-  import ConfigurationEditor from '@/components/studio/editors/ConfigurationEditor.vue';
-  import apiClient from '@/services/apiClient';
-  import { useRoute } from 'vue-router';
 
-const route = useRoute();
-  
-  interface Configuration {
-    id?: string;
-    name: string;
-    data: any;
-  }
-  
-  const configurations = ref<Configuration[]>([]);
-  const showEditor = ref(false);
-  const selectedConfiguration = ref<Configuration>({ name: '', data: {} });
-  const error = ref<string | null>(null);
-  const isLoading = ref(false);
-  
-  const fetchConfigurations = async () => {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      const response = await apiClient.get('/configurations');
-      configurations.value = response.data;
-    } catch (err: any) {
-      error.value = 'Failed to fetch configurations. Please try again.';
-      console.error('Error fetching configurations:', err);
-    } finally {
-      isLoading.value = false;
+<script lang="ts">
+import { defineComponent, onMounted, computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
+
+interface Configuration {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  status: string;
+}
+
+interface Column {
+  key: keyof Configuration;
+  label: string;
+}
+
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
     }
+    timeout = setTimeout(() => func(...args), wait);
   };
-  
-  const editConfiguration = (configuration: Configuration) => {
-    selectedConfiguration.value = { ...configuration };
-    showEditor.value = true;
-  };
-  
-  const handleSave = async (configuration: Configuration) => {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      if (configuration.id) {
-        await apiClient.put(`/configurations/${configuration.id}`, configuration);
-      } else {
-        await apiClient.post('/configurations', configuration);
+}
+
+export default defineComponent({
+  name: 'Configurations',
+  setup() {
+    console.log('Configurations component setup function starting');
+    const router = useRouter();
+    const store = useStore();
+    const loading = ref(false);
+    const error = ref('');
+    const showConfirmDialog = ref(false);
+    const configToDelete = ref<Configuration | null>(null);
+    const showSuccessMessage = ref(false);
+    const successMessage = ref('');
+    const currentPage = ref(1);
+    const itemsPerPage = 10;
+    const sortKey = ref<keyof Configuration>('name');
+    const sortOrder = ref<'asc' | 'desc'>('asc');
+    const searchQuery = ref('');
+    const isDeleting = ref(false);
+    const isSearching = ref(false);
+    const cachedConfigurations = ref<Configuration[]>([]);
+
+    const columns: Column[] = [
+      { key: 'id', label: 'ID' },
+      { key: 'name', label: 'Name' },
+      { key: 'description', label: 'Description' },
+      { key: 'type', label: 'Type' },
+      { key: 'status', label: 'Status' },
+    ];
+
+    const configurations = computed<Configuration[]>(() => {
+      const configs = store.getters['studio/getConfigurations'];
+      console.log('Computed configurations:', configs);
+      return configs;
+    });
+
+    const filteredConfigurations = computed(() => {
+      return sortedConfigurations.value.filter(config =>
+        config.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        config.description.toLowerCase().includes(searchQuery.value.toLowerCase())
+      );
+    });
+
+    const sortedConfigurations = computed(() => {
+      return [...configurations.value].sort((a, b) => {
+        if (a[sortKey.value] < b[sortKey.value]) return sortOrder.value === 'asc' ? -1 : 1;
+        if (a[sortKey.value] > b[sortKey.value]) return sortOrder.value === 'asc' ? 1 : -1;
+        return 0;
+      });
+    });
+
+    const totalItems = computed(() => store.getters['studio/getTotalConfigurations']);
+    const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage));
+
+    const fetchConfigurations = async (page = 1) => {
+      loading.value = true;
+      error.value = '';
+      console.log('Fetching configurations...');
+      try {
+        if (cachedConfigurations.value.length === 0) {
+          await store.dispatch('studio/fetchConfigurations', { page, itemsPerPage });
+          cachedConfigurations.value = [...configurations.value];
+        } else {
+          store.commit('studio/setConfigurations', cachedConfigurations.value);
+        }
+        console.log('Configurations fetched successfully');
+      } catch (err) {
+        error.value = 'Failed to fetch configurations. Please try again.';
+        console.error('Error fetching configurations:', err);
+      } finally {
+        loading.value = false;
       }
-      await fetchConfigurations();
-      showEditor.value = false;
-    } catch (err: any) {
-      error.value = 'Failed to save configuration. Please try again.';
-      console.error('Error saving configuration:', err);
-    } finally {
-      isLoading.value = false;
-    }
-  };
-  
-  const deleteConfiguration = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this configuration?')) return;
-    isLoading.value = true;
-    error.value = null;
-    try {
-      await apiClient.delete(`/configurations/${id}`);
-      await fetchConfigurations();
-    } catch (err: any) {
-      error.value = 'Failed to delete configuration. Please try again.';
-      console.error('Error deleting configuration:', err);
-    } finally {
-      isLoading.value = false;
-    }
-  };
-  
-const openEditorForId = async (id: string) => {
-  try {
-    const response = await apiClient.get(`/configurations/${id}`);
-    selectedConfiguration.value = response.data;
-    showEditor.value = true;
-  } catch (error) {
-    console.error('Failed to fetch configuration:', error);
-  }
-};
+    };
 
-onMounted(async () => {
-  await fetchConfigurations();
-  if (route.params.id) {
-    await openEditorForId(route.params.id as string);
-  }
-});
+    const changePage = (page: number) => {
+      currentPage.value = page;
+      fetchConfigurations(page);
+    };
 
-watch(() => route.params.id, async (newId) => {
-  if (newId) {
-    await openEditorForId(newId as string);
-  } else {
-    showEditor.value = false;
-  }
+    const sort = (key: keyof Configuration) => {
+      if (sortKey.value === key) {
+        sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortKey.value = key;
+        sortOrder.value = 'asc';
+      }
+    };
+
+    onMounted(() => {
+      console.log('Configurations component mounted');
+      fetchConfigurations();
+    });
+
+    const editConfiguration = (id: string) => {
+      console.log('Editing configuration:', id);
+      router.push({ name: 'ConfigurationEditor', params: { id } });
+    };
+
+    const confirmDelete = (config: Configuration) => {
+      configToDelete.value = config;
+      showConfirmDialog.value = true;
+    };
+
+    const cancelDelete = () => {
+      configToDelete.value = null;
+      showConfirmDialog.value = false;
+    };
+
+    const deleteConfiguration = async () => {
+      if (configToDelete.value) {
+        console.log('Deleting configuration:', configToDelete.value.id);
+        isDeleting.value = true;
+        try {
+          await store.dispatch('studio/deleteConfiguration', configToDelete.value.id);
+          cachedConfigurations.value = cachedConfigurations.value.filter(config => config.id !== configToDelete.value?.id);
+          await fetchConfigurations(currentPage.value);
+          showConfirmDialog.value = false;
+          configToDelete.value = null;
+          showSuccessMessage.value = true;
+          successMessage.value = 'Configuration deleted successfully';
+          setTimeout(() => {
+            showSuccessMessage.value = false;
+          }, 3000);
+        } catch (err) {
+          console.error('Error deleting configuration:', err);
+          error.value = 'Failed to delete configuration. Please try again.';
+        } finally {
+          isDeleting.value = false;
+        }
+      }
+    };
+
+    const createNewConfiguration = () => {
+      console.log('Creating new configuration');
+      router.push({ name: 'NewConfiguration' });
+    };
+
+    const debouncedSearch = debounce(() => {
+      isSearching.value = true;
+      currentPage.value = 1;
+      fetchConfigurations().finally(() => {
+        isSearching.value = false;
+      });
+    }, 300);
+
+    watch(searchQuery, () => {
+      debouncedSearch();
+    });
+
+    const handleEnterKey = () => {
+      debouncedSearch();
+    };
+
+    const clearSearch = () => {
+      searchQuery.value = '';
+      debouncedSearch();
+    };
+
+    console.log('Raw configurations state:', store.state.studio.configurations);
+
+    return {
+      configurations,
+      filteredConfigurations,
+      loading,
+      error,
+      editConfiguration,
+      confirmDelete,
+      cancelDelete,
+      deleteConfiguration,
+      createNewConfiguration,
+      showConfirmDialog,
+      configToDelete,
+      fetchConfigurations,
+      showSuccessMessage,
+      successMessage,
+      currentPage,
+      totalPages,
+      changePage,
+      columns,
+      sort,
+      sortKey,
+      sortOrder,
+      searchQuery,
+      isDeleting,
+      isSearching,
+      handleEnterKey,
+      clearSearch,
+    };
+  },
 });
-  </script>
-  
+</script>
+
 <style scoped>
 .configurations {
-  max-width: 1200px;
-  margin: 0 auto;
   padding: 20px;
 }
 
-.configurations-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.add-button {
-  background-color: #3498db;
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.add-button:hover {
-  background-color: #2980b9;
-}
-
-.configuration-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-}
-
-.configuration-card {
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-}
-
-.configuration-card h3 {
-  margin: 0 0 10px 0;
-  font-size: 1.2rem;
-}
-
-.configuration-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.edit-button, .delete-button {
-  background-color: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  margin-left: 10px;
-  transition: color 0.3s ease;
-}
-
-.edit-button {
-  color: #3498db;
-}
-
-.edit-button:hover {
-  color: #2980b9;
-}
-
-.delete-button {
-  color: #e74c3c;
-}
-
-.delete-button:hover {
-  color: #c0392b;
-}
-
-.no-configurations {
-  text-align: center;
-  color: #7f8c8d;
-  margin-top: 50px;
-}
-
-.error {
-  color: #e74c3c;
-  margin-top: 10px;
-}
-
-.loading {
-  color: #3498db;
-  margin-top: 10px;
-}
-
-.modal {
-  position: fixed;
-  z-index: 1;
-  left: 0;
-  top: 0;
+table {
   width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0,0,0,0.4);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  border-collapse: collapse;
 }
 
-.modal-content {
-  background-color: #fefefe;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 90%;
-  max-width: 1200px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 5px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+th, td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+button {
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+.spinner-small {
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .configurations {
+    padding: 10px;
+  }
+
+  table {
+    font-size: 14px;
+  }
+
+  th, td {
+    padding: 6px;
+  }
+
+  button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
 }
 </style>

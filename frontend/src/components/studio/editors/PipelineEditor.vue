@@ -10,16 +10,15 @@
       <div class="flex-grow flex flex-col">
         <label for="data" class="block text-sm font-medium text-gray-700 mb-2">Data (YAML):</label>
         <div class="relative flex-grow">
-          <textarea id="data" v-model="yamlData" required @input="handleInput"
-                    class="absolute inset-0 w-full h-full resize-none opacity-0"></textarea>
-          <pre class="absolute inset-0 w-full h-full overflow-auto"><code class="language-yaml" v-html="highlightedYaml"></code></pre>
+          <textarea id="data" v-model="formattedYaml" required @input="handleInput"
+                    class="absolute inset-0 w-full h-full resize-none font-mono p-2"></textarea>
         </div>
       </div>
       <div v-if="yamlError" class="text-red-600 text-sm mt-2">
         {{ yamlError }}
       </div>
       <div class="flex justify-end space-x-4 mt-4">
-        <button type="button" @click="$emit('cancel')" 
+        <button type="button" @click="handleCancel" 
                 class="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
           Cancel
         </button>
@@ -33,90 +32,60 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import * as yaml from 'js-yaml';
-import hljs from 'highlight.js/lib/core';
-import yamlLang from 'highlight.js/lib/languages/yaml';
-import 'highlight.js/styles/github.css';
-
-hljs.registerLanguage('yaml', yamlLang);
 
 interface Pipeline {
-  id: string;
+  id?: string;
   name: string;
   data: string;
 }
 
-const props = defineProps<{
-  data: Pipeline;
-}>();
+const route = useRoute();
+const router = useRouter();
+const store = useStore();
 
-const emit = defineEmits<{
-  (e: 'save', pipeline: Pipeline): void;
-  (e: 'cancel'): void;
-}>();
+const editedPipeline = ref<Pipeline>({ name: '', data: '' });
+const yamlError = ref('');
 
-// Create a custom type to handle all tags
-const customTags = ['!Command', '!ShellCommand', '!Condition', '!Loop', '!Map', '!SubPipeline', '!HumanInTheLoop', '!RepeatUntil', '!PrintOutput', '!ForEach', '!TryCatch', '!Parallel', '!Timeout'];
+const isNew = computed(() => !route.params.id);
 
-const CUSTOM_SCHEMA = new yaml.Schema({
-  include: [yaml.DEFAULT_SCHEMA],
-  explicit: customTags.map(tag => new yaml.Type(tag, {
-    kind: 'mapping',
-  }))
-} as yaml.SchemaDefinition);
+const formattedYaml = computed({
+  get: () => {
+    try {
+      const parsedData = yaml.load(editedPipeline.value.data);
+      return yaml.dump(parsedData, { indent: 2 });
+    } catch (error) {
+      return editedPipeline.value.data;
+    }
+  },
+  set: (value: string) => {
+    editedPipeline.value.data = value;
+  },
+});
 
-
-function customStringify(obj: any): string {
-  if (typeof obj === 'object' && obj !== null) {
-    const key = Object.keys(obj)[0];
-    if (customTags.includes(`!${key}`)) {
-      return `!${key}\n${yaml.dump(obj[key], { schema: CUSTOM_SCHEMA, indent: 2 }).trim()}`;
+onMounted(async () => {
+  if (!isNew.value) {
+    try {
+      const response = await store.dispatch('studio/fetchPipelineById', route.params.id);
+      editedPipeline.value = response;
+    } catch (error) {
+      console.error('Error fetching pipeline:', error);
+      alert('Failed to fetch pipeline data. Please try again.');
+      router.push({ name: 'Pipelines' });
     }
   }
-  return yaml.dump(obj, { schema: CUSTOM_SCHEMA, indent: 2 }).trim();
-}
+});
 
-function formatYaml(data: string): string {
-  try {
-    const parsedData = yaml.load(data, { schema: CUSTOM_SCHEMA }) as any;
-    return customStringify(parsedData);
-  } catch (error) {
-    console.error('Error formatting YAML:', error);
-    return data;
-  }
-}
-
-const editedPipeline = ref<Pipeline>({ ...props.data });
-const yamlData = ref(formatYaml(props.data.data));
-const yamlError = ref('');
-const highlightedYaml = ref('');
-
-const isNew = computed(() => !props.data.id);
-
-watch(() => props.data, (newData) => {
-  console.log('New data received:', newData);
-  editedPipeline.value = { ...newData };
-  yamlData.value = formatYaml(newData.data);
-  updateHighlightedYaml();
-}, { deep: true });
-
-function updateHighlightedYaml() {
-  highlightedYaml.value = hljs.highlight(yamlData.value, { language: 'yaml' }).value;
-}
-
-function handleInput(event: Event) {
-  const target = event.target as HTMLTextAreaElement;
-  yamlData.value = target.value;
+function handleInput() {
   validateYaml();
-  updateHighlightedYaml();
 }
 
 function validateYaml() {
   try {
-    yaml.load(yamlData.value, { 
-      schema: CUSTOM_SCHEMA,
-    });
+    yaml.load(editedPipeline.value.data);
     yamlError.value = '';
   } catch (error) {
     if (error instanceof Error) {
@@ -127,15 +96,27 @@ function validateYaml() {
   }
 }
 
-const handleSubmit = () => {
-  console.log('Handling submit');
-  editedPipeline.value.data = yamlData.value; // Save as text
-  console.log('Emitting save with:', editedPipeline.value);
-  emit('save', editedPipeline.value);
+const handleSubmit = async () => {
+  try {
+    await store.dispatch('studio/savePipeline', editedPipeline.value);
+    router.push({ name: 'Pipelines' });
+  } catch (error) {
+    console.error('Error saving pipeline:', error);
+    alert('An error occurred while saving the pipeline. Please try again.');
+  }
 };
 
-onMounted(() => {
-  updateHighlightedYaml();
+const handleCancel = () => {
+  router.push({ name: 'Pipelines' });
+};
+
+watch(formattedYaml, (newValue) => {
+  editedPipeline.value.data = newValue;
 });
 </script>
 
+<style scoped>
+.pipeline-editor {
+  height: calc(100vh - 100px); /* Adjust this value based on your layout */
+}
+</style>

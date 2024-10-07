@@ -1,4 +1,5 @@
 import { createStore } from 'vuex';
+import studioModule from './modules/studio';
 
 export default createStore({
   state: {
@@ -14,7 +15,7 @@ export default createStore({
     },
   },
   actions: {
-    login({ commit }, { user }) { // Removed 'token' since it's unused
+    login({ commit }, { user }) {
       commit('setLoggedIn', true);
       commit('setUser', user);
     },
@@ -26,5 +27,8 @@ export default createStore({
   getters: {
     isLoggedIn: (state) => state.isLoggedIn,
     user: (state) => state.user,
+  },
+  modules: {
+    studio: studioModule,
   },
 });

@@ -1,24 +1,19 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import { useStore } from 'vuex';
 
-
 import Home from '../views/Home.vue';
 import Login from '../views/Login.vue';
 import Admin from '../views/Admin.vue';
 import Studio from '../views/Studio.vue';
 import Dashboard from '../views/studio/Dashboard.vue';
-
 import Pipelines from '../views/studio/Pipelines.vue';
 import Settings from '../views/studio/Settings.vue';
-
-
 import DockerFiles from '../views/studio/DockerFiles.vue';
 import AmberStores from '../views/studio/AmberStores.vue';
 import Jobs from '../views/studio/Jobs.vue';
 import JobDetail from '@/views/studio/JobDetail.vue'
 import JobData from '@/views/studio/JobData.vue'
 import JobLogs from '@/views/studio/JobLogs.vue'
-
 
 const routes: Array<RouteRecordRaw> = [
   { path: '/', name: 'Home', component: Home },
@@ -32,70 +27,81 @@ const routes: Array<RouteRecordRaw> = [
     children: [
       { path: 'dashboard', name: 'Dashboard', component: Dashboard },
       {
-        path: '/studio/jobs',
+        path: 'jobs',
         name: 'Jobs',
         component: Jobs,
-        meta: { requiresAuth: true }
       },
       {
-        path: '/studio/jobs/:id',
+        path: 'jobs/:id',
         name: 'JobDetail',
-        component: JobDetail
+        component: JobDetail,
       },
       {
-        path: '/studio/jobs/:id/data',
+        path: 'jobs/:id/data',
         name: 'JobData',
-        component: JobData
+        component: JobData,
       },
       {
-        path: '/studio/jobs/:id/logs',
+        path: 'jobs/:id/logs',
         name: 'JobLogs',
-        component: JobLogs
+        component: JobLogs,
       },
       {
-        path: 'pipelines/:id?',
-        name: 'PipelineEditor',
+        path: 'pipelines',
+        name: 'Pipelines',
         component: Pipelines,
-        props: (route) => ({ returnToJobDetails: route.query.returnToJobDetails === 'true' }),
-        meta: { requiresAuth: true }
+      },
+      {
+        path: 'pipelines/:id',
+        name: 'PipelineEditor',
+        component: () => import('@/components/studio/editors/PipelineEditor.vue'),
+        props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
       },
       { path: 'settings', name: 'Settings', component: Settings },
       {
         path: 'dockerfiles',
         name: 'DockerFiles',
         component: DockerFiles,
-        meta: { requiresAuth: true }
       },
       {
-        path: '/studio/configurations',
+        path: 'dockerfiles/new',
+        name: 'NewDockerFile',
+        component: () => import('@/components/studio/editors/DockerFileEditor.vue'),
+      },
+      {
+        path: 'dockerfiles/:id',
+        name: 'DockerFileEditor',
+        component: () => import('@/components/studio/editors/DockerFileEditor.vue'),
+        props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
+      },
+      {
+        path: 'configurations',
         name: 'Configurations',
         component: () => import('@/views/studio/Configurations.vue'),
-        meta: { requiresAuth: true }
       },
       {
-        path: '/studio/configurations',
-        name: 'ConfigurationsList',
-        component: () => import('@/views/studio/Configurations.vue'),
-        meta: { requiresAuth: true }
+        path: 'configurations/new',
+        name: 'NewConfiguration',
+        component: () => import('@/components/studio/editors/ConfigurationEditor.vue'),
+        props: { id: null },
       },
       {
-        path: '/studio/configurations/:id?',
+        path: 'configurations/:id',
         name: 'ConfigurationEditor',
-        component: () => import('@/views/studio/Configurations.vue'),
-        meta: { requiresAuth: true }
+        component: () => import('@/components/studio/editors/ConfigurationEditor.vue'),
+        props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
       },
       {
-        path: '/configurations/:id?',
-        name: 'Configurations',
-        component: () => import('@/views/studio/Configurations.vue')
-      },
-      {
-        path: '/studio/amberstores',
+        path: 'amberstores',
         name: 'AmberStores',
         component: AmberStores,
-        meta: { requiresAuth: true }
       },
-
+      {
+        path: 'amberstore/:id?',
+        name: 'AmberStoreEditor',
+        component: () => import('@/components/studio/editors/AmberStoreEditor.vue'),
+        props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
+      },
     ],
   }
 ];
@@ -103,6 +109,12 @@ const routes: Array<RouteRecordRaw> = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// Global navigation guard for debugging
+router.beforeEach((to, from, next) => {
+  console.log(`Navigation from ${from.fullPath} to ${to.fullPath}`);
+  next();
 });
 
 // Navigation Guard
