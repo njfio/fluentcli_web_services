@@ -1,24 +1,22 @@
 <template>
-  <div class="configuration-editor">
+  <div class="configuration-editor flex flex-col h-full">
     <h2 class="text-2xl font-bold mb-4">{{ isNewConfiguration ? 'Create New Configuration' : 'Edit Configuration' }}</h2>
-    <form @submit.prevent="saveConfiguration" class="space-y-4">
-      <div>
+    <form @submit.prevent="saveConfiguration" class="flex flex-col flex-grow">
+      <div class="mb-4">
         <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
         <input type="text" id="name" v-model="configuration.name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
       </div>
-      <div>
-        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-        <textarea id="description" v-model="configuration.description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+      <div class="flex-grow flex flex-col">
+        <label for="data" class="block text-sm font-medium text-gray-700 mb-2">Data (YAML)</label>
+        <div class="flex-grow relative">
+          <textarea
+            id="data"
+            v-model="configuration.data"
+            class="absolute inset-0 w-full h-full resize-none border border-gray-300 rounded-md shadow-sm p-2 font-mono"
+          ></textarea>
+        </div>
       </div>
-      <div>
-        <label for="type" class="block text-sm font-medium text-gray-700">Type</label>
-        <input type="text" id="type" v-model="configuration.type" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-      </div>
-      <div>
-        <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
-        <input type="text" id="status" v-model="configuration.status" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-      </div>
-      <div class="flex justify-end space-x-2">
+      <div class="flex justify-end space-x-2 mt-4">
         <button type="button" @click="cancel" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
           Cancel
         </button>
@@ -45,9 +43,7 @@ export default defineComponent({
     const configuration = ref({
       id: '',
       name: '',
-      description: '',
-      type: '',
-      status: '',
+      data: '',
     });
 
     const isNewConfiguration = computed(() => !route.params.id);
@@ -64,10 +60,14 @@ export default defineComponent({
 
     const saveConfiguration = async () => {
       try {
+        const configToSave = {
+          ...configuration.value,
+        };
+
         if (isNewConfiguration.value) {
-          await store.dispatch('studio/createConfiguration', configuration.value);
+          await store.dispatch('studio/createConfiguration', configToSave);
         } else {
-          await store.dispatch('studio/updateConfiguration', configuration.value);
+          await store.dispatch('studio/updateConfiguration', configToSave);
         }
         navigateBack();
       } catch (error) {
@@ -98,3 +98,9 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped>
+.configuration-editor {
+  height: calc(100vh - 64px); /* Adjust this value based on your layout */
+}
+</style>

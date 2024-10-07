@@ -1,22 +1,31 @@
 <template>
-  <div class="pipeline-editor">
+  <div class="pipeline-editor flex flex-col h-full">
     <h2 class="text-2xl font-bold mb-4">{{ isNewPipeline ? 'Create New Pipeline' : 'Edit Pipeline' }}</h2>
     <div v-if="loading" class="text-center py-4">Loading pipeline data...</div>
     <div v-else-if="error" class="text-red-500 py-4">{{ error }}</div>
-    <form v-else @submit.prevent="savePipeline" class="space-y-4">
-      <div>
-        <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
-        <input type="text" id="name" v-model="pipeline.name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+    <form v-else @submit.prevent="savePipeline" class="flex flex-col flex-grow">
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+          <input type="text" id="name" v-model="pipeline.name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
+        <div>
+          <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+          <input type="text" id="description" v-model="pipeline.description" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
       </div>
-      <div>
-        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-        <textarea id="description" v-model="pipeline.description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+      <div class="flex-grow flex flex-col">
+        <label for="data" class="block text-sm font-medium text-gray-700 mb-2">Pipeline Data</label>
+        <div class="flex-grow relative">
+          <textarea
+            id="data"
+            v-model="formattedData"
+            class="absolute inset-0 w-full h-full resize-none border border-gray-300 rounded-md shadow-sm p-2 font-mono"
+            @input="handleInput"
+          ></textarea>
+        </div>
       </div>
-      <div>
-        <label for="data" class="block text-sm font-medium text-gray-700">Pipeline Data</label>
-        <textarea id="data" v-model="pipeline.data" rows="10" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 font-mono"></textarea>
-      </div>
-      <div class="flex justify-end space-x-2">
+      <div class="flex justify-end space-x-2 mt-4">
         <button type="button" @click="cancel" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
           Cancel
         </button>
@@ -29,9 +38,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
+import yaml from 'js-yaml';
 
 export default defineComponent({
   name: 'PipelineEditor',
@@ -46,6 +56,7 @@ export default defineComponent({
       description: '',
       data: '',
     });
+    const formattedData = ref('');
     const loading = ref(false);
     const error = ref('');
 
@@ -65,12 +76,11 @@ export default defineComponent({
       try {
         const pipelineId = route.params.id as string;
         console.log('Fetching pipeline with ID:', pipelineId);
-        console.log('Store before dispatch:', store.state.studio);
         const fetchedPipeline = await store.dispatch('studio/fetchPipelineById', pipelineId);
-        console.log('Store after dispatch:', store.state.studio);
         console.log('Fetched pipeline:', fetchedPipeline);
         if (fetchedPipeline) {
           pipeline.value = { ...fetchedPipeline };
+          formattedData.value = formatYaml(pipeline.value.data);
           console.log('Pipeline data set:', pipeline.value);
         } else {
           console.error('Fetched pipeline is null or undefined');
@@ -82,6 +92,21 @@ export default defineComponent({
       } finally {
         loading.value = false;
       }
+    };
+
+    const formatYaml = (data: string): string => {
+      try {
+        const parsedData = yaml.load(data);
+        return yaml.dump(parsedData);
+      } catch (error) {
+        console.error('Error formatting YAML:', error);
+        return data;
+      }
+    };
+
+    const handleInput = (event: Event) => {
+      const target = event.target as HTMLTextAreaElement;
+      pipeline.value.data = target.value;
     };
 
     const savePipeline = async () => {
@@ -117,16 +142,20 @@ export default defineComponent({
 
     return {
       pipeline,
+      formattedData,
       isNewPipeline,
       loading,
       error,
       savePipeline,
       cancel,
+      handleInput,
     };
   },
 });
 </script>
 
 <style scoped>
-/* Add any component-specific styles here */
+.pipeline-editor {
+  height: calc(100vh - 64px); /* Adjust this value based on your layout */
+}
 </style>

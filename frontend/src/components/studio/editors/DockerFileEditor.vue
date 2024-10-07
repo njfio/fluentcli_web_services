@@ -1,20 +1,28 @@
 <template>
-  <div class="docker-file-editor">
+  <div class="docker-file-editor flex flex-col h-full">
     <h2 class="text-2xl font-bold mb-4">{{ isNewDockerFile ? 'Create New Docker File' : 'Edit Docker File' }}</h2>
-    <form @submit.prevent="saveDockerFile" class="space-y-4">
-      <div>
-        <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
-        <input type="text" id="name" v-model="dockerFile.name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+    <form @submit.prevent="saveDockerFile" class="flex flex-col flex-grow">
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+          <input type="text" id="name" v-model="dockerFile.name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
+        <div>
+          <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+          <input type="text" id="description" v-model="dockerFile.description" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
       </div>
-      <div>
-        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-        <textarea id="description" v-model="dockerFile.description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+      <div class="flex-grow flex flex-col">
+        <label for="content" class="block text-sm font-medium text-gray-700 mb-2">Content</label>
+        <div class="flex-grow relative">
+          <textarea
+            id="content"
+            v-model="dockerFile.content"
+            class="absolute inset-0 w-full h-full resize-none border border-gray-300 rounded-md shadow-sm p-2 font-mono"
+          ></textarea>
+        </div>
       </div>
-      <div>
-        <label for="content" class="block text-sm font-medium text-gray-700">Content</label>
-        <textarea id="content" v-model="dockerFile.content" rows="10" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 font-mono"></textarea>
-      </div>
-      <div class="flex justify-end space-x-2">
+      <div class="flex justify-end space-x-2 mt-4">
         <button type="button" @click="cancel" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
           Cancel
         </button>
@@ -93,3 +101,9 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped>
+.docker-file-editor {
+  height: calc(100vh - 64px); /* Adjust this value based on your layout */
+}
+</style>
