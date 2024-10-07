@@ -162,7 +162,7 @@ export default defineComponent({
       });
     });
 
-    const totalItems = computed(() => store.getters['studio/getTotalConfigurations']);
+    const totalItems = computed(() => filteredConfigurations.value.length);
     const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage));
 
     const fetchConfigurations = async (page = 1) => {
@@ -170,12 +170,7 @@ export default defineComponent({
       error.value = '';
       console.log('Fetching configurations...');
       try {
-        if (cachedConfigurations.value.length === 0) {
-          await store.dispatch('studio/fetchConfigurations', { page, itemsPerPage });
-          cachedConfigurations.value = [...configurations.value];
-        } else {
-          store.commit('studio/setConfigurations', cachedConfigurations.value);
-        }
+        await store.dispatch('studio/fetchConfigurations', { page, itemsPerPage });
         console.log('Configurations fetched successfully');
       } catch (err) {
         error.value = 'Failed to fetch configurations. Please try again.';
@@ -225,7 +220,6 @@ export default defineComponent({
         isDeleting.value = true;
         try {
           await store.dispatch('studio/deleteConfiguration', configToDelete.value.id);
-          cachedConfigurations.value = cachedConfigurations.value.filter(config => config.id !== configToDelete.value?.id);
           await fetchConfigurations(currentPage.value);
           showConfirmDialog.value = false;
           configToDelete.value = null;

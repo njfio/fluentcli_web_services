@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useStore } from 'vuex';
 import JobDataModal from '@/components/JobDataModal.vue';
@@ -58,15 +58,22 @@ const showJobLogsModal = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-const job = computed(() => store.getters['studio/getCurrentJob']);
+const job = computed(() => {
+  const currentJob = store.getters['studio/getCurrentJob'];
+  console.log('Computed job:', currentJob);
+  return currentJob;
+});
 
 const jobDetails = computed(() => {
   if (!job.value) return {};
   const { id, worker_type, config, pipeline_id, amber_id, status } = job.value;
-  return { id, worker_type, config, pipeline_id, amber_id, status };
+  const details = { id, worker_type, config, pipeline_id, amber_id, status };
+  console.log('Computed jobDetails:', details);
+  return details;
 });
 
 const fetchJobDetails = async () => {
+  console.log('Fetching job details for ID:', route.params.id);
   if (!route.params.id || route.params.id === 'true') {
     error.value = 'Invalid job ID';
     return;
@@ -75,6 +82,7 @@ const fetchJobDetails = async () => {
   error.value = null;
   try {
     await store.dispatch('studio/fetchJobById', route.params.id);
+    console.log('Job details fetched:', store.getters['studio/getCurrentJob']);
   } catch (err: any) {
     error.value = `Error fetching job details: ${err.message}`;
     console.error('Error fetching job details:', err);
@@ -138,9 +146,27 @@ const showJobLogs = () => {
 };
 
 onMounted(async () => {
+  console.log('JobDetail component mounted');
   await store.dispatch('studio/fetchAllData');
+  console.log('All data fetched');
   await fetchJobDetails();
 });
+
+watch(() => route.params.id, async (newId, oldId) => {
+  console.log(`Route param 'id' changed from ${oldId} to ${newId}`);
+  if (newId !== oldId) {
+    await fetchJobDetails();
+  }
+});
+
+// Add this watch to log changes in the job computed property
+watch(job, (newJob, oldJob) => {
+  console.log('Job computed property changed:', newJob);
+  if (newJob && !oldJob) {
+    console.log('Job details loaded successfully');
+  }
+});
+
 </script>
 
 <style scoped>

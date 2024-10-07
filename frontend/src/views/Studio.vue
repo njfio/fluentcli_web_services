@@ -35,6 +35,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, onErrorCaptured } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import StudioHeader from '@/components/studio/StudioHeader.vue';
 
 console.log('Studio component script starting');
@@ -42,6 +43,7 @@ console.log('Studio component script starting');
 const isSidebarCollapsed = ref(false);
 const route = useRoute();
 const router = useRouter();
+const store = useStore();
 
 const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value;
@@ -60,9 +62,15 @@ const sidebarLinks = [
   { to: '/studio/amberstores', icon: 'fas fa-database', title: 'Amber Stores' },
 ];
 
-onMounted(() => {
+onMounted(async () => {
   console.log('Studio component mounted');
   console.log('Current route:', route.path);
+  try {
+    await store.dispatch('studio/fetchAllData');
+    console.log('All data fetched successfully');
+  } catch (error) {
+    console.error('Error fetching all data:', error);
+  }
 });
 
 watch(() => route.path, (newPath) => {

@@ -27,16 +27,16 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="amberStore in paginatedAmberStores" :key="amberStore.id">
+            <tr v-for="amberStore in paginatedAmberStores" :key="amberStore.id" @click="selectAmberStore(amberStore.id)" :class="{ 'selected': selectedAmberStoreId === amberStore.id }">
               <td>{{ amberStore.name }}</td>
               <td>{{ amberStore.description }}</td>
               <td>{{ formatDate(amberStore.createdAt) }}</td>
               <td>{{ formatDate(amberStore.lastModified) }}</td>
               <td>
-                <button @click="editAmberStore(amberStore.id)" class="edit-button">
+                <button @click.stop="editAmberStore(amberStore.id)" class="edit-button">
                   <i class="fas fa-edit"></i> Edit
                 </button>
-                <button @click="deleteAmberStore(amberStore.id)" class="delete-button">
+                <button @click.stop="deleteAmberStore(amberStore.id)" class="delete-button">
                   <i class="fas fa-trash"></i> Delete
                 </button>
               </td>
@@ -53,13 +53,29 @@
         <p>No Amber Stores available. Click the "Create New Amber Store" button to create one.</p>
       </div>
     </div>
+
+    <!-- Detailed Amber Store View -->
+    <div v-if="selectedAmberStore" class="amber-store-detail mt-8">
+      <h2 class="text-xl font-bold mb-4">{{ selectedAmberStore.name }} Details</h2>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <p><strong>Description:</strong> {{ selectedAmberStore.description }}</p>
+          <p><strong>Created At:</strong> {{ formatDate(selectedAmberStore.createdAt) }}</p>
+          <p><strong>Last Modified:</strong> {{ formatDate(selectedAmberStore.lastModified) }}</p>
+        </div>
+        <div>
+          <h3 class="font-bold mb-2">Data:</h3>
+          <pre class="bg-gray-100 p-4 rounded overflow-auto max-h-60">{{ JSON.stringify(selectedAmberStore.data, null, 2) }}</pre>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { formatDate } from '@/utils/dateFormatter';
 import { Store } from 'vuex';
 import { RootState } from '@/store/types';
@@ -70,13 +86,18 @@ export default defineComponent({
   setup() {
     const store = useStore<Store<RootState>>();
     const router = useRouter();
+    const route = useRoute();
     const loading = ref(false);
     const error = ref('');
     const searchQuery = ref('');
     const currentPage = ref(1);
     const itemsPerPage = 10;
+    const selectedAmberStoreId = ref<string | null>(null);
 
-    const amberStores = computed(() => store.getters['studio/getAmberStores'] as AmberStore[]);
+    const amberStores = computed(() => {
+      console.log('Computing amberStores:', store.getters['studio/getAmberStores']);
+      return store.getters['studio/getAmberStores'] as AmberStore[];
+    });
 
     const filteredAmberStores = computed(() => {
       return amberStores.value.filter(store =>
@@ -93,8 +114,22 @@ export default defineComponent({
       return filteredAmberStores.value.slice(start, end);
     });
 
+    const selectedAmberStore = computed(() => {
+      return amberStores.value.find(store => store.id === selectedAmberStoreId.value);
+    });
+
     onMounted(async () => {
+      console.log('AmberStores component mounted');
       await fetchAmberStores();
+      if (route.params.id) {
+        selectedAmberStoreId.value = route.params.id as string;
+      }
+    });
+
+    watch(() => route.params.id, (newId) => {
+      if (newId) {
+        selectedAmberStoreId.value = newId as string;
+      }
     });
 
     const fetchAmberStores = async () => {
@@ -122,16 +157,19 @@ export default defineComponent({
     };
 
     const createNewAmberStore = () => {
+      console.log('Creating new Amber Store');
       router.push({ name: 'AmberStoreEditor' });
     };
 
     const editAmberStore = (id: string) => {
+      console.log('Editing Amber Store:', id);
       router.push({ name: 'AmberStoreEditor', params: { id } });
     };
 
     const deleteAmberStore = async (id: string) => {
       if (confirm('Are you sure you want to delete this Amber Store?')) {
         try {
+          console.log('Deleting Amber Store:', id);
           await store.dispatch('studio/deleteAmberStore', id);
           await fetchAmberStores();
         } catch (err: any) {
@@ -139,6 +177,12 @@ export default defineComponent({
           error.value = `Error deleting Amber Store: ${err.message || 'Unknown error'}`;
         }
       }
+    };
+
+    const selectAmberStore = (id: string) => {
+      console.log('Selecting Amber Store:', id);
+      selectedAmberStoreId.value = id;
+      router.push({ name: 'AmberStores', params: { id } });
     };
 
     const prevPage = () => {
@@ -162,9 +206,12 @@ export default defineComponent({
       searchQuery,
       currentPage,
       totalPages,
+      selectedAmberStoreId,
+      selectedAmberStore,
       createNewAmberStore,
       editAmberStore,
       deleteAmberStore,
+      selectAmberStore,
       prevPage,
       nextPage,
       formatDate,
@@ -234,6 +281,11 @@ export default defineComponent({
 
 .amber-store-table tr:hover {
   background-color: #f9f9f9;
+  cursor: pointer;
+}
+
+.amber-store-table tr.selected {
+  background-color: #e8f0fe;
 }
 
 .edit-button,
@@ -282,5 +334,12 @@ export default defineComponent({
 .pagination-button:disabled {
   background-color: #bdc3c7;
   cursor: not-allowed;
+}
+
+.amber-store-detail {
+  background-color: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  padding: 20px;
 }
 </style>

@@ -2,6 +2,12 @@
   <div class="docker-files">
     <h1 class="text-2xl font-bold mb-6">Docker Files</h1>
 
+    <div class="mb-4">
+      <button @click="createNewDockerFile" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Create New Docker File
+      </button>
+    </div>
+
     <div v-if="loading" class="text-center">Loading...</div>
     <div v-else-if="error" class="text-red-500">{{ error }}</div>
     <div v-else-if="dockerFiles.length" class="docker-file-table-container">
@@ -12,6 +18,7 @@
             <th>Description</th>
             <th>Created At</th>
             <th>Last Modified</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -20,12 +27,20 @@
             <td>{{ dockerFile.description }}</td>
             <td>{{ formatDate(dockerFile.createdAt) }}</td>
             <td>{{ formatDate(dockerFile.updatedAt) }}</td>
+            <td>
+              <button @click="editDockerFile(dockerFile.id)" class="text-blue-500 hover:text-blue-700 mr-2">
+                Edit
+              </button>
+              <button @click="deleteDockerFile(dockerFile.id)" class="text-red-500 hover:text-red-700">
+                Delete
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
     <div v-else class="no-docker-files">
-      <p>No Docker files available.</p>
+      <p>No Docker files available. Click the "Create New Docker File" button to create one.</p>
     </div>
   </div>
 </template>
@@ -33,19 +48,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { formatDate } from '@/utils/dateFormatter';
 
-interface DockerFile {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 const store = useStore();
+const router = useRouter();
 
-const dockerFiles = computed<DockerFile[]>(() => store.getters['studio/getDockerFiles']);
+const dockerFiles = computed(() => {
+  console.log('Computing dockerFiles:', store.getters['studio/getDockerFiles']);
+  return store.getters['studio/getDockerFiles'];
+});
 const loading = ref(false);
 const error = ref('');
 
@@ -72,6 +84,29 @@ const fetchDockerFiles = async () => {
     error.value = `Error fetching Docker files: ${err.message || 'Unknown error'}`;
   } finally {
     loading.value = false;
+  }
+};
+
+const createNewDockerFile = () => {
+  console.log('Creating new Docker file');
+  router.push({ name: 'NewDockerFile' });
+};
+
+const editDockerFile = (id: string) => {
+  console.log('Editing Docker file:', id);
+  router.push({ name: 'DockerFileEditor', params: { id } });
+};
+
+const deleteDockerFile = async (id: string) => {
+  if (confirm('Are you sure you want to delete this Docker file?')) {
+    console.log('Deleting Docker file:', id);
+    try {
+      await store.dispatch('studio/deleteDockerFile', id);
+      await fetchDockerFiles();
+    } catch (err: any) {
+      console.error('Failed to delete Docker file:', err);
+      error.value = `Error deleting Docker file: ${err.message || 'Unknown error'}`;
+    }
   }
 };
 </script>

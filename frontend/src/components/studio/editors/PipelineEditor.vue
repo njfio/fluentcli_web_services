@@ -1,122 +1,132 @@
 <template>
-  <div class="pipeline-editor bg-white rounded-lg shadow-md p-6 w-full h-full flex flex-col">
-    <h3 class="text-2xl font-bold mb-6">{{ isNew ? 'Create' : 'Edit' }} Pipeline</h3>
-    <form @submit.prevent="handleSubmit" class="flex flex-col flex-grow">
-      <div class="mb-4">
-        <label for="name" class="block text-sm font-medium text-gray-700">Name:</label>
-        <input id="name" v-model="editedPipeline.name" required
-               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+  <div class="pipeline-editor">
+    <h2 class="text-2xl font-bold mb-4">{{ isNewPipeline ? 'Create New Pipeline' : 'Edit Pipeline' }}</h2>
+    <div v-if="loading" class="text-center py-4">Loading pipeline data...</div>
+    <div v-else-if="error" class="text-red-500 py-4">{{ error }}</div>
+    <form v-else @submit.prevent="savePipeline" class="space-y-4">
+      <div>
+        <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+        <input type="text" id="name" v-model="pipeline.name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
       </div>
-      <div class="flex-grow flex flex-col">
-        <label for="data" class="block text-sm font-medium text-gray-700 mb-2">Data (YAML):</label>
-        <div class="relative flex-grow">
-          <textarea id="data" v-model="formattedYaml" required @input="handleInput"
-                    class="absolute inset-0 w-full h-full resize-none font-mono p-2"></textarea>
-        </div>
+      <div>
+        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+        <textarea id="description" v-model="pipeline.description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
       </div>
-      <div v-if="yamlError" class="text-red-600 text-sm mt-2">
-        {{ yamlError }}
+      <div>
+        <label for="data" class="block text-sm font-medium text-gray-700">Pipeline Data</label>
+        <textarea id="data" v-model="pipeline.data" rows="10" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 font-mono"></textarea>
       </div>
-      <div class="flex justify-end space-x-4 mt-4">
-        <button type="button" @click="handleCancel" 
-                class="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+      <div class="flex justify-end space-x-2">
+        <button type="button" @click="cancel" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
           Cancel
         </button>
-        <button type="submit" :disabled="!!yamlError"
-                class="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed">
-          Save
+        <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+          {{ isNewPipeline ? 'Create' : 'Save' }}
         </button>
       </div>
     </form>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import * as yaml from 'js-yaml';
+import { useRoute, useRouter } from 'vue-router';
 
-interface Pipeline {
-  id?: string;
-  name: string;
-  data: string;
-}
+export default defineComponent({
+  name: 'PipelineEditor',
+  setup() {
+    const store = useStore();
+    const route = useRoute();
+    const router = useRouter();
 
-const route = useRoute();
-const router = useRouter();
-const store = useStore();
+    const pipeline = ref({
+      id: '',
+      name: '',
+      description: '',
+      data: '',
+    });
+    const loading = ref(false);
+    const error = ref('');
 
-const editedPipeline = ref<Pipeline>({ name: '', data: '' });
-const yamlError = ref('');
+    const isNewPipeline = computed(() => !route.params.id);
 
-const isNew = computed(() => !route.params.id);
+    onMounted(async () => {
+      console.log('PipelineEditor mounted');
+      console.log('Route params:', route.params);
+      if (!isNewPipeline.value) {
+        await fetchPipeline();
+      }
+    });
 
-const formattedYaml = computed({
-  get: () => {
-    try {
-      const parsedData = yaml.load(editedPipeline.value.data);
-      return yaml.dump(parsedData, { indent: 2 });
-    } catch (error) {
-      return editedPipeline.value.data;
-    }
+    const fetchPipeline = async () => {
+      loading.value = true;
+      error.value = '';
+      try {
+        const pipelineId = route.params.id as string;
+        console.log('Fetching pipeline with ID:', pipelineId);
+        console.log('Store before dispatch:', store.state.studio);
+        const fetchedPipeline = await store.dispatch('studio/fetchPipelineById', pipelineId);
+        console.log('Store after dispatch:', store.state.studio);
+        console.log('Fetched pipeline:', fetchedPipeline);
+        if (fetchedPipeline) {
+          pipeline.value = { ...fetchedPipeline };
+          console.log('Pipeline data set:', pipeline.value);
+        } else {
+          console.error('Fetched pipeline is null or undefined');
+          error.value = 'Failed to fetch pipeline data';
+        }
+      } catch (err: any) {
+        console.error('Error fetching pipeline:', err);
+        error.value = `Error fetching pipeline: ${err.message || 'Unknown error'}`;
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    const savePipeline = async () => {
+      try {
+        console.log('Saving pipeline:', pipeline.value);
+        if (isNewPipeline.value) {
+          await store.dispatch('studio/createPipeline', pipeline.value);
+        } else {
+          await store.dispatch('studio/updatePipeline', pipeline.value);
+        }
+        console.log('Pipeline saved successfully');
+        navigateBack();
+      } catch (err: any) {
+        console.error('Error saving pipeline:', err);
+        error.value = `Error saving pipeline: ${err.message || 'Unknown error'}`;
+      }
+    };
+
+    const cancel = () => {
+      console.log('Cancelling pipeline edit');
+      navigateBack();
+    };
+
+    const navigateBack = () => {
+      const returnToJobDetails = route.query.returnToJobDetails;
+      console.log('Navigating back, returnToJobDetails:', returnToJobDetails);
+      if (returnToJobDetails) {
+        router.push({ name: 'JobDetail', params: { id: returnToJobDetails as string } });
+      } else {
+        router.push({ name: 'Pipelines' });
+      }
+    };
+
+    return {
+      pipeline,
+      isNewPipeline,
+      loading,
+      error,
+      savePipeline,
+      cancel,
+    };
   },
-  set: (value: string) => {
-    editedPipeline.value.data = value;
-  },
-});
-
-onMounted(async () => {
-  if (!isNew.value) {
-    try {
-      const response = await store.dispatch('studio/fetchPipelineById', route.params.id);
-      editedPipeline.value = response;
-    } catch (error) {
-      console.error('Error fetching pipeline:', error);
-      alert('Failed to fetch pipeline data. Please try again.');
-      router.push({ name: 'Pipelines' });
-    }
-  }
-});
-
-function handleInput() {
-  validateYaml();
-}
-
-function validateYaml() {
-  try {
-    yaml.load(editedPipeline.value.data);
-    yamlError.value = '';
-  } catch (error) {
-    if (error instanceof Error) {
-      yamlError.value = `Invalid YAML: ${error.message}`;
-    } else {
-      yamlError.value = 'Invalid YAML';
-    }
-  }
-}
-
-const handleSubmit = async () => {
-  try {
-    await store.dispatch('studio/savePipeline', editedPipeline.value);
-    router.push({ name: 'Pipelines' });
-  } catch (error) {
-    console.error('Error saving pipeline:', error);
-    alert('An error occurred while saving the pipeline. Please try again.');
-  }
-};
-
-const handleCancel = () => {
-  router.push({ name: 'Pipelines' });
-};
-
-watch(formattedYaml, (newValue) => {
-  editedPipeline.value.data = newValue;
 });
 </script>
 
 <style scoped>
-.pipeline-editor {
-  height: calc(100vh - 100px); /* Adjust this value based on your layout */
-}
+/* Add any component-specific styles here */
 </style>

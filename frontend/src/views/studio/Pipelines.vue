@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { formatDate } from '@/utils/dateFormatter';
@@ -63,13 +63,20 @@ interface Pipeline {
 const router = useRouter();
 const store = useStore();
 
-const pipelines = computed<Pipeline[]>(() => store.getters['studio/getPipelines']);
+const pipelines = computed<Pipeline[]>(() => {
+  console.log('Computing pipelines:', store.getters['studio/getPipelines']);
+  return store.getters['studio/getPipelines'];
+});
 const loading = ref(false);
 const error = ref('');
 
 onMounted(async () => {
   console.log('Pipelines component mounted');
   await fetchPipelines();
+});
+
+watch(pipelines, (newPipelines) => {
+  console.log('Pipelines updated:', newPipelines);
 });
 
 const fetchPipelines = async () => {

@@ -39,6 +39,18 @@ export interface AmberStore {
   lastModified: string;
 }
 
+export interface Job {
+  id: string;
+  worker_type: string;
+  config: string;
+  pipeline_id: string;
+  amber_id: string;
+  status: string;
+  state_file_content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StudioState {
   dockerFiles: DockerFile[];
   currentDockerFile: DockerFile | null;
@@ -48,6 +60,8 @@ export interface StudioState {
   currentConfiguration: StudioConfiguration | null;
   amberStores: AmberStore[];
   currentAmberStore: AmberStore | null;
+  jobs: Job[];
+  currentJob: Job | null;
 }
 
 const studioModule: Module<StudioState, RootState> = {
@@ -61,6 +75,8 @@ const studioModule: Module<StudioState, RootState> = {
     currentConfiguration: null,
     amberStores: [],
     currentAmberStore: null,
+    jobs: [],
+    currentJob: null,
   },
   mutations: {
     setDockerFiles(state: StudioState, dockerFiles: DockerFile[]) {
@@ -87,6 +103,12 @@ const studioModule: Module<StudioState, RootState> = {
     setCurrentAmberStore(state: StudioState, amberStore: AmberStore) {
       state.currentAmberStore = amberStore;
     },
+    setJobs(state: StudioState, jobs: Job[]) {
+      state.jobs = jobs;
+    },
+    setCurrentJob(state: StudioState, job: Job) {
+      state.currentJob = job;
+    },
   },
   actions: {
     async fetchDockerFiles({ commit }) {
@@ -94,7 +116,7 @@ const studioModule: Module<StudioState, RootState> = {
         const response = await apiClient.listDockerFiles();
         commit('setDockerFiles', response.data);
       } catch (error) {
-        console.error('Error fetching Docker files:', error);
+        console.error('Error fetching docker files:', error);
         throw error;
       }
     },
@@ -104,29 +126,25 @@ const studioModule: Module<StudioState, RootState> = {
         commit('setCurrentDockerFile', response.data);
         return response.data;
       } catch (error) {
-        console.error('Error fetching Docker file:', error);
+        console.error('Error fetching docker file:', error);
         throw error;
       }
     },
-    async saveDockerFile({ dispatch }, dockerFile: DockerFile) {
+    async createDockerFile({ dispatch }, dockerFile: DockerFile) {
       try {
-        if (dockerFile.id) {
-          await apiClient.updateDockerFile(dockerFile.id, dockerFile);
-        } else {
-          await apiClient.createDockerFile(dockerFile);
-        }
+        await apiClient.createDockerFile(dockerFile);
         await dispatch('fetchDockerFiles');
       } catch (error) {
-        console.error('Error saving Docker file:', error);
+        console.error('Error creating docker file:', error);
         throw error;
       }
     },
-    async deleteDockerFile({ dispatch }, id: string) {
+    async updateDockerFile({ dispatch }, dockerFile: DockerFile) {
       try {
-        await apiClient.deleteDockerFile(id);
+        await apiClient.updateDockerFile(dockerFile.id, dockerFile);
         await dispatch('fetchDockerFiles');
       } catch (error) {
-        console.error('Error deleting Docker file:', error);
+        console.error('Error updating docker file:', error);
         throw error;
       }
     },
@@ -149,35 +167,28 @@ const studioModule: Module<StudioState, RootState> = {
         throw error;
       }
     },
-    async savePipeline({ dispatch }, pipeline: Pipeline) {
+    async createPipeline({ dispatch }, pipeline: Pipeline) {
       try {
-        if (pipeline.id) {
-          await apiClient.updatePipeline(pipeline.id, pipeline);
-        } else {
-          await apiClient.createPipeline(pipeline);
-        }
+        await apiClient.createPipeline(pipeline);
         await dispatch('fetchPipelines');
       } catch (error) {
-        console.error('Error saving pipeline:', error);
+        console.error('Error creating pipeline:', error);
         throw error;
       }
     },
-    async deletePipeline({ dispatch }, id: string) {
+    async updatePipeline({ dispatch }, pipeline: Pipeline) {
       try {
-        await apiClient.deletePipeline(id);
+        await apiClient.updatePipeline(pipeline.id, pipeline);
         await dispatch('fetchPipelines');
       } catch (error) {
-        console.error('Error deleting pipeline:', error);
+        console.error('Error updating pipeline:', error);
         throw error;
       }
     },
     async fetchConfigurations({ commit }) {
-      console.log('Fetching configurations from Vuex action');
       try {
         const response = await apiClient.listConfigurations();
-        console.log('API response for configurations:', response);
         commit('setConfigurations', response.data);
-        console.log('Configurations committed to state:', response.data);
       } catch (error) {
         console.error('Error fetching configurations:', error);
         throw error;
@@ -193,46 +204,30 @@ const studioModule: Module<StudioState, RootState> = {
         throw error;
       }
     },
-    async saveConfiguration({ dispatch }, configuration: StudioConfiguration) {
+    async createConfiguration({ dispatch }, configuration: StudioConfiguration) {
       try {
-        if (configuration.id) {
-          await apiClient.updateConfiguration(configuration.id, configuration);
-        } else {
-          await apiClient.createConfiguration(configuration);
-        }
+        await apiClient.createConfiguration(configuration);
         await dispatch('fetchConfigurations');
       } catch (error) {
-        console.error('Error saving configuration:', error);
+        console.error('Error creating configuration:', error);
         throw error;
       }
     },
-    async deleteConfiguration({ dispatch }, id: string) {
+    async updateConfiguration({ dispatch }, configuration: StudioConfiguration) {
       try {
-        await apiClient.deleteConfiguration(id);
+        await apiClient.updateConfiguration(configuration.id, configuration);
         await dispatch('fetchConfigurations');
       } catch (error) {
-        console.error('Error deleting configuration:', error);
+        console.error('Error updating configuration:', error);
         throw error;
       }
     },
     async fetchAmberStores({ commit }) {
-      console.log('Fetching Amber Stores...');
       try {
         const response = await apiClient.listAmberStores();
-        console.log('Amber Stores API response:', response);
         commit('setAmberStores', response.data);
-        console.log('Amber Stores committed to state:', response.data);
-      } catch (error: any) {
-        console.error('Error fetching Amber Stores:', error);
-        if (error.response) {
-          console.error('Error response:', error.response.data);
-          console.error('Error status:', error.response.status);
-          console.error('Error headers:', error.response.headers);
-        } else if (error.request) {
-          console.error('Error request:', error.request);
-        } else {
-          console.error('Error message:', error.message);
-        }
+      } catch (error) {
+        console.error('Error fetching amber stores:', error);
         throw error;
       }
     },
@@ -242,31 +237,77 @@ const studioModule: Module<StudioState, RootState> = {
         commit('setCurrentAmberStore', response.data);
         return response.data;
       } catch (error) {
-        console.error('Error fetching Amber Store:', error);
+        console.error('Error fetching amber store:', error);
         throw error;
       }
     },
-    async saveAmberStore({ dispatch }, amberStore: AmberStore) {
+    async createAmberStore({ dispatch }, amberStore: AmberStore) {
       try {
-        if (amberStore.id) {
-          await apiClient.updateAmberStore(amberStore.id, amberStore);
+        await apiClient.createAmberStore(amberStore);
+        await dispatch('fetchAmberStores');
+      } catch (error) {
+        console.error('Error creating amber store:', error);
+        throw error;
+      }
+    },
+    async updateAmberStore({ dispatch }, amberStore: AmberStore) {
+      try {
+        await apiClient.updateAmberStore(amberStore.id, amberStore);
+        await dispatch('fetchAmberStores');
+      } catch (error) {
+        console.error('Error updating amber store:', error);
+        throw error;
+      }
+    },
+    async fetchJobs({ commit }) {
+      try {
+        const response = await apiClient.listJobs();
+        commit('setJobs', response.data);
+      } catch (error) {
+        console.error('Error fetching jobs:', error);
+        throw error;
+      }
+    },
+    async fetchJobById({ commit }, id: string) {
+      try {
+        const response = await apiClient.getJob(id);
+        commit('setCurrentJob', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching job:', error);
+        throw error;
+      }
+    },
+    async saveJob({ dispatch }, job: Job) {
+      try {
+        if (job.id) {
+          await apiClient.updateJob(job.id, job);
         } else {
-          await apiClient.createAmberStore(amberStore);
+          await apiClient.createJob(job);
         }
-        await dispatch('fetchAmberStores');
+        await dispatch('fetchJobs');
       } catch (error) {
-        console.error('Error saving Amber Store:', error);
+        console.error('Error saving job:', error);
         throw error;
       }
     },
-    async deleteAmberStore({ dispatch }, id: string) {
+    async deleteJob({ dispatch }, id: string) {
       try {
-        await apiClient.deleteAmberStore(id);
-        await dispatch('fetchAmberStores');
+        await apiClient.deleteJob(id);
+        await dispatch('fetchJobs');
       } catch (error) {
-        console.error('Error deleting Amber Store:', error);
+        console.error('Error deleting job:', error);
         throw error;
       }
+    },
+    async fetchAllData({ dispatch }) {
+      await Promise.all([
+        dispatch('fetchDockerFiles'),
+        dispatch('fetchPipelines'),
+        dispatch('fetchConfigurations'),
+        dispatch('fetchAmberStores'),
+        dispatch('fetchJobs'),
+      ]);
     },
   },
   getters: {
@@ -274,13 +315,12 @@ const studioModule: Module<StudioState, RootState> = {
     getCurrentDockerFile: (state: StudioState) => state.currentDockerFile,
     getPipelines: (state: StudioState) => state.pipelines,
     getCurrentPipeline: (state: StudioState) => state.currentPipeline,
-    getConfigurations: (state: StudioState) => {
-      console.log('Getter called for configurations:', state.configurations);
-      return state.configurations;
-    },
+    getConfigurations: (state: StudioState) => state.configurations,
     getCurrentConfiguration: (state: StudioState) => state.currentConfiguration,
     getAmberStores: (state: StudioState) => state.amberStores,
     getCurrentAmberStore: (state: StudioState) => state.currentAmberStore,
+    getJobs: (state: StudioState) => state.jobs,
+    getCurrentJob: (state: StudioState) => state.currentJob,
   },
 };
 

@@ -22,7 +22,14 @@
           <router-link to="/studio/configurations">Configurations</router-link>
         </li>
         <li>
-          <router-link to="/studio/amberstores">Amber Stores</router-link>
+          <div class="amber-stores-dropdown">
+            <router-link to="/studio/amberstores">Amber Stores</router-link>
+            <ul v-if="!isCollapsed" class="amber-stores-list">
+              <li v-for="store in amberStores" :key="store.id">
+                <a @click="selectAmberStore(store.id)">{{ store.name }}</a>
+              </li>
+            </ul>
+          </div>
         </li>
         <li>
           <router-link to="/studio/settings">Settings</router-link>
@@ -33,7 +40,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 
 export default defineComponent({
   name: 'StudioSidebar',
@@ -42,6 +51,25 @@ export default defineComponent({
       type: Boolean,
       required: true,
     },
+  },
+  setup() {
+    const store = useStore();
+    const router = useRouter();
+
+    const amberStores = computed(() => store.getters['studio/getAmberStores']);
+
+    onMounted(async () => {
+      await store.dispatch('studio/fetchAmberStores');
+    });
+
+    const selectAmberStore = (id: string) => {
+      router.push({ name: 'AmberStores', params: { id } });
+    };
+
+    return {
+      amberStores,
+      selectAmberStore,
+    };
   },
 });
 </script>
@@ -87,5 +115,36 @@ nav ul li a {
 
 nav ul li a.router-link-exact-active {
   background-color: #1abc9c;
+}
+
+.amber-stores-dropdown {
+  position: relative;
+}
+
+.amber-stores-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #34495e;
+  padding: 10px;
+  border-radius: 5px;
+  z-index: 10;
+}
+
+.amber-stores-dropdown:hover .amber-stores-list {
+  display: block;
+}
+
+.amber-stores-list li {
+  padding: 5px 0;
+}
+
+.amber-stores-list a {
+  cursor: pointer;
+}
+
+.amber-stores-list a:hover {
+  color: #1abc9c;
 }
 </style>
