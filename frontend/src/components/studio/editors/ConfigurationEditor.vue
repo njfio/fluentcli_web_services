@@ -1,29 +1,39 @@
 <template>
-  <div class="configuration-editor flex flex-col h-full">
-    <h2 class="text-2xl font-bold mb-4">{{ isNewConfiguration ? 'Create New Configuration' : 'Edit Configuration' }}</h2>
-    <form @submit.prevent="saveConfiguration" class="flex flex-col flex-grow">
-      <div class="mb-4">
-        <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
-        <input type="text" id="name" v-model="configuration.name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-      </div>
-      <div class="flex-grow flex flex-col">
-        <label for="data" class="block text-sm font-medium text-gray-700 mb-2">Data (JSON)</label>
-        <div class="flex-grow relative">
-          <pre
-            id="data"
-            v-html="highlightedJson"
-            class="absolute inset-0 w-full h-full overflow-auto border border-gray-300 rounded-md shadow-sm p-2 font-mono bg-white"
-            contenteditable="true"
-            @input="updateConfigurationData"
-          ></pre>
+  <div class="configuration-editor">
+    <h1 class="text-2xl font-bold mb-6">{{ isNewConfiguration ? 'Create New Configuration' : 'Edit Configuration' }}
+    </h1>
+    <form @submit.prevent="saveConfiguration" class="space-y-6">
+      <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div class="sm:col-span-4">
+              <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+              <input type="text" id="name" v-model="configuration.name" required
+                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+            </div>
+            <div class="sm:col-span-6">
+              <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+              <textarea id="description" v-model="configuration.description" rows="3"
+                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"></textarea>
+            </div>
+            <div class="sm:col-span-6">
+              <label for="data" class="block text-sm font-medium text-gray-700">Configuration Data (JSON)</label>
+              <div class="mt-1 border border-gray-300 rounded-md overflow-hidden" style="height: calc(100vh - 400px);">
+                <MonacoEditor v-model="editorContent" language="json" :options="editorOptions" @change="updateContent"
+                  class="h-full" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="flex justify-end space-x-2 mt-4">
-        <button type="button" @click="cancel" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+      <div class="flex justify-end">
+        <button type="button" @click="cancel"
+          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
           Cancel
         </button>
-        <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-          {{ isNewConfiguration ? 'Create' : 'Save' }}
+        <button type="submit"
+          class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+          {{ isNewConfiguration ? 'Create' : 'Update' }}
         </button>
       </div>
     </form>
@@ -31,100 +41,103 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRoute, useRouter } from 'vue-router';
-import hljs from 'highlight.js/lib/core';
-import json from 'highlight.js/lib/languages/json';
-
-hljs.registerLanguage('json', json);
+import { useRouter, useRoute } from 'vue-router';
+import MonacoEditor from './MonacoEditor.vue';
 
 export default defineComponent({
   name: 'ConfigurationEditor',
+  components: {
+    MonacoEditor,
+  },
   setup() {
     const store = useStore();
-    const route = useRoute();
     const router = useRouter();
+    const route = useRoute();
 
     const configuration = ref({
       id: '',
       name: '',
+      description: '',
       data: '',
     });
 
-    const isNewConfiguration = computed(() => !route.params.id);
+    const editorContent = ref('');
 
-    const highlightedJson = computed(() => {
-      try {
-        const jsonObject = JSON.parse(configuration.value.data);
-        const formattedJson = JSON.stringify(jsonObject, null, 2);
-        return hljs.highlight(formattedJson, { language: 'json' }).value;
-      } catch (error) {
-        console.error('Error parsing or highlighting JSON:', error);
-        return configuration.value.data;
-      }
-    });
+    const isNewConfiguration = computed(() => route.params.id === 'new');
 
-    const updateConfigurationData = (event: Event) => {
-      const target = event.target as HTMLPreElement;
-      try {
-        const jsonContent = target.innerText;
-        JSON.parse(jsonContent); // Validate JSON
-        configuration.value.data = jsonContent;
-      } catch (error) {
-        console.error('Error parsing JSON:', error);
-        // Optionally, you can show an error message to the user here
-      }
+    const editorOptions = {
+      minimap: { enabled: false },
+      lineNumbers: 'on',
+      roundedSelection: false,
+      scrollBeyondLastLine: false,
+      readOnly: false,
+      theme: 'vs-light',
     };
 
     onMounted(async () => {
       if (!isNewConfiguration.value) {
-        const configId = route.params.id as string;
-        const config = await store.dispatch('studio/fetchConfigurationById', configId);
-        if (config) {
-          configuration.value = { ...config };
-        }
+        const id = route.params.id as string;
+        console.log('Fetching configuration with ID:', id);
+        const fetchedConfiguration = await store.dispatch('studio/fetchConfigurationById', id);
+        console.log('Fetched configuration:', fetchedConfiguration);
+        configuration.value = { ...fetchedConfiguration };
+        editorContent.value = typeof configuration.value.data === 'string'
+          ? configuration.value.data
+          : JSON.stringify(configuration.value.data, null, 2);
+        console.log('Editor content set to:', editorContent.value);
       }
     });
 
+    const updateContent = (value: string) => {
+      console.log('Updating content:', value);
+      editorContent.value = value;
+      try {
+        configuration.value.data = JSON.parse(value);
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
+        configuration.value.data = value;
+      }
+    };
+
     const saveConfiguration = async () => {
       try {
-        const configToSave = {
-          ...configuration.value,
-        };
-
-        if (isNewConfiguration.value) {
-          await store.dispatch('studio/createConfiguration', configToSave);
-        } else {
-          await store.dispatch('studio/updateConfiguration', configToSave);
-        }
-        navigateBack();
+        console.log('Saving configuration:', configuration.value);
+        const result = isNewConfiguration.value
+          ? await store.dispatch('studio/createConfiguration', configuration.value)
+          : await store.dispatch('studio/updateConfiguration', configuration.value);
+        console.log('Save result:', result);
+        router.push({ name: 'Configurations' });
       } catch (error) {
-        console.error('Error saving configuration:', error);
-        // Handle error (e.g., show error message to user)
+        console.error('Error saving Configuration:', error);
+        // Handle error (e.g., show an error message to the user)
       }
     };
 
     const cancel = () => {
-      navigateBack();
+      router.push({ name: 'Configurations' });
     };
 
-    const navigateBack = () => {
-      const returnToJobDetails = route.query.returnToJobDetails;
-      if (returnToJobDetails) {
-        router.push({ name: 'JobDetail', params: { id: returnToJobDetails as string } });
-      } else {
-        router.push({ name: 'Configurations' });
+    // Watch for changes in the editor content
+    watch(editorContent, (newValue) => {
+      console.log('Editor content changed:', newValue);
+      try {
+        configuration.value.data = JSON.parse(newValue);
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
+        configuration.value.data = newValue;
       }
-    };
+    });
 
     return {
       configuration,
+      editorContent,
       isNewConfiguration,
-      highlightedJson,
-      updateConfigurationData,
+      editorOptions,
       saveConfiguration,
       cancel,
+      updateContent,
     };
   },
 });
@@ -132,16 +145,6 @@ export default defineComponent({
 
 <style scoped>
 .configuration-editor {
-  height: calc(100vh - 64px); /* Adjust this value based on your layout */
+  @apply max-w-7xl mx-auto py-6 sm:px-6 lg:px-8;
 }
-</style>
-
-<style>
-/* Add these styles for JSON syntax highlighting */
-.hljs-attr { color: #f92672; }
-.hljs-string { color: #a6e22e; }
-.hljs-number { color: #ae81ff; }
-.hljs-boolean { color: #ae81ff; }
-.hljs-null { color: #ae81ff; }
-.hljs-literal { color: #ae81ff; }
 </style>

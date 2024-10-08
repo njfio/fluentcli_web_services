@@ -159,12 +159,12 @@ const apiClient: ApiClient = {
   fetchConfigurations: () => axiosInstance.get('/configurations'),
 
   // Amber Store routes
-  createAmberStore: (amberStoreData) => axiosInstance.post('/amber_store', amberStoreData),
-  listAmberStores: () => axiosInstance.get('/amber_store'),
-  getAmberStore: (id) => axiosInstance.get(`/amber_store/${id}`),
-  updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_store/${id}`, amberStoreData),
-  deleteAmberStore: (id) => axiosInstance.delete(`/amber_store/${id}`),
-  fetchAmberStores: () => axiosInstance.get('/amber_store'),
+  createAmberStore: (amberStoreData) => axiosInstance.post('/amber_stores', amberStoreData),
+  listAmberStores: () => axiosInstance.get('/amber_stores'),
+  getAmberStore: (id) => axiosInstance.get(`/amber_stores/${id}`),
+  updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_stores/${id}`, amberStoreData),
+  deleteAmberStore: (id) => axiosInstance.delete(`/amber_stores/${id}`),
+  fetchAmberStores: () => axiosInstance.get('/amber_stores'),
 };
 
 export default apiClient;

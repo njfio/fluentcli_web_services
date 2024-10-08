@@ -26,7 +26,7 @@ pub struct NewPipeline {
 #[derive(Deserialize, Debug)]
 pub struct NewPipelinePayload {
     pub name: String,
-    pub data: serde_yaml::Value,
+    pub data: String,
 }
 
 #[derive(AsChangeset, Deserialize)]
