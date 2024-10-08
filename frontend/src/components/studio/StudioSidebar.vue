@@ -1,9 +1,9 @@
 <template>
-  <nav :class="['sidebar bg-gray-800 text-white', { 'collapsed': isCollapsed }]">
+  <nav :class="['sidebar bg-white dark:bg-gray-800 text-gray-900 dark:text-white', { 'collapsed': isCollapsed }]">
     <div class="p-4">
       <div class="flex items-center justify-between mb-4">
         <h2 v-if="!isCollapsed" class="text-2xl font-semibold">Studio</h2>
-        <button @click="toggleSidebar" class="text-white focus:outline-none">
+        <button @click="toggleSidebar" class="text-gray-500 dark:text-gray-400 focus:outline-none">
           <ChevronDoubleLeftIcon v-if="!isCollapsed" class="h-6 w-6" />
           <ChevronDoubleRightIcon v-else class="h-6 w-6" />
         </button>
@@ -11,7 +11,7 @@
       <ul>
         <li v-for="(item, index) in menuItems" :key="index" class="mb-2">
           <router-link :to="item.route" class="flex items-center py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === item.routeName }">
+            :class="{ 'bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-primary-100': $route.name === item.routeName, 'hover:bg-gray-100 dark:hover:bg-gray-700': $route.name !== item.routeName }">
             <component :is="item.icon" class="h-5 w-5" :class="{ 'mr-3': !isCollapsed }" />
             <span v-if="!isCollapsed">{{ item.label }}</span>
           </router-link>

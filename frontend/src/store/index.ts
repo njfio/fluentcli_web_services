@@ -1,5 +1,6 @@
 import { createStore } from 'vuex';
 import studioModule from './modules/studio';
+import themeModule from './modules/theme';
 
 export default createStore({
   state: {
@@ -30,5 +31,6 @@ export default createStore({
   },
   modules: {
     studio: studioModule,
+    theme: themeModule,
   },
 });

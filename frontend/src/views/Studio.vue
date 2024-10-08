@@ -1,20 +1,14 @@
 <template>
-  <Suspense>
-    <template #default>
-      <router-view></router-view>
-    </template>
-    <template #fallback>
-      <div class="flex justify-center items-center h-64">
-        <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
-      </div>
-    </template>
-  </Suspense>
+  <StudioLayout>
+    <router-view></router-view>
+  </StudioLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onErrorCaptured } from 'vue';
 import { useRoute } from 'vue-router';
 import { useStore } from 'vuex';
+import StudioLayout from '@/components/studio/StudioLayout.vue';
 
 console.log('Studio component script starting');
 
