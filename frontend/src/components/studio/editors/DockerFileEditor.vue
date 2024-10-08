@@ -1,38 +1,33 @@
 <template>
   <div class="docker-file-editor">
     <h1 class="text-2xl font-bold mb-6">{{ isNewDockerFile ? 'Create New Docker File' : 'Edit Docker File' }}</h1>
-    <form @submit.prevent="saveDockerFile" class="space-y-6">
+    <div class="flex justify-end mb-6">
+      <button type="button" @click="cancel"
+        class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        Cancel
+      </button>
+      <button type="submit" form="docker-file-form"
+        class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        {{ isNewDockerFile ? 'Create' : 'Update' }}
+      </button>
+    </div>
+    <form id="docker-file-form" @submit.prevent="saveDockerFile" class="space-y-6">
       <div class="bg-white shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:p-6">
           <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             <div class="sm:col-span-4">
               <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
-              <input type="text" id="name" v-model="dockerFile.name" required class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-            </div>
-            <div class="sm:col-span-6">
-              <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-              <textarea id="description" v-model="dockerFile.description" rows="3" class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"></textarea>
+              <input type="text" id="name" v-model="dockerFile.name" required
+                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
             </div>
             <div class="sm:col-span-6">
               <label for="content" class="block text-sm font-medium text-gray-700">Dockerfile Content</label>
               <div class="mt-1 border border-gray-300 rounded-md overflow-hidden" style="height: calc(100vh - 400px);">
-                <MonacoEditor
-                  v-model="dockerFile.content"
-                  language="dockerfile"
-                  class="h-full"
-                />
+                <MonacoEditor v-model="dockerFile.content" language="dockerfile" class="h-full" />
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="flex justify-end">
-        <button type="button" @click="cancel" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-          Cancel
-        </button>
-        <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-          {{ isNewDockerFile ? 'Create' : 'Update' }}
-        </button>
       </div>
     </form>
   </div>
@@ -57,7 +52,6 @@ export default defineComponent({
     const dockerFile = ref({
       id: '',
       name: '',
-      description: '',
       content: '',
     });
 

@@ -1,7 +1,17 @@
 <template>
   <div class="pipeline-editor">
     <h1 class="text-2xl font-bold mb-6">{{ isNewPipeline ? 'Create New Pipeline' : 'Edit Pipeline' }}</h1>
-    <form @submit.prevent="savePipeline" class="space-y-6">
+    <div class="flex justify-end mb-6">
+      <button type="button" @click="cancel"
+        class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        Cancel
+      </button>
+      <button type="submit" form="pipeline-form"
+        class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        {{ isNewPipeline ? 'Create' : 'Update' }}
+      </button>
+    </div>
+    <form id="pipeline-form" @submit.prevent="savePipeline" class="space-y-6">
       <div class="bg-white shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:p-6">
           <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
@@ -9,11 +19,6 @@
               <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
               <input type="text" id="name" v-model="pipeline.name" required
                 class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-            </div>
-            <div class="sm:col-span-6">
-              <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-              <textarea id="description" v-model="pipeline.description" rows="3"
-                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"></textarea>
             </div>
             <div class="sm:col-span-6">
               <label for="data" class="block text-sm font-medium text-gray-700">Pipeline Data (YAML)</label>
@@ -24,16 +29,6 @@
             </div>
           </div>
         </div>
-      </div>
-      <div class="flex justify-end">
-        <button type="button" @click="cancel"
-          class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-          Cancel
-        </button>
-        <button type="submit"
-          class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-          {{ isNewPipeline ? 'Create' : 'Update' }}
-        </button>
       </div>
     </form>
   </div>
@@ -58,7 +53,6 @@ export default defineComponent({
     const pipeline = ref({
       id: '',
       name: '',
-      description: '',
       data: '',
     });
 

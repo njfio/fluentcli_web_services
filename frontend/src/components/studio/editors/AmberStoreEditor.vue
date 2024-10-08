@@ -1,41 +1,38 @@
 <template>
   <div class="amber-store-editor">
     <h1 class="text-2xl font-bold mb-6">{{ isNewAmberStore ? 'Create New Amber Store' : 'Edit Amber Store' }}</h1>
-    <form @submit.prevent="saveAmberStore" class="space-y-6">
+    <div class="flex justify-end mb-6">
+      <button type="button" @click="cancel"
+        class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        Cancel
+      </button>
+      <button type="submit" form="amber-store-form"
+        class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        {{ isNewAmberStore ? 'Create' : 'Update' }}
+      </button>
+    </div>
+    <form id="amber-store-form" @submit.prevent="saveAmberStore" class="space-y-6">
       <div class="bg-white shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:p-6">
           <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             <div class="sm:col-span-4">
               <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
-              <input type="text" id="name" v-model="amberStore.name" required class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+              <input type="text" id="name" v-model="amberStore.name" required
+                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
             </div>
-            <div class="sm:col-span-6">
-              <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-              <textarea id="description" v-model="amberStore.description" rows="3" class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"></textarea>
+            <div class="sm:col-span-4">
+              <label for="secure_key_hash" class="block text-sm font-medium text-gray-700">Secure Key Hash</label>
+              <input type="text" id="secure_key_hash" v-model="amberStore.secure_key_hash" required
+                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
             </div>
             <div class="sm:col-span-6">
               <label for="data" class="block text-sm font-medium text-gray-700">Data (YAML)</label>
               <div class="mt-1 border border-gray-300 rounded-md overflow-hidden" style="height: calc(100vh - 400px);">
-                <YamlEditor
-                  v-model="amberStore.data"
-                  class="h-full"
-                />
+                <YamlEditor v-model="amberStore.data" class="h-full" />
               </div>
-            </div>
-            <div class="sm:col-span-4">
-              <label for="secure_key_hash" class="block text-sm font-medium text-gray-700">Secure Key Hash</label>
-              <input type="text" id="secure_key_hash" v-model="amberStore.secure_key_hash" required class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
             </div>
           </div>
         </div>
-      </div>
-      <div class="flex justify-end">
-        <button type="button" @click="cancel" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-          Cancel
-        </button>
-        <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-          {{ isNewAmberStore ? 'Create' : 'Update' }}
-        </button>
       </div>
     </form>
   </div>
@@ -60,7 +57,6 @@ export default defineComponent({
     const amberStore = ref({
       id: '',
       name: '',
-      description: '',
       data: '',
       secure_key_hash: '',
     });
