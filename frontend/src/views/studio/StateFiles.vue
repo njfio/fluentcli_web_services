@@ -1,6 +1,6 @@
 <template>
   <div class="state-files">
-    <h1 class="text-2xl font-bold mb-4">State Files</h1>
+    <h1 class="text-2xl font-bold mb-6">State Files</h1>
     <div class="mb-4 flex justify-between items-center">
       <input
         v-model="searchQuery"
@@ -49,7 +49,7 @@
             <tr v-if="expandedStateFiles.includes(job.id)">
               <td colspan="6" class="px-6 py-4">
                 <div class="max-w-full overflow-x-auto">
-                  <pre v-html="highlightJSON(job.state_file_content)" class="bg-gray-100 p-4 rounded-lg whitespace-pre-wrap overflow-x-auto" style="max-width: 100%;"></pre>
+                  <pre class="p-4 text-sm overflow-x-auto"><code class="yaml" v-html="highlightJSON(job.state_file_content)"></code></pre>
                 </div>
               </td>
             </tr>
@@ -63,19 +63,17 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
 import { formatDate } from '@/utils/dateFormatter';
 import hljs from 'highlight.js/lib/core';
-import json from 'highlight.js/lib/languages/json';
+import yaml from 'highlight.js/lib/languages/yaml';
 import 'highlight.js/styles/github.css';
 
-hljs.registerLanguage('json', json);
+hljs.registerLanguage('yaml', yaml);
 
 export default defineComponent({
   name: 'StateFiles',
   setup() {
     const store = useStore();
-    const router = useRouter();
     const searchQuery = ref('');
     const expandedStateFiles = ref<string[]>([]);
 
@@ -129,7 +127,7 @@ export default defineComponent({
 
     const highlightJSON = (json: any) => {
       const jsonString = JSON.stringify(json, null, 2);
-      return hljs.highlight(jsonString, { language: 'json' }).value;
+      return hljs.highlight(jsonString, { language: 'yaml' }).value;
     };
 
     const getStateFileSize = (stateFileContent: any) => {
@@ -162,14 +160,13 @@ export default defineComponent({
 
 <style scoped>
 .state-files {
-  @apply p-6;
+  @apply max-w-7xl mx-auto py-6 sm:px-6 lg:px-8;
 }
 
 .truncate {
   @apply overflow-hidden text-ellipsis;
 }
 
-/* Add these styles to ensure proper wrapping and scrolling */
 pre {
   white-space: pre-wrap;
   word-wrap: break-word;
