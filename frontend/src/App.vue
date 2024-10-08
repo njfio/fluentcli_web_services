@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 
 const store = useStore();
@@ -21,6 +21,10 @@ watch(isDarkMode, (newValue) => {
     document.documentElement.classList.remove('dark');
   }
 }, { immediate: true });
+
+onMounted(() => {
+  store.dispatch('theme/initDarkMode');
+});
 </script>
 
 <style>

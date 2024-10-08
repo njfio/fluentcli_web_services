@@ -3,9 +3,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, watch, onMounted, onBeforeUnmount, computed } from 'vue';
+import { defineComponent, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import * as monaco from 'monaco-editor';
-import { useStore } from 'vuex';
 
 export default defineComponent({
     name: 'MonacoEditor',
@@ -18,23 +17,30 @@ export default defineComponent({
             type: String,
             default: 'yaml',
         },
+        theme: {
+            type: String,
+            default: 'vs-light',
+        },
     },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
-        const store = useStore();
         const editorContainer = ref<HTMLElement | null>(null);
         let editor: monaco.editor.IStandaloneCodeEditor | null = null;
+        const currentTheme = ref(props.theme);
 
-        const isDarkMode = computed(() => store.state.theme.darkMode);
-
-        const getCurrentTheme = () => isDarkMode.value ? 'vs-dark' : 'vs-light';
+        console.log('MonacoEditor setup, initial theme:', props.theme);
 
         const initMonaco = () => {
             if (editorContainer.value) {
+                console.log('Initializing Monaco editor with theme:', currentTheme.value);
+                if (editor) {
+                    console.log('Disposing existing editor');
+                    editor.dispose();
+                }
                 editor = monaco.editor.create(editorContainer.value, {
                     value: props.modelValue,
                     language: props.language,
-                    theme: getCurrentTheme(),
+                    theme: currentTheme.value,
                     automaticLayout: true,
                     minimap: { enabled: false },
                     scrollBeyondLastLine: false,
@@ -43,17 +49,16 @@ export default defineComponent({
                 editor.onDidChangeModelContent(() => {
                     emit('update:modelValue', editor?.getValue());
                 });
-            }
-        };
 
-        const updateEditorTheme = () => {
-            if (editor) {
-                monaco.editor.setTheme(getCurrentTheme());
+                console.log('Monaco editor initialized with theme:', currentTheme.value);
             }
         };
 
         onMounted(() => {
-            initMonaco();
+            console.log('MonacoEditor mounted, current theme:', currentTheme.value);
+            nextTick(() => {
+                initMonaco();
+            });
         });
 
         onBeforeUnmount(() => {
@@ -68,12 +73,23 @@ export default defineComponent({
             }
         });
 
-        watch(isDarkMode, () => {
-            updateEditorTheme();
+        watch(() => props.theme, (newTheme) => {
+            console.log('Theme prop changed in MonacoEditor:', newTheme);
+            currentTheme.value = newTheme;
+            nextTick(() => {
+                if (editor) {
+                    console.log('Updating Monaco editor theme to:', newTheme);
+                    monaco.editor.setTheme(newTheme);
+                } else {
+                    console.warn('Editor not initialized, reinitializing with new theme');
+                    initMonaco();
+                }
+            });
         }, { immediate: true });
 
         return {
             editorContainer,
+            currentTheme,
         };
     },
 });

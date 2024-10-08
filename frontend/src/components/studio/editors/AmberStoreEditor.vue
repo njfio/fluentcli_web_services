@@ -1,5 +1,5 @@
 <template>
-  <div class="amber-store-editor dark:bg-gray-900">
+  <div v-if="isThemeInitialized" class="amber-store-editor dark:bg-gray-900">
     <h1 class="text-2xl font-bold mb-6 dark:text-white">
       {{ isNewAmberStore ? 'Create New Amber Store' : 'Edit Amber Store' }}
     </h1>
@@ -32,7 +32,8 @@
               <label for="data" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Data (YAML)</label>
               <div class="mt-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden dark:bg-gray-800"
                 style="height: calc(100vh - 400px);">
-                <YamlEditor v-model="amberStore.data" :options="editorOptions" class="h-full" />
+                <MonacoEditor :key="currentTheme" v-model="amberStore.data" language="yaml" :theme="currentTheme"
+                  class="h-full" />
               </div>
             </div>
           </div>
@@ -40,18 +41,21 @@
       </div>
     </form>
   </div>
+  <div v-else class="flex justify-center items-center h-screen">
+    <p class="text-xl">Loading...</p>
+  </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
-import YamlEditor from './MonacoEditor.vue';
+import MonacoEditor from './MonacoEditor.vue';
 
 export default defineComponent({
   name: 'AmberStoreEditor',
   components: {
-    YamlEditor,
+    MonacoEditor,
   },
   setup() {
     const store = useStore();
@@ -66,17 +70,13 @@ export default defineComponent({
     });
 
     const isNewAmberStore = computed(() => route.params.id === 'new');
-    const isDarkMode = computed(() => store.state.theme.darkMode);
+    const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
+    const isThemeInitialized = computed(() => store.getters['theme/isInitialized']);
+    const currentTheme = computed(() => isDarkMode.value ? 'vs-dark' : 'vs-light');
 
-    const editorOptions = computed(() => ({
-      minimap: { enabled: false },
-      lineNumbers: 'on',
-      roundedSelection: false,
-      scrollBeyondLastLine: false,
-      readOnly: false,
-      theme: isDarkMode.value ? 'vs-dark' : 'vs-light',
-      language: 'yaml',
-    }));
+    console.log('AmberStoreEditor setup, initial isDarkMode:', isDarkMode.value);
+    console.log('AmberStoreEditor setup, initial currentTheme:', currentTheme.value);
+    console.log('AmberStoreEditor setup, isThemeInitialized:', isThemeInitialized.value);
 
     onMounted(async () => {
       if (!isNewAmberStore.value) {
@@ -84,6 +84,7 @@ export default defineComponent({
         const fetchedAmberStore = await store.dispatch('studio/fetchAmberStoreById', id);
         amberStore.value = { ...fetchedAmberStore };
       }
+      console.log('AmberStoreEditor mounted, current theme:', currentTheme.value);
     });
 
     const saveAmberStore = async () => {
@@ -105,14 +106,25 @@ export default defineComponent({
     };
 
     // Watch for theme changes
-    watch(isDarkMode, () => {
-      console.log('Theme changed, updating editor options');
+    watch(isDarkMode, (newValue) => {
+      console.log('AmberStoreEditor: Dark mode changed:', newValue, 'New theme:', currentTheme.value);
+    });
+
+    // Watch for changes in the current theme
+    watch(currentTheme, (newTheme) => {
+      console.log('AmberStoreEditor: Current theme changed to:', newTheme);
+    });
+
+    // Watch for theme initialization
+    watch(isThemeInitialized, (initialized) => {
+      console.log('AmberStoreEditor: Theme initialization state:', initialized);
     });
 
     return {
       amberStore,
       isNewAmberStore,
-      editorOptions,
+      currentTheme,
+      isThemeInitialized,
       saveAmberStore,
       cancel,
     };

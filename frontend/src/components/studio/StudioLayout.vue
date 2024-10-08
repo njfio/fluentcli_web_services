@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import StudioHeader from './StudioHeader.vue';
 import StudioSidebar from './StudioSidebar.vue';
@@ -29,8 +29,17 @@ const toggleSidebar = () => {
 };
 
 const toggleDarkMode = () => {
+    console.log('Toggling dark mode in StudioLayout');
     store.dispatch('theme/toggleDarkMode');
 };
+
+// Watch for changes in the isDarkMode computed property
+watch(isDarkMode, (newValue) => {
+    console.log('Dark mode changed in StudioLayout:', newValue);
+});
+
+// Log the initial dark mode state
+console.log('Initial dark mode state in StudioLayout:', isDarkMode.value);
 </script>
 
 <style scoped>
