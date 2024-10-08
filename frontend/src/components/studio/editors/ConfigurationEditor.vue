@@ -7,13 +7,15 @@
         <input type="text" id="name" v-model="configuration.name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
       </div>
       <div class="flex-grow flex flex-col">
-        <label for="data" class="block text-sm font-medium text-gray-700 mb-2">Data (YAML)</label>
+        <label for="data" class="block text-sm font-medium text-gray-700 mb-2">Data (JSON)</label>
         <div class="flex-grow relative">
-          <textarea
+          <pre
             id="data"
-            v-model="configuration.data"
-            class="absolute inset-0 w-full h-full resize-none border border-gray-300 rounded-md shadow-sm p-2 font-mono"
-          ></textarea>
+            v-html="highlightedJson"
+            class="absolute inset-0 w-full h-full overflow-auto border border-gray-300 rounded-md shadow-sm p-2 font-mono bg-white"
+            contenteditable="true"
+            @input="updateConfigurationData"
+          ></pre>
         </div>
       </div>
       <div class="flex justify-end space-x-2 mt-4">
@@ -32,6 +34,10 @@
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
+import hljs from 'highlight.js/lib/core';
+import json from 'highlight.js/lib/languages/json';
+
+hljs.registerLanguage('json', json);
 
 export default defineComponent({
   name: 'ConfigurationEditor',
@@ -47,6 +53,29 @@ export default defineComponent({
     });
 
     const isNewConfiguration = computed(() => !route.params.id);
+
+    const highlightedJson = computed(() => {
+      try {
+        const jsonObject = JSON.parse(configuration.value.data);
+        const formattedJson = JSON.stringify(jsonObject, null, 2);
+        return hljs.highlight(formattedJson, { language: 'json' }).value;
+      } catch (error) {
+        console.error('Error parsing or highlighting JSON:', error);
+        return configuration.value.data;
+      }
+    });
+
+    const updateConfigurationData = (event: Event) => {
+      const target = event.target as HTMLPreElement;
+      try {
+        const jsonContent = target.innerText;
+        JSON.parse(jsonContent); // Validate JSON
+        configuration.value.data = jsonContent;
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
+        // Optionally, you can show an error message to the user here
+      }
+    };
 
     onMounted(async () => {
       if (!isNewConfiguration.value) {
@@ -92,6 +121,8 @@ export default defineComponent({
     return {
       configuration,
       isNewConfiguration,
+      highlightedJson,
+      updateConfigurationData,
       saveConfiguration,
       cancel,
     };
@@ -103,4 +134,14 @@ export default defineComponent({
 .configuration-editor {
   height: calc(100vh - 64px); /* Adjust this value based on your layout */
 }
+</style>
+
+<style>
+/* Add these styles for JSON syntax highlighting */
+.hljs-attr { color: #f92672; }
+.hljs-string { color: #a6e22e; }
+.hljs-number { color: #ae81ff; }
+.hljs-boolean { color: #ae81ff; }
+.hljs-null { color: #ae81ff; }
+.hljs-literal { color: #ae81ff; }
 </style>
