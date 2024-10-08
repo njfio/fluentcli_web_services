@@ -1,153 +1,117 @@
 <template>
   <div class="docker-files">
-    <h1 class="text-2xl font-bold mb-6">Docker Files</h1>
-
-    <div class="mb-4">
-      <button @click="createNewDockerFile" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+    <h1 class="text-2xl font-bold mb-4">Docker Files</h1>
+    <div class="mb-4 flex justify-between items-center">
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Search docker files..."
+        class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+      />
+      <button
+        @click="createNewDockerFile"
+        class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors duration-200"
+      >
         Create New Docker File
       </button>
     </div>
-
-    <div v-if="loading" class="text-center">Loading...</div>
-    <div v-else-if="error" class="text-red-500">{{ error }}</div>
-    <div v-else-if="dockerFiles.length" class="docker-file-table-container">
-      <table class="docker-file-table">
-        <thead>
+    <div class="overflow-x-auto shadow-md rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-primary-600">
           <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Created At</th>
-            <th>Last Modified</th>
-            <th>Actions</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">Name</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">Description</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Created At</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Updated At</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Actions</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="dockerFile in dockerFiles" :key="dockerFile.id">
-            <td>{{ dockerFile.name }}</td>
-            <td>{{ dockerFile.description }}</td>
-            <td>{{ formatDate(dockerFile.createdAt) }}</td>
-            <td>{{ formatDate(dockerFile.updatedAt) }}</td>
-            <td>
-              <button @click="editDockerFile(dockerFile.id)" class="text-blue-500 hover:text-blue-700 mr-2">
-                Edit
-              </button>
-              <button @click="deleteDockerFile(dockerFile.id)" class="text-red-500 hover:text-red-700">
-                Delete
-              </button>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="dockerFile in filteredDockerFiles" :key="dockerFile.id">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <router-link :to="{ name: 'DockerFileEditor', params: { id: dockerFile.id } }" class="text-primary-600 hover:text-primary-900">
+                <span :title="dockerFile.name" class="truncate block max-w-xs">{{ dockerFile.name }}</span>
+              </router-link>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <span :title="dockerFile.description" class="truncate block max-w-xs">{{ dockerFile.description }}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ formatDate(dockerFile.createdAt) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ formatDate(dockerFile.updatedAt) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <router-link :to="{ name: 'DockerFileEditor', params: { id: dockerFile.id } }" class="text-primary-600 hover:text-primary-900 mr-2">Edit</router-link>
+              <button @click="deleteDockerFile(dockerFile.id)" class="text-red-600 hover:text-red-900">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="no-docker-files">
-      <p>No Docker files available. Click the "Create New Docker File" button to create one.</p>
-    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { formatDate } from '@/utils/dateFormatter';
 
-const store = useStore();
-const router = useRouter();
+export default defineComponent({
+  name: 'DockerFiles',
+  setup() {
+    const store = useStore();
+    const router = useRouter();
+    const searchQuery = ref('');
 
-const dockerFiles = computed(() => {
-  console.log('Computing dockerFiles:', store.getters['studio/getDockerFiles']);
-  return store.getters['studio/getDockerFiles'];
+    const dockerFiles = computed(() => store.getters['studio/getDockerFiles']);
+    const filteredDockerFiles = computed(() => {
+      return dockerFiles.value.filter((dockerFile: any) =>
+        dockerFile.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        dockerFile.description.toLowerCase().includes(searchQuery.value.toLowerCase())
+      );
+    });
+
+    onMounted(() => {
+      store.dispatch('studio/fetchDockerFiles');
+    });
+
+    const createNewDockerFile = () => {
+      router.push({ name: 'DockerFileEditor', params: { id: 'new' } });
+    };
+
+    const deleteDockerFile = async (id: string) => {
+      if (confirm('Are you sure you want to delete this Docker file?')) {
+        try {
+          await store.dispatch('studio/deleteDockerFile', id);
+          // Refresh the Docker files list after deletion
+          await store.dispatch('studio/fetchDockerFiles');
+        } catch (error) {
+          console.error('Error deleting Docker file:', error);
+          // Handle error (e.g., show an error message to the user)
+        }
+      }
+    };
+
+    return {
+      searchQuery,
+      filteredDockerFiles,
+      createNewDockerFile,
+      deleteDockerFile,
+      formatDate,
+    };
+  },
 });
-const loading = ref(false);
-const error = ref('');
-
-console.log('DockerFiles component initialized');
-
-onMounted(async () => {
-  console.log('DockerFiles component mounted');
-  await fetchDockerFiles();
-});
-
-watch(dockerFiles, (newValue) => {
-  console.log('dockerFiles updated:', newValue);
-});
-
-const fetchDockerFiles = async () => {
-  console.log('Fetching Docker files...');
-  loading.value = true;
-  error.value = '';
-  try {
-    await store.dispatch('studio/fetchDockerFiles');
-    console.log('Docker files fetched successfully');
-  } catch (err: any) {
-    console.error('Failed to fetch Docker files:', err);
-    error.value = `Error fetching Docker files: ${err.message || 'Unknown error'}`;
-  } finally {
-    loading.value = false;
-  }
-};
-
-const createNewDockerFile = () => {
-  console.log('Creating new Docker file');
-  router.push({ name: 'NewDockerFile' });
-};
-
-const editDockerFile = (id: string) => {
-  console.log('Editing Docker file:', id);
-  router.push({ name: 'DockerFileEditor', params: { id } });
-};
-
-const deleteDockerFile = async (id: string) => {
-  if (confirm('Are you sure you want to delete this Docker file?')) {
-    console.log('Deleting Docker file:', id);
-    try {
-      await store.dispatch('studio/deleteDockerFile', id);
-      await fetchDockerFiles();
-    } catch (err: any) {
-      console.error('Failed to delete Docker file:', err);
-      error.value = `Error deleting Docker file: ${err.message || 'Unknown error'}`;
-    }
-  }
-};
 </script>
 
 <style scoped>
 .docker-files {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+  @apply p-6;
 }
 
-.docker-file-table-container {
-  overflow-x: auto;
-}
-
-.docker-file-table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.docker-file-table th,
-.docker-file-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.docker-file-table th {
-  background-color: #f5f5f5;
-  font-weight: bold;
-}
-
-.docker-file-table tr:hover {
-  background-color: #f9f9f9;
-}
-
-.no-docker-files {
-  text-align: center;
-  color: #7f8c8d;
-  margin-top: 50px;
+.truncate {
+  @apply overflow-hidden text-ellipsis;
 }
 </style>

@@ -1,157 +1,160 @@
 <template>
   <div class="state-files">
     <h1 class="text-2xl font-bold mb-4">State Files</h1>
-    <div v-if="loading" class="text-center py-4">
-      <p>Loading state files...</p>
+    <div class="mb-4 flex justify-between items-center">
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Search state files..."
+        class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+      />
     </div>
-    <div v-else-if="error" class="text-center py-4 text-red-600">
-      <p>Error: {{ error }}</p>
+    <div class="overflow-x-auto shadow-md rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-primary-600">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Job ID</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Worker Type</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Status</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Size</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Created At</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <template v-for="job in filteredJobs" :key="job.id">
+            <tr>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <router-link :to="{ name: 'JobDetail', params: { id: job.id } }" class="text-primary-600 hover:text-primary-900">
+                  <span :title="job.id" class="truncate block max-w-xs">{{ job.id }}</span>
+                </router-link>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <span :title="job.worker_type" class="truncate block max-w-xs">{{ job.worker_type }}</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <span :class="getStatusClass(job.status)">{{ job.status }}</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {{ formatFileSize(getStateFileSize(job.state_file_content)) }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(job.createdAt) }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button @click="toggleStateFile(job.id)" class="text-primary-600 hover:text-primary-900 mr-2">
+                  {{ expandedStateFiles.includes(job.id) ? 'Hide' : 'Show' }} State File
+                </button>
+                <button @click="deleteJob(job.id)" class="text-red-600 hover:text-red-900">Delete</button>
+              </td>
+            </tr>
+            <tr v-if="expandedStateFiles.includes(job.id)">
+              <td colspan="6" class="px-6 py-4">
+                <div class="max-w-full overflow-x-auto">
+                  <pre v-html="highlightJSON(job.state_file_content)" class="bg-gray-100 p-4 rounded-lg whitespace-pre-wrap overflow-x-auto" style="max-width: 100%;"></pre>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
     </div>
-    <div v-else-if="jobsWithStateFiles.length === 0" class="text-center py-4">
-      <p>No state files found.</p>
-    </div>
-    <table v-else class="min-w-full bg-white">
-      <thead>
-        <tr>
-          <th class="py-2 px-4 border-b">Job ID</th>
-          <th class="py-2 px-4 border-b">Content Size (bytes)</th>
-          <th class="py-2 px-4 border-b">State File Content</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="job in jobsWithStateFiles" :key="job.id">
-          <td class="py-2 px-4 border-b">
-            <router-link :to="{ name: 'JobDetail', params: { id: job.id } }" class="text-blue-500 hover:text-blue-700">
-              {{ job.id }}
-            </router-link>
-          </td>
-          <td class="py-2 px-4 border-b">{{ getContentSize(job.state_file_content) }}</td>
-          <td class="py-2 px-4 border-b">
-            <div class="relative">
-              <button @click="toggleExpand(job.id)" class="text-blue-500 hover:text-blue-700">
-                {{ isExpanded(job.id) ? 'Collapse' : 'Expand' }}
-              </button>
-              <pre
-                v-if="isExpanded(job.id)"
-                class="whitespace-pre-wrap mt-2 p-2 bg-gray-100 rounded"
-                v-html="getHighlightedJSON(job.state_file_content)"
-              ></pre>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, onMounted, ref } from 'vue';
+import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { Job } from '@/store/modules/studio';
+import { formatDate } from '@/utils/dateFormatter';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
+import 'highlight.js/styles/github.css';
 
 hljs.registerLanguage('json', json);
 
 export default defineComponent({
   name: 'StateFiles',
   setup() {
-    console.log('StateFiles setup function called');
     const store = useStore();
     const router = useRouter();
-    const loading = ref(true);
-    const error = ref<string | null>(null);
-    const expandedJobs = ref<Set<string>>(new Set());
+    const searchQuery = ref('');
+    const expandedStateFiles = ref<string[]>([]);
 
-    const jobsWithStateFiles = computed(() => {
-      console.log('Computing jobsWithStateFiles');
-      const jobs: Job[] = store.getters['studio/getJobs'];
-      console.log('Jobs from store:', jobs);
-      return jobs.filter(job => job.state_file_content != null);
+    const jobs = computed(() => store.getters['studio/getJobs']);
+    const filteredJobs = computed(() => {
+      return jobs.value.filter((job: any) =>
+        job.id.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        job.worker_type.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        job.status.toLowerCase().includes(searchQuery.value.toLowerCase())
+      );
     });
 
-    const getContentSize = (content: any): number => {
-      if (typeof content === 'string') {
-        return new Blob([content]).size;
-      } else if (typeof content === 'object') {
-        return new Blob([JSON.stringify(content)]).size;
-      }
-      return 0;
-    };
+    onMounted(() => {
+      store.dispatch('studio/fetchJobs');
+    });
 
-    const toggleExpand = (jobId: string) => {
-      if (expandedJobs.value.has(jobId)) {
-        expandedJobs.value.delete(jobId);
-      } else {
-        expandedJobs.value.add(jobId);
-      }
-    };
-
-    const isExpanded = (jobId: string): boolean => {
-      return expandedJobs.value.has(jobId);
-    };
-
-    const highlightJSON = (content: any): string => {
-      if (!content) return 'No content available';
-      
-      let jsonString: string;
-      if (typeof content === 'string') {
+    const deleteJob = async (id: string) => {
+      if (confirm('Are you sure you want to delete this job and its associated state file?')) {
         try {
-          // If it's a string, try to parse it as JSON
-          JSON.parse(content);
-          jsonString = content;
-        } catch (e) {
-          // If parsing fails, it's not a valid JSON string
-          return `Invalid JSON: ${content}`;
+          await store.dispatch('studio/deleteJob', id);
+          // Refresh the jobs list after deletion
+          await store.dispatch('studio/fetchJobs');
+        } catch (error) {
+          console.error('Error deleting job:', error);
+          // Handle error (e.g., show an error message to the user)
         }
-      } else if (typeof content === 'object') {
-        // If it's already an object, stringify it
-        try {
-          jsonString = JSON.stringify(content, null, 2);
-        } catch (e) {
-          return `Error stringifying object: ${e}`;
-        }
-      } else {
-        return `Unsupported content type: ${typeof content}`;
-      }
-
-      try {
-        return hljs.highlight(jsonString, { language: 'json' }).value;
-      } catch (e) {
-        console.error('Error highlighting JSON:', e);
-        return jsonString; // Return non-highlighted but formatted JSON if highlighting fails
       }
     };
 
-    const getHighlightedJSON = computed(() => {
-      return (content: any) => highlightJSON(content);
-    });
-
-    onMounted(async () => {
-      console.log('StateFiles component mounted');
-      try {
-        console.log('Dispatching fetchJobs action');
-        await store.dispatch('studio/fetchJobs');
-        console.log('fetchJobs action completed');
-        const jobs = store.getters['studio/getJobs'];
-        console.log('Jobs after fetching:', jobs);
-      } catch (err) {
-        console.error('Error fetching jobs:', err);
-        error.value = err instanceof Error ? err.message : 'An unknown error occurred';
-      } finally {
-        loading.value = false;
+    const getStatusClass = (status: string) => {
+      switch (status.toLowerCase()) {
+        case 'completed':
+          return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800';
+        case 'running':
+          return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800';
+        case 'failed':
+          return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
+        default:
+          return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800';
       }
-    });
+    };
+
+    const toggleStateFile = (jobId: string) => {
+      const index = expandedStateFiles.value.indexOf(jobId);
+      if (index === -1) {
+        expandedStateFiles.value.push(jobId);
+      } else {
+        expandedStateFiles.value.splice(index, 1);
+      }
+    };
+
+    const highlightJSON = (json: any) => {
+      const jsonString = JSON.stringify(json, null, 2);
+      return hljs.highlight(jsonString, { language: 'json' }).value;
+    };
+
+    const getStateFileSize = (stateFileContent: any) => {
+      return JSON.stringify(stateFileContent).length;
+    };
+
+    const formatFileSize = (bytes: number) => {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
 
     return {
-      jobsWithStateFiles,
-      loading,
-      error,
-      getContentSize,
-      toggleExpand,
-      isExpanded,
-      getHighlightedJSON,
+      searchQuery,
+      filteredJobs,
+      deleteJob,
+      getStatusClass,
+      formatDate,
+      expandedStateFiles,
+      toggleStateFile,
+      highlightJSON,
+      getStateFileSize,
+      formatFileSize,
     };
   },
 });
@@ -159,39 +162,22 @@ export default defineComponent({
 
 <style scoped>
 .state-files {
-  padding: 20px;
+  @apply p-6;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+.truncate {
+  @apply overflow-hidden text-ellipsis;
 }
 
-th, td {
-  text-align: left;
-  padding: 8px;
-  border-bottom: 1px solid #ddd;
-}
-
-th {
-  background-color: #f2f2f2;
-  font-weight: bold;
-}
-
+/* Add these styles to ensure proper wrapping and scrolling */
 pre {
-  max-height: none;
-  overflow-y: visible;
-  background-color: #f8f8f8;
-  padding: 8px;
-  border-radius: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
-</style>
 
-<style>
-/* Add these styles for syntax highlighting */
-.hljs-string { color: #008000; }
-.hljs-number { color: #0000ff; }
-.hljs-boolean { color: #b22222; }
-.hljs-null { color: #808080; }
-.hljs-attr { color: #7f0055; }
+.overflow-x-auto {
+  max-width: 100%;
+  overflow-x: auto;
+}
 </style>
