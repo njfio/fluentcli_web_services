@@ -1,5 +1,5 @@
 <template>
-  <div class="pipeline-editor dark:bg-gray-900">
+  <div v-if="isThemeInitialized" class="pipeline-editor dark:bg-gray-900">
     <h1 class="text-2xl font-bold mb-6 dark:text-white">{{ isNewPipeline ? 'Create New Pipeline' : 'Edit Pipeline' }}
     </h1>
     <div class="flex justify-end mb-6">
@@ -26,14 +26,17 @@
                 (YAML)</label>
               <div class="mt-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden dark:bg-gray-800"
                 style="height: calc(100vh - 400px);">
-                <MonacoEditor v-model="pipeline.data" language="yaml" :options="editorOptions" class="h-full"
-                  @update:modelValue="onEditorUpdate" />
+                <MonacoEditor :key="currentTheme" v-model="pipeline.data" language="yaml" :theme="currentTheme"
+                  :options="editorOptions" class="h-full" @update:modelValue="onEditorUpdate" />
               </div>
             </div>
           </div>
         </div>
       </div>
     </form>
+  </div>
+  <div v-else class="flex justify-center items-center h-screen">
+    <p class="text-xl">Loading...</p>
   </div>
 </template>
 
@@ -60,16 +63,21 @@ export default defineComponent({
     });
 
     const isNewPipeline = computed(() => route.params.id === 'new');
-    const isDarkMode = computed(() => store.state.theme.darkMode);
+    const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
+    const isThemeInitialized = computed(() => store.getters['theme/isInitialized']);
+    const currentTheme = computed(() => isDarkMode.value ? 'vs-dark' : 'vs-light');
 
-    const editorOptions = computed(() => ({
+    const editorOptions = {
       minimap: { enabled: false },
       lineNumbers: 'on',
       roundedSelection: false,
       scrollBeyondLastLine: false,
       readOnly: false,
-      theme: isDarkMode.value ? 'vs-dark' : 'vs-light',
-    }));
+    };
+
+    console.log('PipelineEditor setup, initial isDarkMode:', isDarkMode.value);
+    console.log('PipelineEditor setup, initial currentTheme:', currentTheme.value);
+    console.log('PipelineEditor setup, isThemeInitialized:', isThemeInitialized.value);
 
     onMounted(async () => {
       if (!isNewPipeline.value) {
@@ -80,6 +88,7 @@ export default defineComponent({
         pipeline.value = { ...fetchedPipeline };
         console.log('Initial pipeline data:', pipeline.value.data);
       }
+      console.log('PipelineEditor mounted, current theme:', currentTheme.value);
     });
 
     const onEditorUpdate = (value: string) => {
@@ -112,14 +121,26 @@ export default defineComponent({
       console.log('Pipeline data changed:', newValue);
     });
 
-    // Watch for theme changes and update editor options
-    watch(isDarkMode, () => {
-      console.log('Theme changed, updating editor options');
+    // Watch for theme changes
+    watch(isDarkMode, (newValue) => {
+      console.log('PipelineEditor: Dark mode changed:', newValue, 'New theme:', currentTheme.value);
+    });
+
+    // Watch for changes in the current theme
+    watch(currentTheme, (newTheme) => {
+      console.log('PipelineEditor: Current theme changed to:', newTheme);
+    });
+
+    // Watch for theme initialization
+    watch(isThemeInitialized, (initialized) => {
+      console.log('PipelineEditor: Theme initialization state:', initialized);
     });
 
     return {
       pipeline,
       isNewPipeline,
+      currentTheme,
+      isThemeInitialized,
       editorOptions,
       savePipeline,
       cancel,
