@@ -1,46 +1,49 @@
 <template>
   <div class="configurations">
-    <h1 class="text-2xl font-bold mb-4">Configurations</h1>
+    <h1 class="text-2xl font-bold mb-4 dark:text-white">Configurations</h1>
     <div class="mb-4 flex justify-between items-center">
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="Search configurations..."
-        class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-      />
-      <button
-        @click="createNewConfiguration"
-        class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors duration-200"
-      >
+      <input v-model="searchQuery" type="text" placeholder="Search configurations..."
+        class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600" />
+      <button @click="createNewConfiguration"
+        class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors duration-200">
         Create New Configuration
       </button>
     </div>
     <div class="overflow-x-auto shadow-md rounded-lg">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-primary-600">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-primary-600 dark:bg-primary-800">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">Name</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">Description</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Type</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Created At</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">Actions</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
+              Name</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
+              Description</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+              Type</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+              Created At</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+              Actions</th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="config in filteredConfigurations" :key="config.id">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              <router-link :to="{ name: 'ConfigurationEditor', params: { id: config.id } }" class="text-primary-600 hover:text-primary-900">
+        <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+          <tr v-for="config in filteredConfigurations" :key="config.id" class="dark:hover:bg-gray-700">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+              <router-link :to="{ name: 'ConfigurationEditor', params: { id: config.id } }"
+                class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300">
                 <span :title="config.name" class="truncate block max-w-xs">{{ config.name }}</span>
               </router-link>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
               <span :title="config.description" class="truncate block max-w-xs">{{ config.description }}</span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ config.type }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(config.createdAt) }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{ config.type }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{
+              formatDate(config.createdAt) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-              <router-link :to="{ name: 'ConfigurationEditor', params: { id: config.id } }" class="text-primary-600 hover:text-primary-900 mr-2">Edit</router-link>
-              <button @click="deleteConfiguration(config.id)" class="text-red-600 hover:text-red-900">Delete</button>
+              <router-link :to="{ name: 'ConfigurationEditor', params: { id: config.id } }"
+                class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-2">Edit</router-link>
+              <button @click="deleteConfiguration(config.id)"
+                class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
             </td>
           </tr>
         </tbody>
@@ -105,7 +108,7 @@ export default defineComponent({
 
 <style scoped>
 .configurations {
-  @apply p-6;
+  @apply p-6 dark:bg-gray-900;
 }
 
 .truncate {
