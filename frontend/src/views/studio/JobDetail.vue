@@ -1,7 +1,7 @@
 <template>
-  <div class="job-detail bg-gray-50 min-h-screen py-8">
-    <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg overflow-hidden">
-      <div class="px-6 py-4 bg-primary-600 text-white flex justify-between items-center">
+  <div class="job-detail bg-gray-50 dark:bg-gray-900 min-h-screen py-8">
+    <div class="max-w-6xl mx-auto bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+      <div class="px-6 py-4 bg-primary-600 dark:bg-primary-800 text-white flex justify-between items-center">
         <h2 class="text-2xl font-bold">Job Details</h2>
         <div v-if="job" class="text-sm font-medium px-3 py-1 rounded-full" :class="getStatusClass(job.status)">
           {{ job.status }}
@@ -9,28 +9,30 @@
       </div>
       <div v-if="loading" class="p-6 text-center">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-        <p class="mt-4 text-gray-600">Loading job details...</p>
+        <p class="mt-4 text-gray-600 dark:text-gray-300">Loading job details...</p>
       </div>
       <div v-else-if="error" class="p-6 text-center">
-        <p class="text-red-600">{{ error }}</p>
+        <p class="text-red-600 dark:text-red-400">{{ error }}</p>
       </div>
       <div v-else-if="job" class="p-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div v-for="(value, key) in jobDetails" :key="key"
-            class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
-            <p class="text-sm font-medium text-gray-600 mb-1">{{ formatLabel(key) }}</p>
-            <p v-if="isLinkableField(key)" class="text-primary-600 hover:text-primary-800 font-semibold">
+            class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{{ formatLabel(key) }}</p>
+            <p v-if="isLinkableField(key)"
+              class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-semibold">
               <router-link :to="getLinkForField(key, value)">
                 {{ getLinkedItemName(key, value) }}
               </router-link>
             </p>
-            <p v-else class="font-semibold text-gray-800">{{ formatValue(key, value) }}</p>
+            <p v-else class="font-semibold text-gray-800 dark:text-gray-200">{{ formatValue(key, value) }}</p>
           </div>
         </div>
         <div class="mt-8">
-          <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
+          <div
+            class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 mb-4">
             <h3 @click="toggleStateFileContent"
-              class="font-semibold mb-2 cursor-pointer flex items-center text-primary-600 hover:text-primary-800">
+              class="font-semibold mb-2 cursor-pointer flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
               <span class="mr-2">State File Content</span>
               <svg :class="{ 'rotate-180': showStateFileContent }" class="w-4 h-4 transition-transform"
                 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -40,13 +42,14 @@
               </svg>
             </h3>
             <div v-if="showStateFileContent" class="mt-2">
-              <pre class="bg-white p-4 rounded overflow-x-auto text-sm border border-gray-200"
+              <pre
+                class="bg-white dark:bg-gray-800 p-4 rounded overflow-x-auto text-sm border border-gray-200 dark:border-gray-600"
                 v-html="highlightedStateFileContent"></pre>
             </div>
           </div>
-          <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+          <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600">
             <h3 @click="toggleJobLogs"
-              class="font-semibold mb-2 cursor-pointer flex items-center text-primary-600 hover:text-primary-800">
+              class="font-semibold mb-2 cursor-pointer flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
               <span class="mr-2">Job Logs</span>
               <svg :class="{ 'rotate-180': showJobLogs }" class="w-4 h-4 transition-transform"
                 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -56,14 +59,15 @@
               </svg>
             </h3>
             <div v-if="showJobLogs" class="mt-2">
-              <pre class="bg-white p-4 rounded overflow-x-auto text-sm border border-gray-200"
+              <pre
+                class="bg-white dark:bg-gray-800 p-4 rounded overflow-x-auto text-sm border border-gray-200 dark:border-gray-600"
                 v-html="highlightedJobLogs"></pre>
             </div>
           </div>
         </div>
       </div>
       <div v-else class="p-6 text-center">
-        <p class="text-gray-600">No job details found.</p>
+        <p class="text-gray-600 dark:text-gray-300">No job details found.</p>
       </div>
     </div>
   </div>
@@ -208,13 +212,13 @@ const getLinkedItemName = (key: string, value: any) => {
 const getStatusClass = (status: string) => {
   switch (status.toLowerCase()) {
     case 'running':
-      return 'bg-green-500';
+      return 'bg-green-500 dark:bg-green-600';
     case 'completed':
-      return 'bg-blue-500';
+      return 'bg-blue-500 dark:bg-blue-600';
     case 'failed':
-      return 'bg-red-500';
+      return 'bg-red-500 dark:bg-red-600';
     default:
-      return 'bg-gray-500';
+      return 'bg-gray-500 dark:bg-gray-600';
   }
 };
 
@@ -290,5 +294,26 @@ h3.cursor-pointer:hover {
 
 .hljs-attr {
   color: #7f0055;
+}
+
+/* Dark mode syntax highlighting */
+.dark .hljs-string {
+  color: #7ec699;
+}
+
+.dark .hljs-number {
+  color: #79b6f2;
+}
+
+.dark .hljs-boolean {
+  color: #ff8b50;
+}
+
+.dark .hljs-null {
+  color: #c678dd;
+}
+
+.dark .hljs-attr {
+  color: #e5c07b;
 }
 </style>
