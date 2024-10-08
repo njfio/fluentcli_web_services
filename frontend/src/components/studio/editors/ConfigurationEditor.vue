@@ -1,205 +1,174 @@
 <template>
-  <div class="configuration-editor">
-    <h3>{{ isNew ? 'Create' : 'Edit' }} Configuration</h3>
-    <form @submit.prevent="handleSubmit">
-      <div class="form-group">
-        <label for="name">Name:</label>
-        <input type="text" id="name" v-model="editedConfiguration.name" required>
-      </div>
-      <div class="form-group">
-        <label for="data">Data (JSON):</label>
-        <textarea id="data" v-model="jsonData" rows="10" required></textarea>
-      </div>
-      <div class="form-actions">
-        <button type="submit" class="save-button">Save</button>
-        <button type="button" @click="$emit('cancel')" class="cancel-button">Cancel</button>
+  <div v-if="isThemeInitialized" class="configuration-editor dark:bg-gray-900">
+    <h1 class="text-2xl font-bold mb-6 dark:text-white">
+      {{ isNewConfiguration ? 'Create New Configuration' : 'Edit Configuration' }}
+    </h1>
+    <div class="flex justify-end mb-6">
+      <button type="button" @click="cancel"
+        class="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-900">
+        Cancel
+      </button>
+      <button type="submit" form="configuration-form"
+        class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-700 dark:hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-900">
+        {{ isNewConfiguration ? 'Create' : 'Update' }}
+      </button>
+    </div>
+    <form id="configuration-form" @submit.prevent="saveConfiguration" class="space-y-6">
+      <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div class="sm:col-span-4">
+              <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+              <input type="text" id="name" v-model="configuration.name" required
+                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+            </div>
+            <div class="sm:col-span-6">
+              <label for="data" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Configuration Data
+                (JSON)</label>
+              <div class="mt-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden dark:bg-gray-800"
+                style="height: calc(100vh - 400px);">
+                <MonacoEditor :key="currentTheme" v-model="editorContent" language="json" :theme="currentTheme"
+                  :options="editorOptions" @change="updateContent" class="h-full" />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </form>
   </div>
+  <div v-else class="flex justify-center items-center h-screen">
+    <p class="text-xl">Loading...</p>
+  </div>
 </template>
-  
-  <script setup lang="ts">
-  import { ref, computed, watch } from 'vue';
-  
-  interface Configuration {
-    id?: string;
-    name: string;
-    data: any;
-  }
-  
-  const props = defineProps<{
-    data: Configuration;
-  }>();
-  
-  const emit = defineEmits<{
-    (e: 'save', configuration: Configuration): void;
-    (e: 'cancel'): void;
-  }>();
-  
-  const editedConfiguration = ref<Configuration>({ ...props.data });
-  const jsonData = ref(JSON.stringify(props.data.data, null, 2));
-  
-  const isNew = computed(() => !props.data.id);
-  
-  watch(() => props.data, (newData) => {
-    editedConfiguration.value = { ...newData };
-    jsonData.value = JSON.stringify(newData.data, null, 2);
-  }, { deep: true });
-  
-  const handleSubmit = () => {
-    try {
-      editedConfiguration.value.data = JSON.parse(jsonData.value);
-      emit('save', editedConfiguration.value);
-    } catch (error) {
-      alert('Invalid JSON data. Please check your input.');
-    }
-  };
-  </script>
-  
+
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter, useRoute } from 'vue-router';
+import MonacoEditor from './MonacoEditor.vue';
+
+export default defineComponent({
+  name: 'ConfigurationEditor',
+  components: {
+    MonacoEditor,
+  },
+  setup() {
+    const store = useStore();
+    const router = useRouter();
+    const route = useRoute();
+
+    const configuration = ref({
+      id: '',
+      name: '',
+      data: '',
+    });
+
+    const editorContent = ref('');
+
+    const isNewConfiguration = computed(() => route.params.id === 'new');
+    const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
+    const isThemeInitialized = computed(() => store.getters['theme/isInitialized']);
+    const currentTheme = computed(() => isDarkMode.value ? 'vs-dark' : 'vs-light');
+
+    const editorOptions = {
+      minimap: { enabled: false },
+      lineNumbers: 'on',
+      roundedSelection: false,
+      scrollBeyondLastLine: false,
+      readOnly: false,
+    };
+
+    console.log('ConfigurationEditor setup, initial isDarkMode:', isDarkMode.value);
+    console.log('ConfigurationEditor setup, initial currentTheme:', currentTheme.value);
+    console.log('ConfigurationEditor setup, isThemeInitialized:', isThemeInitialized.value);
+
+    onMounted(async () => {
+      if (!isNewConfiguration.value) {
+        const id = route.params.id as string;
+        console.log('Fetching configuration with ID:', id);
+        const fetchedConfiguration = await store.dispatch('studio/fetchConfigurationById', id);
+        console.log('Fetched configuration:', fetchedConfiguration);
+        configuration.value = { ...fetchedConfiguration };
+        editorContent.value = typeof configuration.value.data === 'string'
+          ? configuration.value.data
+          : JSON.stringify(configuration.value.data, null, 2);
+        console.log('Editor content set to:', editorContent.value);
+      }
+      console.log('ConfigurationEditor mounted, current theme:', currentTheme.value);
+    });
+
+    const updateContent = (value: string) => {
+      console.log('Updating content:', value);
+      editorContent.value = value;
+      try {
+        configuration.value.data = JSON.parse(value);
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
+        configuration.value.data = value;
+      }
+    };
+
+    const saveConfiguration = async () => {
+      try {
+        console.log('Saving configuration:', configuration.value);
+        const result = isNewConfiguration.value
+          ? await store.dispatch('studio/createConfiguration', configuration.value)
+          : await store.dispatch('studio/updateConfiguration', configuration.value);
+        console.log('Save result:', result);
+        router.push({ name: 'Configurations' });
+      } catch (error) {
+        console.error('Error saving Configuration:', error);
+        // Handle error (e.g., show an error message to the user)
+      }
+    };
+
+    const cancel = () => {
+      router.push({ name: 'Configurations' });
+    };
+
+    // Watch for changes in the editor content
+    watch(editorContent, (newValue) => {
+      console.log('Editor content changed:', newValue);
+      try {
+        configuration.value.data = JSON.parse(newValue);
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
+        configuration.value.data = newValue;
+      }
+    });
+
+    // Watch for theme changes
+    watch(isDarkMode, (newValue) => {
+      console.log('ConfigurationEditor: Dark mode changed:', newValue, 'New theme:', currentTheme.value);
+    });
+
+    // Watch for changes in the current theme
+    watch(currentTheme, (newTheme) => {
+      console.log('ConfigurationEditor: Current theme changed to:', newTheme);
+    });
+
+    // Watch for theme initialization
+    watch(isThemeInitialized, (initialized) => {
+      console.log('ConfigurationEditor: Theme initialization state:', initialized);
+    });
+
+    return {
+      configuration,
+      editorContent,
+      isNewConfiguration,
+      currentTheme,
+      isThemeInitialized,
+      editorOptions,
+      saveConfiguration,
+      cancel,
+      updateContent,
+    };
+  },
+});
+</script>
+
 <style scoped>
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-input[type="text"], textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  font-size: 1rem;
-}
-
-textarea {
-  resize: vertical;
-  min-height: 300px;
-}
-
-.error {
-  color: #e74c3c;
-  margin-bottom: 10px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.save-button, .cancel-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.save-button {
-  background-color: #2ecc71;
-  color: #fff;
-  margin-right: 10px;
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: #27ae60;
-}
-
-.save-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-}
-
-.cancel-button {
-  background-color: #e74c3c;
-  color: #fff;
-}
-
-.cancel-button:hover {
-  background-color: #c0392b;
-}
-
-
 .configuration-editor {
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-}
-
-.configuration-editor h3 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  font-size: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-input[type="text"], textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  font-size: 1rem;
-}
-
-textarea {
-  resize: vertical;
-  min-height: 300px;
-}
-
-.error {
-  color: #e74c3c;
-  margin-bottom: 10px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.save-button, .cancel-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.save-button {
-  background-color: #2ecc71;
-  color: #fff;
-  margin-right: 10px;
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: #27ae60;
-}
-
-.save-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-}
-
-.cancel-button {
-  background-color: #e74c3c;
-  color: #fff;
-}
-
-.cancel-button:hover {
-  background-color: #c0392b;
+  @apply max-w-7xl mx-auto py-6 sm:px-6 lg:px-8;
 }
 </style>

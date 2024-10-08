@@ -1,242 +1,117 @@
 <template>
   <div class="pipelines">
-    <div class="pipelines-header">
-      <h1>Pipelines</h1>
-      <button @click="addPipeline" class="add-button">
-        <i class="fas fa-plus"></i> Add New Pipeline
+    <h1 class="text-2xl font-bold mb-4 dark:text-white">Pipelines</h1>
+    <div class="mb-4 flex justify-between items-center">
+      <input v-model="searchQuery" type="text" placeholder="Search pipelines..."
+        class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600" />
+      <button @click="createNewPipeline"
+        class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors duration-200">
+        Create New Pipeline
       </button>
     </div>
-
-    <!-- Pipeline Editor Modal -->
-    <div v-if="showEditor && selectedPipeline" class="modal">
-      <div class="modal-content">
-        <PipelineEditor
-          :data="selectedPipeline"
-          @save="handleSave"
-          @cancel="closeEditor"
-        />
-      </div>
-    </div>
-
-    <!-- List of Pipelines -->
-    <div v-if="pipelines.length" class="pipeline-grid">
-      <div v-for="pipeline in pipelines" :key="pipeline.id" class="pipeline-card">
-        <h3>{{ pipeline.name }}</h3>
-        <div class="pipeline-actions">
-          <button @click="editPipeline(pipeline)" class="edit-button">
-            <i class="fas fa-edit"></i> Edit
-          </button>
-          <button @click="deletePipeline(pipeline.id)" class="delete-button">
-            <i class="fas fa-trash"></i> Delete
-          </button>
-        </div>
-      </div>
-    </div>
-    <div v-else class="no-pipelines">
-      <p>No pipelines available. Click the "Add New Pipeline" button to create one.</p>
+    <div class="overflow-x-auto shadow-md rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-primary-600 dark:bg-primary-800">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
+              Name</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
+              Description</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+              Created At</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+              Last Modified</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+              Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+          <tr v-for="pipeline in filteredPipelines" :key="pipeline.id" class="dark:hover:bg-gray-700">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+              <router-link :to="{ name: 'PipelineEditor', params: { id: pipeline.id } }"
+                class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300">
+                <span :title="pipeline.name" class="truncate block max-w-xs">{{ pipeline.name }}</span>
+              </router-link>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+              <span :title="pipeline.description" class="truncate block max-w-xs">{{ pipeline.description }}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{
+              formatDate(pipeline.createdAt) }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{
+              formatDate(pipeline.lastModified) }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <router-link :to="{ name: 'PipelineEditor', params: { id: pipeline.id } }"
+                class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-2">Edit</router-link>
+              <button @click="deletePipeline(pipeline.id)"
+                class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import PipelineEditor from '@/components/studio/editors/PipelineEditor.vue';
-import apiClient from '@/services/apiClient';
-import * as yaml from 'js-yaml';
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
+import { formatDate } from '@/utils/dateFormatter';
 
-interface Pipeline {
-  id: string;
-  name: string;
-  data: string;
-}
+export default defineComponent({
+  name: 'Pipelines',
+  setup() {
+    const store = useStore();
+    const router = useRouter();
+    const searchQuery = ref('');
 
-const pipelines = ref<Pipeline[]>([]);
-const showEditor = ref(false);
-const selectedPipeline = ref<Pipeline | null>(null);
+    const pipelines = computed(() => store.getters['studio/getPipelines']);
+    const filteredPipelines = computed(() => {
+      return pipelines.value.filter((pipeline: any) =>
+        pipeline.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        pipeline.description.toLowerCase().includes(searchQuery.value.toLowerCase())
+      );
+    });
 
-const fetchPipelines = async () => {
-  try {
-    const response = await apiClient.get('/pipelines');
-    pipelines.value = response.data;
-  } catch (error) {
-    console.error('Failed to fetch pipelines:', error);
-  }
-};
+    onMounted(() => {
+      store.dispatch('studio/fetchPipelines');
+    });
 
-const addPipeline = () => {
-  selectedPipeline.value = {
-    id: '',  // Use an empty string as a temporary ID
-    name: '',
-    data: '',
-  };
-  showEditor.value = true;
-};
-
-const editPipeline = (pipeline: Pipeline) => {
-  selectedPipeline.value = { ...pipeline };
-  showEditor.value = true;
-};
-
-const handleSave = async (updatedPipeline: Pipeline) => {
-  try {
-    const pipelineData = {
-      ...updatedPipeline,
-      data: yaml.load(updatedPipeline.data),
+    const createNewPipeline = () => {
+      router.push({ name: 'PipelineEditor', params: { id: 'new' } });
     };
 
-    if (updatedPipeline.id) {
-      await apiClient.put(`/pipelines/${updatedPipeline.id}`, pipelineData);
-    } else {
-      await apiClient.post('/pipelines', pipelineData);
-    }
-    await fetchPipelines();
-    closeEditor();
-  } catch (error) {
-    console.error('Failed to save pipeline:', error);
-  }
-};
+    const deletePipeline = async (id: string) => {
+      if (confirm('Are you sure you want to delete this pipeline?')) {
+        try {
+          await store.dispatch('studio/deletePipeline', id);
+          // Refresh the pipelines list after deletion
+          await store.dispatch('studio/fetchPipelines');
+        } catch (error) {
+          console.error('Error deleting pipeline:', error);
+          // Handle error (e.g., show an error message to the user)
+        }
+      }
+    };
 
-const deletePipeline = async (id: string | undefined) => {
-  if (!id) {
-    console.error('Cannot delete pipeline: ID is undefined');
-    return;
-  }
-  if (confirm('Are you sure you want to delete this pipeline?')) {
-    try {
-      await apiClient.delete(`/pipelines/${id}`);
-      await fetchPipelines();
-    } catch (error) {
-      console.error('Failed to delete pipeline:', error);
-    }
-  }
-};
-
-const closeEditor = () => {
-  showEditor.value = false;
-  selectedPipeline.value = null;
-};
-
-onMounted(() => {
-  fetchPipelines();
+    return {
+      searchQuery,
+      filteredPipelines,
+      createNewPipeline,
+      deletePipeline,
+      formatDate,
+    };
+  },
 });
 </script>
 
 <style scoped>
 .pipelines {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+  @apply p-6 dark:bg-gray-900;
 }
 
-.pipelines-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.add-button {
-  background-color: #3498db;
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.add-button:hover {
-  background-color: #2980b9;
-}
-
-.pipeline-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-}
-
-.pipeline-card {
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-}
-
-.pipeline-card h3 {
-  margin: 0 0 10px 0;
-  font-size: 1.2rem;
-}
-
-.pipeline-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.edit-button, .delete-button {
-  background-color: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  margin-left: 10px;
-  transition: color 0.3s ease;
-}
-
-.edit-button {
-  color: #3498db;
-}
-
-.edit-button:hover {
-  color: #2980b9;
-}
-
-.delete-button {
-  color: #e74c3c;
-}
-
-.delete-button:hover {
-  color: #c0392b;
-}
-
-.no-pipelines {
-  text-align: center;
-  color: #7f8c8d;
-  margin-top: 50px;
-}
-
-.error {
-  color: #e74c3c;
-  margin-top: 10px;
-}
-
-.loading {
-  color: #3498db;
-  margin-top: 10px;
-}
-
-.modal {
-  position: fixed;
-  z-index: 1;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0,0,0,0.4);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-content {
-  background-color: #fefefe;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 90%;
-  max-width: 1200px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 5px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.truncate {
+  @apply overflow-hidden text-ellipsis;
 }
 </style>

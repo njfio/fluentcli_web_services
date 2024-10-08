@@ -3,9 +3,12 @@
     "target": "ESNext",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "skipLibCheck": true,
-
     /* Bundler mode */
     "moduleResolution": "node",
     "allowImportingTsExtensions": true,
@@ -13,22 +16,29 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "preserve",
-
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-
     /* Additional settings for Vuex and Tauri */
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "baseUrl": "./",
-    "typeRoots": ["./src/extensions", "./node_modules/@types"],
+    "typeRoots": [
+      "./src/extensions",
+      "./src/types",
+      "./node_modules/@types"
+    ],
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": [
+        "src/*"
+      ]
     },
-    "types": ["vite/client", "node" ]
+    "types": [
+      "vite/client",
+      "node"
+    ]
   },
   "include": [
     "src/**/*",
@@ -36,11 +46,18 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
+    "src/types/**/*.d.ts",
     "vite.config.ts",
+    "tailwind.config.js",
+    "postcss.config.js"
   ],
   "exclude": [
     "node_modules",
     "vite.config.ts"
   ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
 }

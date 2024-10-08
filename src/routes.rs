@@ -44,7 +44,7 @@ pub fn configure_routes() -> Scope {
         )
         // Amber Store routes
         .service(
-            web::scope("/amber_store")
+            web::scope("/amber_stores")
                 .wrap(Auth)
                 .route("", web::post().to(amber_store::create_amber_store))
                 .route("", web::get().to(amber_store::list_amber_stores))

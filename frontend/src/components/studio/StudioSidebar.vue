@@ -1,85 +1,85 @@
 <template>
-    <div :class="['sidebar', { collapsed: isCollapsed }]">
-      <div class="toggle-button" @click="$emit('toggle')">
-        <span v-if="!isCollapsed">«</span>
-        <span v-else>»</span>
+  <nav :class="['sidebar bg-white dark:bg-gray-800 text-gray-900 dark:text-white', { 'collapsed': isCollapsed }]">
+    <div class="p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 v-if="!isCollapsed" class="text-2xl font-semibold">Studio</h2>
+        <button @click="toggleSidebar" class="text-gray-500 dark:text-gray-400 focus:outline-none">
+          <ChevronDoubleLeftIcon v-if="!isCollapsed" class="h-6 w-6" />
+          <ChevronDoubleRightIcon v-else class="h-6 w-6" />
+        </button>
       </div>
-      <nav>
-        <ul>
-          <li>
-            <router-link to="/studio/dashboard">Dashboard</router-link>
-          </li>
-          <li>
-            <router-link to="/studio/jobs">Jobs</router-link>
-          </li>
-          <li>
-            <router-link to="/studio/pipelines">Pipelines</router-link>
-          </li>
-          <li>
-            <router-link to="/studio/dockerfiles">Docker Files</router-link>
-          </li>
-          <li>
-            <router-link to="/studio/settings">Settings</router-link>
-          </li>
-        </ul>
-      </nav>
+      <ul>
+        <li v-for="(item, index) in menuItems" :key="index" class="mb-2">
+          <router-link :to="item.route" class="flex items-center py-2 px-4 rounded transition-colors duration-200"
+            :class="{ 'bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-primary-100': $route.name === item.routeName, 'hover:bg-gray-100 dark:hover:bg-gray-700': $route.name !== item.routeName }">
+            <component :is="item.icon" class="h-5 w-5" :class="{ 'mr-3': !isCollapsed }" />
+            <span v-if="!isCollapsed">{{ item.label }}</span>
+          </router-link>
+        </li>
+      </ul>
     </div>
-  </template>
-  
-  <script lang="ts">
-  import { defineComponent } from 'vue';
-  
-  export default defineComponent({
-    name: 'StudioSidebar',
-    props: {
-      isCollapsed: {
-        type: Boolean,
-        required: true,
-      },
-    },
-  });
-  </script>
-  
-  <style scoped>
+  </nav>
+</template>
+
+<script setup lang="ts">
+import { defineProps, defineEmits } from 'vue';
+import {
+  HomeIcon,
+  BriefcaseIcon,
+  CogIcon,
+  ServerIcon,
+  CircleStackIcon,
+  DocumentIcon,
+  AdjustmentsHorizontalIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon
+} from '@heroicons/vue/24/outline';
+
+defineProps<{
+  isCollapsed: boolean
+}>();
+
+const emit = defineEmits(['toggle']);
+
+const toggleSidebar = () => {
+  emit('toggle');
+};
+
+const menuItems = [
+  { label: 'Dashboard', route: '/studio/dashboard', routeName: 'Dashboard', icon: HomeIcon },
+  { label: 'Jobs', route: '/studio/jobs', routeName: 'Jobs', icon: BriefcaseIcon },
+  { label: 'Pipelines', route: '/studio/pipelines', routeName: 'Pipelines', icon: CogIcon },
+  { label: 'Configurations', route: '/studio/configurations', routeName: 'Configurations', icon: AdjustmentsHorizontalIcon },
+  { label: 'Docker Files', route: '/studio/dockerfiles', routeName: 'DockerFiles', icon: ServerIcon },
+  { label: 'Amber Stores', route: '/studio/amberstores', routeName: 'AmberStores', icon: CircleStackIcon },
+  { label: 'State Files', route: '/studio/statefiles', routeName: 'StateFiles', icon: DocumentIcon },
+  { label: 'Settings', route: '/studio/settings', routeName: 'Settings', icon: CogIcon },
+];
+</script>
+
+<style scoped>
+.sidebar {
+  width: var(--sidebar-width);
+  transition: width 0.3s ease-in-out;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+.sidebar.collapsed .flex {
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
   .sidebar {
-    width: 250px;
-    background-color: #2c3e50;
-    color: #ecf0f1;
-    transition: width 0.3s;
-    position: relative;
+    position: fixed;
+    z-index: 40;
+    height: 100vh;
   }
-  
+
   .sidebar.collapsed {
-    width: 80px;
+    transform: translateX(-100%);
   }
-  
-  .toggle-button {
-    position: absolute;
-    top: 10px;
-    right: -15px;
-    background-color: #34495e;
-    border-radius: 50%;
-    padding: 5px;
-    cursor: pointer;
-  }
-  
-  nav ul {
-    list-style: none;
-    padding: 0;
-    margin-top: 50px;
-  }
-  
-  nav ul li {
-    padding: 15px 20px;
-  }
-  
-  nav ul li a {
-    color: #ecf0f1;
-    text-decoration: none;
-    display: block;
-  }
-  
-  nav ul li a.router-link-exact-active {
-    background-color: #1abc9c;
-  }
-  </style>
+}
+</style>

@@ -1,132 +1,142 @@
 <template>
-    <div class="docker-file-editor">
-      <h3>{{ isNew ? 'Create' : 'Edit' }} Docker File</h3>
-      <form @submit.prevent="handleSubmit">
-        <div>
-          <label for="name">Name:</label>
-          <input type="text" id="name" v-model="editedDockerFile.name" required>
-        </div>
-        <div>
-          <label for="content">Content:</label>
-          <textarea id="content" v-model="editedDockerFile.content" rows="10" required></textarea>
-        </div>
-        <div>
-        <button type="submit" class="save-button">Save</button>
-        <button type="button" @click="$emit('cancel')" class="cancel-button">Cancel</button>
-        </div>
-      </form>
+  <div v-if="isThemeInitialized" class="docker-file-editor dark:bg-gray-900">
+    <h1 class="text-2xl font-bold mb-6 dark:text-white">
+      {{ isNewDockerFile ? 'Create New Docker File' : 'Edit Docker File' }}
+    </h1>
+    <div class="flex justify-end mb-6">
+      <button type="button" @click="cancel"
+        class="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-900">
+        Cancel
+      </button>
+      <button type="submit" form="docker-file-form"
+        class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 dark:bg-primary-700 dark:hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-900">
+        {{ isNewDockerFile ? 'Create' : 'Update' }}
+      </button>
     </div>
-  </template>
-  
-  <script setup lang="ts">
-  import { ref, computed } from 'vue';
-  
-  interface DockerFile {
-    id?: string;
-    name: string;
-    content: string;
-  }
-  
-  const props = defineProps<{
-    dockerFile: DockerFile | null;
-  }>();
-  
-  const emit = defineEmits<{
-    (e: 'save', dockerFile: DockerFile): void;
-    (e: 'cancel'): void;
-  }>();
-  
-  const editedDockerFile = ref<DockerFile>({
-    id: props.dockerFile?.id,
-    name: props.dockerFile?.name || '',
-    content: props.dockerFile?.content || '',
-  });
-  
-  const isNew = computed(() => !props.dockerFile?.id);
-  
-  const handleSubmit = () => {
-    emit('save', editedDockerFile.value);
-  };
-  </script>
-  
-<<style scoped>
+    <form id="docker-file-form" @submit.prevent="saveDockerFile" class="space-y-6">
+      <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+          <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div class="sm:col-span-4">
+              <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+              <input type="text" id="name" v-model="dockerFile.name" required
+                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+            </div>
+            <div class="sm:col-span-6">
+              <label for="content" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Dockerfile
+                Content</label>
+              <div class="mt-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden dark:bg-gray-800"
+                style="height: calc(100vh - 400px);">
+                <MonacoEditor :key="currentTheme" v-model="dockerFile.content" language="dockerfile"
+                  :theme="currentTheme" :options="editorOptions" class="h-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+  <div v-else class="flex justify-center items-center h-screen">
+    <p class="text-xl">Loading...</p>
+  </div>
+</template>
 
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter, useRoute } from 'vue-router';
+import MonacoEditor from './MonacoEditor.vue';
+
+export default defineComponent({
+  name: 'DockerFileEditor',
+  components: {
+    MonacoEditor,
+  },
+  setup() {
+    const store = useStore();
+    const router = useRouter();
+    const route = useRoute();
+
+    const dockerFile = ref({
+      id: '',
+      name: '',
+      content: '',
+    });
+
+    const isNewDockerFile = computed(() => route.params.id === 'new');
+    const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
+    const isThemeInitialized = computed(() => store.getters['theme/isInitialized']);
+    const currentTheme = computed(() => isDarkMode.value ? 'vs-dark' : 'vs-light');
+
+    const editorOptions = {
+      minimap: { enabled: false },
+      lineNumbers: 'on',
+      roundedSelection: false,
+      scrollBeyondLastLine: false,
+      readOnly: false,
+    };
+
+    console.log('DockerFileEditor setup, initial isDarkMode:', isDarkMode.value);
+    console.log('DockerFileEditor setup, initial currentTheme:', currentTheme.value);
+    console.log('DockerFileEditor setup, isThemeInitialized:', isThemeInitialized.value);
+
+    onMounted(async () => {
+      if (!isNewDockerFile.value) {
+        const id = route.params.id as string;
+        const fetchedDockerFile = await store.dispatch('studio/fetchDockerFileById', id);
+        dockerFile.value = { ...fetchedDockerFile };
+      }
+      console.log('DockerFileEditor mounted, current theme:', currentTheme.value);
+    });
+
+    const saveDockerFile = async () => {
+      try {
+        if (isNewDockerFile.value) {
+          await store.dispatch('studio/createDockerFile', dockerFile.value);
+        } else {
+          await store.dispatch('studio/updateDockerFile', dockerFile.value);
+        }
+        router.push({ name: 'DockerFiles' });
+      } catch (error) {
+        console.error('Error saving Docker File:', error);
+        // Handle error (e.g., show an error message to the user)
+      }
+    };
+
+    const cancel = () => {
+      router.push({ name: 'DockerFiles' });
+    };
+
+    // Watch for theme changes
+    watch(isDarkMode, (newValue) => {
+      console.log('DockerFileEditor: Dark mode changed:', newValue, 'New theme:', currentTheme.value);
+    });
+
+    // Watch for changes in the current theme
+    watch(currentTheme, (newTheme) => {
+      console.log('DockerFileEditor: Current theme changed to:', newTheme);
+    });
+
+    // Watch for theme initialization
+    watch(isThemeInitialized, (initialized) => {
+      console.log('DockerFileEditor: Theme initialization state:', initialized);
+    });
+
+    return {
+      dockerFile,
+      isNewDockerFile,
+      currentTheme,
+      isThemeInitialized,
+      editorOptions,
+      saveDockerFile,
+      cancel,
+    };
+  },
+});
+</script>
+
+<style scoped>
 .docker-file-editor {
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-}
-
-.docker-file-editor h3 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  font-size: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-input[type="text"], textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  font-size: 1rem;
-}
-
-textarea {
-  resize: vertical;
-  min-height: 300px;
-}
-
-.error {
-  color: #e74c3c;
-  margin-bottom: 10px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.save-button, .cancel-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.save-button {
-  background-color: #2ecc71;
-  color: #fff;
-  margin-right: 10px;
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: #27ae60;
-}
-
-.save-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-}
-
-.cancel-button {
-  background-color: #e74c3c;
-  color: #fff;
-}
-
-.cancel-button:hover {
-  background-color: #c0392b;
+  @apply max-w-7xl mx-auto py-6 sm:px-6 lg:px-8;
 }
 </style>

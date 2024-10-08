@@ -2,7 +2,6 @@ use crate::db::DbPool;
 use crate::models::pipeline::{NewPipeline, NewPipelinePayload, UpdatePipeline};
 use crate::services::pipeline_service::PipelineService;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
-use serde_yaml;
 use uuid::Uuid;
 
 pub async fn create_pipeline(
@@ -12,13 +11,10 @@ pub async fn create_pipeline(
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
 
-    let yaml_data = serde_yaml::to_string(&new_pipeline_payload.data)
-        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid YAML data"))?;
-
     let new_pipeline = NewPipeline {
         user_id,
         name: new_pipeline_payload.name.clone(),
-        data: yaml_data.trim_matches('"').to_string(),
+        data: new_pipeline_payload.data.clone(),
     };
 
     match PipelineService::create_pipeline(&pool, new_pipeline) {
@@ -64,18 +60,9 @@ pub async fn update_pipeline(
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
 
-    let yaml_data = if let Some(data) = &update_data.data {
-        Some(
-            serde_yaml::to_string(data)
-                .map_err(|_| actix_web::error::ErrorBadRequest("Invalid YAML data"))?,
-        )
-    } else {
-        None
-    };
-
     let update_pipeline = UpdatePipeline {
         name: update_data.name.clone(),
-        data: yaml_data,
+        data: update_data.data.clone(),
     };
 
     match PipelineService::update_pipeline(

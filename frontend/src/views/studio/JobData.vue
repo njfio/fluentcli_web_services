@@ -23,7 +23,7 @@ const error = ref<string | null>(null);
 
 const fetchJobData = async () => {
   try {
-    const response = await apiClient.get(`/jobs/${route.params.id}/data`);
+    const response = await apiClient.fetchJobData(route.params.id as string);
     jobData.value = response.data;
   } catch (err) {
     error.value = 'Failed to fetch job data';

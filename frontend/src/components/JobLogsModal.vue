@@ -2,7 +2,7 @@
   <div class="modal">
     <div class="modal-content">
       <h3>Job Logs</h3>
-      <pre v-if="jobLogs" v-html="highlightedLogs"></pre>
+      <pre v-if="jobLogs" v-html="highlightJSON"></pre>
       <p v-else-if="error">{{ error }}</p>
       <p v-else>Loading job logs...</p>
       <button @click="$emit('close')">Close</button>
@@ -28,7 +28,7 @@ const error = ref<string | null>(null);
 
 const fetchJobLogs = async () => {
   try {
-    const response = await apiClient.get(`/jobs/${props.jobId}/logs`);
+    const response = await apiClient.fetchJobLogs(props.jobId);
     jobLogs.value = JSON.stringify(response.data, null, 2);
     console.log('Fetched job logs:', jobLogs.value);
   } catch (err) {
@@ -37,13 +37,15 @@ const fetchJobLogs = async () => {
   }
 };
 
-const highlightedLogs = computed(() => {
+const highlightJSON = computed(() => {
   if (!jobLogs.value) return '';
   try {
-    return hljs.highlight(jobLogs.value, { language: 'json' }).value;
-  } catch (err) {
-    console.error('Error highlighting logs:', err);
-    return jobLogs.value;
+    const formatted = JSON.stringify(JSON.parse(jobLogs.value), null, 2);
+    return hljs.highlight(formatted, { language: 'json' }).value;
+  } catch (error2) {
+    console.error("Error parsing JSON:", error2);
+    return typeof jobLogs.value === "string" ? jobLogs.value : 
+           JSON.stringify(jobLogs.value, null, 2);
   }
 });
 
