@@ -1,5 +1,5 @@
 <template>
-  <div class="docker-file-editor dark:bg-gray-900">
+  <div v-if="isThemeInitialized" class="docker-file-editor dark:bg-gray-900">
     <h1 class="text-2xl font-bold mb-6 dark:text-white">
       {{ isNewDockerFile ? 'Create New Docker File' : 'Edit Docker File' }}
     </h1>
@@ -27,14 +27,17 @@
                 Content</label>
               <div class="mt-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden dark:bg-gray-800"
                 style="height: calc(100vh - 400px);">
-                <MonacoEditor v-model="dockerFile.content" language="dockerfile" :options="editorOptions"
-                  class="h-full" />
+                <MonacoEditor :key="currentTheme" v-model="dockerFile.content" language="dockerfile"
+                  :theme="currentTheme" :options="editorOptions" class="h-full" />
               </div>
             </div>
           </div>
         </div>
       </div>
     </form>
+  </div>
+  <div v-else class="flex justify-center items-center h-screen">
+    <p class="text-xl">Loading...</p>
   </div>
 </template>
 
@@ -61,16 +64,21 @@ export default defineComponent({
     });
 
     const isNewDockerFile = computed(() => route.params.id === 'new');
-    const isDarkMode = computed(() => store.state.theme.darkMode);
+    const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
+    const isThemeInitialized = computed(() => store.getters['theme/isInitialized']);
+    const currentTheme = computed(() => isDarkMode.value ? 'vs-dark' : 'vs-light');
 
-    const editorOptions = computed(() => ({
+    const editorOptions = {
       minimap: { enabled: false },
       lineNumbers: 'on',
       roundedSelection: false,
       scrollBeyondLastLine: false,
       readOnly: false,
-      theme: isDarkMode.value ? 'vs-dark' : 'vs-light',
-    }));
+    };
+
+    console.log('DockerFileEditor setup, initial isDarkMode:', isDarkMode.value);
+    console.log('DockerFileEditor setup, initial currentTheme:', currentTheme.value);
+    console.log('DockerFileEditor setup, isThemeInitialized:', isThemeInitialized.value);
 
     onMounted(async () => {
       if (!isNewDockerFile.value) {
@@ -78,6 +86,7 @@ export default defineComponent({
         const fetchedDockerFile = await store.dispatch('studio/fetchDockerFileById', id);
         dockerFile.value = { ...fetchedDockerFile };
       }
+      console.log('DockerFileEditor mounted, current theme:', currentTheme.value);
     });
 
     const saveDockerFile = async () => {
@@ -99,13 +108,25 @@ export default defineComponent({
     };
 
     // Watch for theme changes
-    watch(isDarkMode, () => {
-      console.log('Theme changed, updating editor options');
+    watch(isDarkMode, (newValue) => {
+      console.log('DockerFileEditor: Dark mode changed:', newValue, 'New theme:', currentTheme.value);
+    });
+
+    // Watch for changes in the current theme
+    watch(currentTheme, (newTheme) => {
+      console.log('DockerFileEditor: Current theme changed to:', newTheme);
+    });
+
+    // Watch for theme initialization
+    watch(isThemeInitialized, (initialized) => {
+      console.log('DockerFileEditor: Theme initialization state:', initialized);
     });
 
     return {
       dockerFile,
       isNewDockerFile,
+      currentTheme,
+      isThemeInitialized,
       editorOptions,
       saveDockerFile,
       cancel,
