@@ -14,6 +14,7 @@ import Jobs from '../views/studio/Jobs.vue';
 import JobDetail from '@/views/studio/JobDetail.vue'
 import JobData from '@/views/studio/JobData.vue'
 import JobLogs from '@/views/studio/JobLogs.vue'
+import StateFiles from '@/views/studio/StateFiles.vue'
 
 const routes: Array<RouteRecordRaw> = [
   { path: '/', name: 'Home', component: Home },
@@ -101,6 +102,11 @@ const routes: Array<RouteRecordRaw> = [
         name: 'AmberStoreEditor',
         component: () => import('@/components/studio/editors/AmberStoreEditor.vue'),
         props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
+      },
+      {
+        path: 'statefiles',
+        name: 'StateFiles',
+        component: StateFiles,
       },
     ],
   }

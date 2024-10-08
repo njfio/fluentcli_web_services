@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="chart-container">
     <Bar :data="chartData" :options="chartOptions" />
   </div>
 </template>
@@ -15,7 +15,8 @@ import {
   BarElement,
   CategoryScale,
   LinearScale,
-  ChartData
+  ChartData,
+  ChartOptions
 } from 'chart.js';
 
 ChartJS.register(
@@ -32,12 +33,12 @@ export default defineComponent({
   components: { Bar },
   props: {
     chartData: {
-      type: Object as PropType<ChartData<'bar', number[], unknown>>,
+      type: Object as PropType<ChartData<'bar'>>,
       required: true
     }
   },
   setup() {
-    const chartOptions = {
+    const chartOptions: ChartOptions<'bar'> = {
       responsive: true,
       maintainAspectRatio: false
     };
@@ -46,3 +47,10 @@ export default defineComponent({
   }
 });
 </script>
+
+<style scoped>
+.chart-container {
+  position: relative;
+  height: 300px;
+}
+</style>

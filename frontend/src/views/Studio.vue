@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, onErrorCaptured } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useStore } from 'vuex';
 import StudioHeader from '@/components/studio/StudioHeader.vue';
 
@@ -42,7 +42,6 @@ console.log('Studio component script starting');
 
 const isSidebarCollapsed = ref(false);
 const route = useRoute();
-const router = useRouter();
 const store = useStore();
 
 const toggleSidebar = () => {
@@ -60,6 +59,7 @@ const sidebarLinks = [
   { to: '/studio/dockerfiles', icon: 'fab fa-docker', title: 'Docker Files' },
   { to: '/studio/configurations', icon: 'fas fa-cogs', title: 'Configurations' },
   { to: '/studio/amberstores', icon: 'fas fa-database', title: 'Amber Stores' },
+  { to: '/studio/statefiles', icon: 'fas fa-file-alt', title: 'State Files' },
 ];
 
 onMounted(async () => {

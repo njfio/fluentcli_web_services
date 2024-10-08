@@ -131,7 +131,6 @@ export default defineComponent({
     const searchQuery = ref('');
     const isDeleting = ref(false);
     const isSearching = ref(false);
-    const cachedConfigurations = ref<Configuration[]>([]);
 
     const columns: Column[] = [
       { key: 'id', label: 'ID' },

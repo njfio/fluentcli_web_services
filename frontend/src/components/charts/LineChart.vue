@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="chart-container">
     <Line :data="chartData" :options="chartOptions" />
   </div>
 </template>
@@ -16,7 +16,8 @@ import {
   LinearScale,
   PointElement,
   CategoryScale,
-  ChartData
+  ChartData,
+  ChartOptions
 } from 'chart.js';
 
 ChartJS.register(
@@ -34,12 +35,12 @@ export default defineComponent({
   components: { Line },
   props: {
     chartData: {
-      type: Object as PropType<ChartData<'line', number[], unknown>>,
+      type: Object as PropType<ChartData<'line'>>,
       required: true
     }
   },
   setup() {
-    const chartOptions = {
+    const chartOptions: ChartOptions<'line'> = {
       responsive: true,
       maintainAspectRatio: false
     };
@@ -48,3 +49,10 @@ export default defineComponent({
   }
 });
 </script>
+
+<style scoped>
+.chart-container {
+  position: relative;
+  height: 300px;
+}
+</style>
