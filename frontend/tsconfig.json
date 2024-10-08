@@ -27,6 +27,7 @@
     "baseUrl": "./",
     "typeRoots": [
       "./src/extensions",
+      "./src/types",
       "./node_modules/@types"
     ],
     "paths": {
@@ -45,9 +46,10 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
+    "src/types/**/*.d.ts",
     "vite.config.ts",
     "tailwind.config.js",
-    "postcss.config.js",
+    "postcss.config.js"
   ],
   "exclude": [
     "node_modules",

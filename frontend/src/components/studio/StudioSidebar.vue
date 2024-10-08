@@ -1,78 +1,19 @@
 <template>
-  <nav class="bg-gray-800 text-white w-64 flex-shrink-0">
+  <nav :class="['sidebar bg-gray-800 text-white', { 'collapsed': isCollapsed }]">
     <div class="p-4">
-      <h2 class="text-2xl font-semibold mb-4">Studio</h2>
+      <div class="flex items-center justify-between mb-4">
+        <h2 v-if="!isCollapsed" class="text-2xl font-semibold">Studio</h2>
+        <button @click="toggleSidebar" class="text-white focus:outline-none">
+          <ChevronDoubleLeftIcon v-if="!isCollapsed" class="h-6 w-6" />
+          <ChevronDoubleRightIcon v-else class="h-6 w-6" />
+        </button>
+      </div>
       <ul>
-        <li class="mb-2">
-          <router-link
-            to="/studio/dashboard"
-            class="block py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === 'Dashboard' }"
-          >
-            Dashboard
-          </router-link>
-        </li>
-        <li class="mb-2">
-          <router-link
-            to="/studio/jobs"
-            class="block py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === 'Jobs' || $route.name === 'JobDetail' }"
-          >
-            Jobs
-          </router-link>
-        </li>
-        <li class="mb-2">
-          <router-link
-            to="/studio/pipelines"
-            class="block py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === 'Pipelines' || $route.name === 'PipelineEditor' }"
-          >
-            Pipelines
-          </router-link>
-        </li>
-        <li class="mb-2">
-          <router-link
-            to="/studio/configurations"
-            class="block py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === 'Configurations' || $route.name === 'ConfigurationEditor' }"
-          >
-            Configurations
-          </router-link>
-        </li>
-        <li class="mb-2">
-          <router-link
-            to="/studio/dockerfiles"
-            class="block py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === 'DockerFiles' || $route.name === 'DockerFileEditor' }"
-          >
-            Docker Files
-          </router-link>
-        </li>
-        <li class="mb-2">
-          <router-link
-            to="/studio/amberstores"
-            class="block py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === 'AmberStores' || $route.name === 'AmberStoreEditor' }"
-          >
-            Amber Stores
-          </router-link>
-        </li>
-        <li class="mb-2">
-          <router-link
-            to="/studio/statefiles"
-            class="block py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === 'StateFiles' }"
-          >
-            State Files
-          </router-link>
-        </li>
-        <li class="mb-2">
-          <router-link
-            to="/studio/settings"
-            class="block py-2 px-4 rounded transition-colors duration-200"
-            :class="{ 'bg-primary-600': $route.name === 'Settings' }"
-          >
-            Settings
+        <li v-for="(item, index) in menuItems" :key="index" class="mb-2">
+          <router-link :to="item.route" class="flex items-center py-2 px-4 rounded transition-colors duration-200"
+            :class="{ 'bg-primary-600': $route.name === item.routeName }">
+            <component :is="item.icon" class="h-5 w-5" :class="{ 'mr-3': !isCollapsed }" />
+            <span v-if="!isCollapsed">{{ item.label }}</span>
           </router-link>
         </li>
       </ul>
@@ -80,16 +21,65 @@
   </nav>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script setup lang="ts">
+import { defineProps, defineEmits } from 'vue';
+import {
+  HomeIcon,
+  BriefcaseIcon,
+  CogIcon,
+  ServerIcon,
+  CircleStackIcon,
+  DocumentIcon,
+  AdjustmentsHorizontalIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon
+} from '@heroicons/vue/24/outline';
 
-export default defineComponent({
-  name: 'StudioSidebar',
-});
+defineProps<{
+  isCollapsed: boolean
+}>();
+
+const emit = defineEmits(['toggle']);
+
+const toggleSidebar = () => {
+  emit('toggle');
+};
+
+const menuItems = [
+  { label: 'Dashboard', route: '/studio/dashboard', routeName: 'Dashboard', icon: HomeIcon },
+  { label: 'Jobs', route: '/studio/jobs', routeName: 'Jobs', icon: BriefcaseIcon },
+  { label: 'Pipelines', route: '/studio/pipelines', routeName: 'Pipelines', icon: CogIcon },
+  { label: 'Configurations', route: '/studio/configurations', routeName: 'Configurations', icon: AdjustmentsHorizontalIcon },
+  { label: 'Docker Files', route: '/studio/dockerfiles', routeName: 'DockerFiles', icon: ServerIcon },
+  { label: 'Amber Stores', route: '/studio/amberstores', routeName: 'AmberStores', icon: CircleStackIcon },
+  { label: 'State Files', route: '/studio/statefiles', routeName: 'StateFiles', icon: DocumentIcon },
+  { label: 'Settings', route: '/studio/settings', routeName: 'Settings', icon: CogIcon },
+];
 </script>
 
 <style scoped>
-.router-link-active {
-  @apply bg-primary-600;
+.sidebar {
+  width: var(--sidebar-width);
+  transition: width 0.3s ease-in-out;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+.sidebar.collapsed .flex {
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    z-index: 40;
+    height: 100vh;
+  }
+
+  .sidebar.collapsed {
+    transform: translateX(-100%);
+  }
 }
 </style>
