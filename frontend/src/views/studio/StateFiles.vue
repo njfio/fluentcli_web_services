@@ -1,6 +1,6 @@
 <template>
     <div class="state-files">
-        <h1 class="text-2xl font-bold mb-6 dark:text-white">State Files</h1>
+        <h1 class="text-2xl font-bold mb-4 dark:text-white">State Files</h1>
         <div class="mb-4 flex justify-between items-center">
             <input v-model="searchQuery" type="text" placeholder="Search state files..."
                 class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white dark:border-gray-600" />
@@ -10,22 +10,22 @@
                 <thead class="bg-primary-600 dark:bg-primary-800">
                     <tr>
                         <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/5">
                             Job ID</th>
                         <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/5">
                             Worker Type</th>
                         <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/10">
                             Status</th>
                         <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/10">
                             Size</th>
                         <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/5">
                             Created At</th>
                         <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+                            class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/5">
                             Actions</th>
                     </tr>
                 </thead>
@@ -175,7 +175,7 @@ export default defineComponent({
 
 <style scoped>
 .state-files {
-    @apply max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 dark:bg-gray-900;
+    @apply p-6 dark:bg-gray-900;
 }
 
 .truncate {
