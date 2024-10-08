@@ -1,34 +1,47 @@
 <template>
   <div class="dashboard">
-    <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+    <h1 class="text-3xl font-bold mb-8 text-gray-800">Dashboard</h1>
     
-    <!-- Summary Section -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      <div v-for="(metric, index) in summaryMetrics" :key="index" class="bg-white p-4 rounded-lg shadow">
-        <h3 class="text-lg font-semibold mb-2">{{ metric.label }}</h3>
-        <p class="text-3xl font-bold">{{ metric.value }}</p>
-      </div>
+    <div v-if="isLoading" class="flex justify-center items-center h-64">
+      <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-500"></div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-white p-4 rounded-lg shadow">
-        <h2 class="text-lg font-semibold mb-4">Job Status Distribution</h2>
-        <PieChart v-if="jobStatusData" :chart-data="jobStatusData" />
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow">
-        <h2 class="text-lg font-semibold mb-4">Jobs Created Over Time</h2>
-        <LineChart v-if="jobsOverTimeData" :chart-data="jobsOverTimeData" />
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow">
-        <h2 class="text-lg font-semibold mb-4">Resource Usage</h2>
-        <BarChart v-if="resourceUsageData" :chart-data="resourceUsageData" />
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow">
-        <h2 class="text-lg font-semibold mb-4">Pipeline Execution Times</h2>
-        <BarChart v-if="pipelineExecutionData" :chart-data="pipelineExecutionData" />
-      </div>
+    <div v-else-if="error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-8" role="alert">
+      <p class="font-bold">Error</p>
+      <p>{{ error }}</p>
     </div>
+
+    <template v-else>
+      <!-- Summary Section -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div v-for="(metric, index) in summaryMetrics" :key="index" 
+             class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105"
+             :style="{ animationDelay: `${index * 100}ms` }">
+          <h3 class="text-lg font-semibold mb-2 text-gray-700">{{ metric.label }}</h3>
+          <p class="text-3xl font-bold text-indigo-600">{{ metric.value }}</p>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
+          <h2 class="text-xl font-semibold mb-4 text-gray-800">Job Status Distribution</h2>
+          <PieChart v-if="jobStatusData" :chart-data="jobStatusData" />
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
+          <h2 class="text-xl font-semibold mb-4 text-gray-800">Jobs Created Over Time</h2>
+          <LineChart v-if="jobsOverTimeData" :chart-data="jobsOverTimeData" />
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
+          <h2 class="text-xl font-semibold mb-4 text-gray-800">Resource Usage</h2>
+          <BarChart v-if="resourceUsageData" :chart-data="resourceUsageData" />
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
+          <h2 class="text-xl font-semibold mb-4 text-gray-800">Pipeline Execution Times</h2>
+          <BarChart v-if="pipelineExecutionData" :chart-data="pipelineExecutionData" />
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -60,6 +73,8 @@ export default defineComponent({
     const resourceUsageData = ref<ChartData<'bar'> | null>(null);
     const pipelineExecutionData = ref<ChartData<'bar'> | null>(null);
     const summaryMetrics = ref<SummaryMetric[]>([]);
+    const isLoading = ref(true);
+    const error = ref<string | null>(null);
 
     const jobs = computed<Job[]>(() => store.getters['studio/getJobs']);
     const pipelines = computed<Pipeline[]>(() => store.getters['studio/getPipelines']);
@@ -79,8 +94,11 @@ export default defineComponent({
 
         // Set up chart data
         setupChartData();
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        isLoading.value = false;
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        error.value = 'Failed to load dashboard data. Please try again later.';
+        isLoading.value = false;
       }
     });
 
@@ -129,7 +147,8 @@ export default defineComponent({
         datasets: [{
           label: 'Jobs Created',
           data: [12, 19, 3, 5, 2, 3],
-          borderColor: '#2196F3',
+          borderColor: '#3730A3',
+          backgroundColor: 'rgba(55, 48, 163, 0.2)',
           tension: 0.1,
         }],
       };
@@ -161,6 +180,8 @@ export default defineComponent({
       resourceUsageData,
       pipelineExecutionData,
       summaryMetrics,
+      isLoading,
+      error,
     };
   },
 });
@@ -168,6 +189,21 @@ export default defineComponent({
 
 <style scoped>
 .dashboard {
-  padding: 20px;
+  @apply p-6;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard > div {
+  animation: fadeInUp 0.5s ease-out forwards;
 }
 </style>

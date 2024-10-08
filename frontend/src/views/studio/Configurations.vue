@@ -1,85 +1,101 @@
 <template>
-  <div class="configurations">
-    <h1 class="text-2xl font-bold mb-4">Configurations</h1>
-    <div class="mb-4 relative">
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="Search configurations..."
-        class="w-full px-3 py-2 border border-gray-300 rounded-md"
-        @keydown.enter="handleEnterKey"
-        @keydown.esc="clearSearch"
-      />
-      <div v-if="isSearching" class="absolute right-3 top-2">
-        <div class="spinner-small"></div>
-      </div>
-    </div>
-    <div v-if="loading" class="text-center py-4">
-      <div class="spinner"></div>
-      <p class="mt-2">Loading configurations...</p>
-    </div>
-    <div v-else-if="error" class="text-center py-4">
-      <p class="text-red-500">{{ error }}</p>
-      <button @click="fetchConfigurations()" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded">Retry</button>
-    </div>
-    <div v-else>
-      <div class="overflow-x-auto">
-        <table v-if="filteredConfigurations.length" class="min-w-full bg-white border border-gray-300">
-          <thead>
-            <tr>
-              <th v-for="column in columns" :key="column.key" @click="sort(column.key)" class="py-2 px-4 border-b cursor-pointer">
-                {{ column.label }}
-                <span v-if="sortKey === column.key">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
-              </th>
-              <th class="py-2 px-4 border-b">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="config in filteredConfigurations" :key="config.id">
-              <td v-for="column in columns" :key="column.key" class="py-2 px-4 border-b">{{ config[column.key] }}</td>
-              <td class="py-2 px-4 border-b">
-                <button @click="editConfiguration(config.id)" class="bg-blue-500 text-white px-2 py-1 rounded mr-2">Edit</button>
-                <button @click="confirmDelete(config)" class="bg-red-500 text-white px-2 py-1 rounded" :disabled="isDeleting">
-                  {{ isDeleting && configToDelete?.id === config.id ? 'Deleting...' : 'Delete' }}
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-if="!filteredConfigurations.length" class="text-center py-4">No configurations found.</p>
-
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="mt-4 flex justify-center">
-        <button
-          v-for="page in totalPages"
-          :key="page"
-          @click="() => changePage(page)"
-          :class="['mx-1 px-3 py-1 rounded', currentPage === page ? 'bg-blue-500 text-white' : 'bg-gray-200']"
-        >
-          {{ page }}
-        </button>
-      </div>
-    </div>
-    <button @click="createNewConfiguration" class="mt-4 bg-green-500 text-white px-4 py-2 rounded">Create New Configuration</button>
-
-    <!-- Confirmation Dialog -->
-    <div v-if="showConfirmDialog" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
-      <div class="bg-white p-5 rounded-lg shadow-lg">
-        <h2 class="text-xl font-bold mb-4">Confirm Deletion</h2>
-        <p>Are you sure you want to delete the configuration "{{ configToDelete?.name }}"?</p>
-        <div class="mt-4 flex justify-end">
-          <button @click="cancelDelete" class="bg-gray-300 text-black px-4 py-2 rounded mr-2">Cancel</button>
-          <button @click="deleteConfiguration" class="bg-red-500 text-white px-4 py-2 rounded" :disabled="isDeleting">
-            {{ isDeleting ? 'Deleting...' : 'Delete' }}
-          </button>
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+    <div class="container mx-auto px-4">
+      <h2 class="text-3xl font-bold mb-6 text-gray-800">Configurations</h2>
+      <div class="mb-4 relative">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search configurations..."
+          class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          @keydown.enter="handleEnterKey"
+          @keydown.esc="clearSearch"
+        />
+        <div v-if="isSearching" class="absolute right-3 top-2">
+          <div class="spinner-small"></div>
         </div>
       </div>
-    </div>
+      <div v-if="loading" class="text-center py-8">
+        <div class="spinner"></div>
+        <p class="mt-4 text-gray-600">Loading configurations...</p>
+      </div>
+      <div v-else-if="error" class="text-center py-8">
+        <p class="text-red-500">{{ error }}</p>
+        <button @click="fetchConfigurations()" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors duration-300">Retry</button>
+      </div>
+      <div v-else>
+        <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+          <div class="overflow-x-auto">
+            <table v-if="filteredConfigurations.length" class="min-w-full">
+              <thead>
+                <tr class="bg-indigo-600 text-white">
+                  <th v-for="column in columns" :key="column.key" @click="sort(column.key)" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer">
+                    {{ column.label }}
+                    <span v-if="sortKey === column.key">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(config, index) in filteredConfigurations" :key="config.id" 
+                    class="hover:bg-indigo-50 transition-colors duration-150 ease-in-out"
+                    :class="{'bg-gray-50': index % 2 === 0}"
+                    :style="{ animationDelay: `${index * 50}ms` }">
+                  <td v-for="column in columns" :key="column.key" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ config[column.key] }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button @click="editConfiguration(config.id)" class="text-indigo-600 hover:text-indigo-900 mr-2 transition-colors duration-300">Edit</button>
+                    <button @click="confirmDelete(config)" class="text-red-600 hover:text-red-900 transition-colors duration-300" :disabled="isDeleting">
+                      {{ isDeleting && configToDelete?.id === config.id ? 'Deleting...' : 'Delete' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p v-if="!filteredConfigurations.length" class="text-center py-8 text-gray-600">No configurations found.</p>
 
-    <!-- Success Message -->
-    <div v-if="showSuccessMessage" class="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg">
-      {{ successMessage }}
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="mt-6 flex justify-center">
+          <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            <button
+              v-for="page in totalPages"
+              :key="page"
+              @click="() => changePage(page)"
+              :class="[
+                'relative inline-flex items-center px-4 py-2 border text-sm font-medium',
+                currentPage === page
+                  ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
+                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50',
+                page === 1 ? 'rounded-l-md' : '',
+                page === totalPages ? 'rounded-r-md' : '',
+              ]"
+            >
+              {{ page }}
+            </button>
+          </nav>
+        </div>
+      </div>
+      <button @click="createNewConfiguration" class="mt-6 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-md transition-colors duration-300">Create New Configuration</button>
+
+      <!-- Confirmation Dialog -->
+      <div v-if="showConfirmDialog" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
+          <h2 class="text-2xl font-bold mb-4 text-gray-800">Confirm Deletion</h2>
+          <p class="mb-6 text-gray-600">Are you sure you want to delete the configuration "{{ configToDelete?.name }}"?</p>
+          <div class="flex justify-end space-x-4">
+            <button @click="cancelDelete" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors duration-300">Cancel</button>
+            <button @click="deleteConfiguration" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-300" :disabled="isDeleting">
+              {{ isDeleting ? 'Deleting...' : 'Delete' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Success Message -->
+      <div v-if="showSuccessMessage" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg">
+        {{ successMessage }}
+      </div>
     </div>
   </div>
 </template>
@@ -297,43 +313,19 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.configurations {
-  padding: 20px;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
-  text-align: left;
-  padding: 8px;
-  border-bottom: 1px solid #ddd;
-}
-
-th {
-  background-color: #f2f2f2;
-  font-weight: bold;
-}
-
-button {
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-button:hover:not(:disabled) {
-  opacity: 0.8;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+tbody tr {
+  animation: fadeIn 0.3s ease-out forwards;
+  opacity: 0;
 }
 
 .spinner {
   border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
+  border-top: 4px solid #4f46e5;
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -343,7 +335,7 @@ button:disabled {
 
 .spinner-small {
   border: 2px solid #f3f3f3;
-  border-top: 2px solid #3498db;
+  border-top: 2px solid #4f46e5;
   border-radius: 50%;
   width: 20px;
   height: 20px;
@@ -356,21 +348,22 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
-  .configurations {
-    padding: 10px;
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 
   table {
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   th, td {
-    padding: 6px;
+    padding: 0.5rem;
   }
 
   button {
-    padding: 4px 8px;
-    font-size: 12px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
   }
 }
 </style>

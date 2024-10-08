@@ -1,43 +1,65 @@
 <template>
-  <div class="container mx-auto px-4 py-8">
-    <h2 class="text-2xl font-bold mb-4">Jobs</h2>
-    <div class="overflow-x-auto bg-white shadow-md rounded-lg">
-      <table class="min-w-full leading-normal">
-        <thead>
-          <tr>
-            <th v-for="header in tableHeaders" :key="header" class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              {{ header }}
-            </th>
-            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="job in sortedJobs" :key="job.id" class="hover:bg-gray-50">
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ job.id }}</td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ getDockerFileName(job.worker_type) }}</td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-              <a href="#" @click.prevent="handleConfigurationClick(job.config)" class="text-blue-600 hover:text-blue-800">
-                {{ getConfigurationName(job.config) }}
-              </a>
-            </td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ getPipelineName(job.pipeline_id) }}</td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">{{ job.status }}</td>
-            <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-              <router-link :to="{ name: 'JobDetail', params: { id: job.id } }" class="text-indigo-600 hover:text-indigo-900 mr-2">
-                View
-              </router-link>
-              <button @click="openJobEditor(job)" class="text-indigo-600 hover:text-indigo-900 mr-2">
-                Edit
-              </button>
-              <button @click="job.id && deleteJob(job.id)" class="text-red-600 hover:text-red-900">
-                Delete
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+    <div class="container mx-auto px-4">
+      <h2 class="text-3xl font-bold mb-6 text-gray-800">Jobs</h2>
+      <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full leading-normal">
+            <thead>
+              <tr class="bg-indigo-600 text-white">
+                <th v-for="header in tableHeaders" :key="header" class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                  {{ header }}
+                </th>
+                <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(job, index) in sortedJobs" :key="job.id" 
+                  class="hover:bg-indigo-50 transition-colors duration-150 ease-in-out"
+                  :class="{'bg-gray-50': index % 2 === 0}"
+                  :style="{ animationDelay: `${index * 50}ms` }">
+                <td class="px-5 py-5 border-b border-gray-200 text-sm">{{ job.id }}</td>
+                <td class="px-5 py-5 border-b border-gray-200 text-sm">{{ getDockerFileName(job.worker_type) }}</td>
+                <td class="px-5 py-5 border-b border-gray-200 text-sm">
+                  <a href="#" @click.prevent="handleConfigurationClick(job.config)" class="text-indigo-600 hover:text-indigo-900 hover:underline">
+                    {{ getConfigurationName(job.config) }}
+                  </a>
+                </td>
+                <td class="px-5 py-5 border-b border-gray-200 text-sm">{{ getPipelineName(job.pipeline_id) }}</td>
+                <td class="px-5 py-5 border-b border-gray-200 text-sm">
+                  <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                        :class="{
+                          'bg-green-100 text-green-800': job.status === 'completed',
+                          'bg-yellow-100 text-yellow-800': job.status === 'pending',
+                          'bg-blue-100 text-blue-800': job.status === 'running',
+                          'bg-red-100 text-red-800': job.status === 'failed'
+                        }">
+                    {{ job.status }}
+                  </span>
+                </td>
+                <td class="px-5 py-5 border-b border-gray-200 text-sm">
+                  <div class="flex space-x-2">
+                    <router-link :to="{ name: 'JobDetail', params: { id: job.id } }" 
+                                 class="text-indigo-600 hover:text-indigo-900 transition-colors duration-150">
+                      View
+                    </router-link>
+                    <button @click="openJobEditor(job)" 
+                            class="text-indigo-600 hover:text-indigo-900 transition-colors duration-150">
+                      Edit
+                    </button>
+                    <button @click="job.id && deleteJob(job.id)" 
+                            class="text-red-600 hover:text-red-900 transition-colors duration-150">
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <JobEditor
@@ -275,3 +297,15 @@ watch(
   }
 );
 </script>
+
+<style scoped>
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+tbody tr {
+  animation: fadeIn 0.3s ease-out forwards;
+  opacity: 0;
+}
+</style>
