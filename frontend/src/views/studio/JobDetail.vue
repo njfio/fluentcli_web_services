@@ -1,44 +1,65 @@
 <template>
-  <div class="job-detail bg-gray-100 min-h-screen py-8">
-    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
-      <div class="px-6 py-4 bg-indigo-600 text-white">
+  <div class="job-detail bg-gray-50 min-h-screen py-8">
+    <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg overflow-hidden">
+      <div class="px-6 py-4 bg-primary-600 text-white flex justify-between items-center">
         <h2 class="text-2xl font-bold">Job Details</h2>
+        <div v-if="job" class="text-sm font-medium px-3 py-1 rounded-full" :class="getStatusClass(job.status)">
+          {{ job.status }}
+        </div>
       </div>
       <div v-if="loading" class="p-6 text-center">
-        <p class="text-gray-600">Loading job details...</p>
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+        <p class="mt-4 text-gray-600">Loading job details...</p>
       </div>
       <div v-else-if="error" class="p-6 text-center">
         <p class="text-red-600">{{ error }}</p>
       </div>
       <div v-else-if="job" class="p-6">
-        <div class="grid grid-cols-2 gap-4">
-          <div v-for="(value, key) in jobDetails" :key="key" class="mb-4">
-            <p class="font-semibold">{{ formatLabel(key) }}:</p>
-            <p v-if="isLinkableField(key)" class="text-blue-600 hover:text-blue-800">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div v-for="(value, key) in jobDetails" :key="key"
+            class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+            <p class="text-sm font-medium text-gray-600 mb-1">{{ formatLabel(key) }}</p>
+            <p v-if="isLinkableField(key)" class="text-primary-600 hover:text-primary-800 font-semibold">
               <router-link :to="getLinkForField(key, value)">
                 {{ getLinkedItemName(key, value) }}
               </router-link>
             </p>
-            <p v-else>{{ formatValue(key, value) }}</p>
+            <p v-else class="font-semibold text-gray-800">{{ formatValue(key, value) }}</p>
           </div>
         </div>
-        <div class="mt-6">
-          <h3 @click="toggleStateFileContent" class="font-semibold mb-2 cursor-pointer flex items-center">
-            <span class="mr-2">State File Content:</span>
-            <svg :class="{'rotate-180': showStateFileContent}" class="w-4 h-4 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-          </h3>
-          <pre v-if="showStateFileContent" class="bg-gray-100 p-4 rounded overflow-x-auto" v-html="highlightedStateFileContent"></pre>
-        </div>
-        <div class="mt-6">
-          <h3 @click="toggleJobLogs" class="font-semibold mb-2 cursor-pointer flex items-center">
-            <span class="mr-2">Job Logs:</span>
-            <svg :class="{'rotate-180': showJobLogs}" class="w-4 h-4 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-          </h3>
-          <pre v-if="showJobLogs" class="bg-gray-100 p-4 rounded overflow-x-auto" v-html="highlightedJobLogs"></pre>
+        <div class="mt-8">
+          <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
+            <h3 @click="toggleStateFileContent"
+              class="font-semibold mb-2 cursor-pointer flex items-center text-primary-600 hover:text-primary-800">
+              <span class="mr-2">State File Content</span>
+              <svg :class="{ 'rotate-180': showStateFileContent }" class="w-4 h-4 transition-transform"
+                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  clip-rule="evenodd" />
+              </svg>
+            </h3>
+            <div v-if="showStateFileContent" class="mt-2">
+              <pre class="bg-white p-4 rounded overflow-x-auto text-sm border border-gray-200"
+                v-html="highlightedStateFileContent"></pre>
+            </div>
+          </div>
+          <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 @click="toggleJobLogs"
+              class="font-semibold mb-2 cursor-pointer flex items-center text-primary-600 hover:text-primary-800">
+              <span class="mr-2">Job Logs</span>
+              <svg :class="{ 'rotate-180': showJobLogs }" class="w-4 h-4 transition-transform"
+                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  clip-rule="evenodd" />
+              </svg>
+            </h3>
+            <div v-if="showJobLogs" class="mt-2">
+              <pre class="bg-white p-4 rounded overflow-x-auto text-sm border border-gray-200"
+                v-html="highlightedJobLogs"></pre>
+            </div>
+          </div>
         </div>
       </div>
       <div v-else class="p-6 text-center">
@@ -74,8 +95,8 @@ const job = computed(() => {
 
 const jobDetails = computed(() => {
   if (!job.value) return {};
-  const { id, worker_type, config, pipeline_id, amber_id, status } = job.value;
-  const details = { id, worker_type, config, pipeline_id, amber_id, status };
+  const { id, worker_type, config, pipeline_id, amber_id, status, created_at, updated_at } = job.value;
+  const details = { id, worker_type, config, pipeline_id, amber_id, status, created_at, updated_at };
   console.log('Computed jobDetails:', details);
   return details;
 });
@@ -184,6 +205,19 @@ const getLinkedItemName = (key: string, value: any) => {
   }
 };
 
+const getStatusClass = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'running':
+      return 'bg-green-500';
+    case 'completed':
+      return 'bg-blue-500';
+    case 'failed':
+      return 'bg-red-500';
+    default:
+      return 'bg-gray-500';
+  }
+};
+
 const toggleStateFileContent = () => {
   showStateFileContent.value = !showStateFileContent.value;
 };
@@ -238,9 +272,23 @@ h3.cursor-pointer:hover {
 
 <style>
 /* Add these styles for syntax highlighting */
-.hljs-string { color: #008000; }
-.hljs-number { color: #0000ff; }
-.hljs-boolean { color: #b22222; }
-.hljs-null { color: #808080; }
-.hljs-attr { color: #7f0055; }
+.hljs-string {
+  color: #008000;
+}
+
+.hljs-number {
+  color: #0000ff;
+}
+
+.hljs-boolean {
+  color: #b22222;
+}
+
+.hljs-null {
+  color: #808080;
+}
+
+.hljs-attr {
+  color: #7f0055;
+}
 </style>
