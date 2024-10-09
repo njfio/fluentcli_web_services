@@ -15,12 +15,10 @@
           <tr>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
               Name</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
-              Description</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
               Created At</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
-              Last Modified</th>
+              Updated At</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
               Actions</th>
           </tr>
@@ -34,12 +32,11 @@
               </router-link>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-              <span :title="pipeline.description" class="truncate block max-w-xs">{{ pipeline.description }}</span>
+              {{ formatDate(pipeline.created_at) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{
-              formatDate(pipeline.createdAt) }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{
-              formatDate(pipeline.lastModified) }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+              {{ formatDate(pipeline.updated_at) }}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <router-link :to="{ name: 'PipelineEditor', params: { id: pipeline.id } }"
                 class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-2">Edit</router-link>
@@ -69,8 +66,7 @@ export default defineComponent({
     const pipelines = computed(() => store.getters['studio/getPipelines']);
     const filteredPipelines = computed(() => {
       return pipelines.value.filter((pipeline: any) =>
-        pipeline.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        pipeline.description.toLowerCase().includes(searchQuery.value.toLowerCase())
+        pipeline.name.toLowerCase().includes(searchQuery.value.toLowerCase())
       );
     });
 

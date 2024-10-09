@@ -15,9 +15,11 @@ import JobDetail from '@/views/studio/JobDetail.vue'
 import JobData from '@/views/studio/JobData.vue'
 import JobLogs from '@/views/studio/JobLogs.vue'
 import StateFiles from '@/views/studio/StateFiles.vue'
+import Chat from '@/views/studio/Chat.vue'
 
 const routes: Array<RouteRecordRaw> = [
-  { path: '/', name: 'Login', component: Login },
+  { path: '/', redirect: '/studio/dashboard' },
+  { path: '/login', name: 'Login', component: Login },
   { path: '/admin', name: 'Admin', component: Admin, meta: { requiresAuth: true } },
   {
     path: '/studio',
@@ -25,6 +27,7 @@ const routes: Array<RouteRecordRaw> = [
     component: Studio,
     meta: { requiresAuth: true },
     children: [
+      { path: '', redirect: { name: 'Dashboard' } },
       { path: 'dashboard', name: 'Dashboard', component: Dashboard },
       { path: 'jobs', name: 'Jobs', component: Jobs },
       { path: 'jobs/:id', name: 'JobDetail', component: JobDetail },
@@ -75,6 +78,7 @@ const routes: Array<RouteRecordRaw> = [
         props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
       },
       { path: 'statefiles', name: 'StateFiles', component: StateFiles },
+      { path: 'chat', name: 'Chat', component: Chat },
     ],
   }
 ];
@@ -85,13 +89,13 @@ const router = createRouter({
 });
 
 // Global navigation guard for debugging
-router.beforeEach((to, from, next) => {
-  console.log(`Navigation from ${from.fullPath} to ${to.fullPath}`);
+router.beforeEach((to, _, next) => {
+  console.log(`Navigation to ${to.fullPath}`);
   next();
 });
 
 // Navigation Guard
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _, next) => {
   const store = useStore();
   const isLoggedIn = store.state.isLoggedIn;
   const token = AuthService.getToken();

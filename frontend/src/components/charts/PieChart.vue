@@ -1,11 +1,12 @@
 <template>
   <div class="chart-container">
-    <Pie :data="chartData" :options="chartOptions" />
+    <Pie :data="themedChartData" :options="chartOptions" />
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent, PropType, computed } from 'vue';
+import { mapGetters } from 'vuex';
 import { Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, ChartData, ChartOptions } from 'chart.js';
 
@@ -20,13 +21,31 @@ export default defineComponent({
       required: true
     }
   },
-  setup() {
-    const chartOptions: ChartOptions<'pie'> = {
-      responsive: true,
-      maintainAspectRatio: false
-    };
-
-    return { chartOptions };
+  computed: {
+    ...mapGetters('theme', ['isDarkMode']),
+    chartOptions(): ChartOptions<'pie'> {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: {
+              color: this.isDarkMode ? '#ffffff' : '#000000'
+            }
+          }
+        }
+      };
+    },
+    themedChartData(): ChartData<'pie'> {
+      const data = { ...this.chartData };
+      if (data.datasets) {
+        data.datasets = data.datasets.map(dataset => ({
+          ...dataset,
+          borderColor: this.isDarkMode ? '#ffffff' : '#000000'
+        }));
+      }
+      return data;
+    }
   }
 });
 </script>

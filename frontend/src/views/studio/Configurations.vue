@@ -15,12 +15,10 @@
           <tr>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
               Name</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
-              Description</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
-              Type</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
               Created At</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
+              Updated At</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
               Actions</th>
           </tr>
@@ -34,11 +32,11 @@
               </router-link>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-              <span :title="config.description" class="truncate block max-w-xs">{{ config.description }}</span>
+              {{ formatDate(config.created_at) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{ config.type }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{
-              formatDate(config.createdAt) }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+              {{ formatDate(config.updated_at) }}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <router-link :to="{ name: 'ConfigurationEditor', params: { id: config.id } }"
                 class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-2">Edit</router-link>
@@ -68,9 +66,7 @@ export default defineComponent({
     const configurations = computed(() => store.getters['studio/getConfigurations']);
     const filteredConfigurations = computed(() => {
       return configurations.value.filter((config: any) =>
-        config.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        config.description.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        config.type.toLowerCase().includes(searchQuery.value.toLowerCase())
+        config.name.toLowerCase().includes(searchQuery.value.toLowerCase())
       );
     });
 

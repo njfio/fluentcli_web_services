@@ -1,4 +1,5 @@
 pub mod amber_store_service;
+pub mod chat_service;
 pub mod configuration_service;
 pub mod docker_file_service;
 pub mod fluentcli_service;
@@ -7,3 +8,14 @@ pub mod pipeline_service;
 pub mod secure_vault_service;
 pub mod user_service;
 pub mod worker_service;
+
+pub use amber_store_service::*;
+pub use chat_service::*;
+pub use configuration_service::*;
+pub use docker_file_service::*;
+pub use fluentcli_service::*;
+pub use job_service::*;
+pub use pipeline_service::*;
+pub use secure_vault_service::*;
+pub use user_service::*;
+pub use worker_service::*;

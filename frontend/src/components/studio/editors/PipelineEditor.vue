@@ -18,7 +18,7 @@
           <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             <div class="sm:col-span-4">
               <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-              <input type="text" id="name" v-model="pipeline.name" required
+              <input type="text" id="name" v-model="pipelineData.name" required
                 class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
             </div>
             <div class="sm:col-span-6">
@@ -26,7 +26,7 @@
                 (YAML)</label>
               <div class="mt-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden dark:bg-gray-800"
                 style="height: calc(100vh - 400px);">
-                <MonacoEditor :key="currentTheme" v-model="pipeline.data" language="yaml" :theme="currentTheme"
+                <MonacoEditor :key="currentTheme" v-model="pipelineData.data" language="yaml" :theme="currentTheme"
                   :options="editorOptions" class="h-full" @update:modelValue="onEditorUpdate" />
               </div>
             </div>
@@ -56,7 +56,7 @@ export default defineComponent({
     const router = useRouter();
     const route = useRoute();
 
-    const pipeline = ref({
+    const pipelineData = ref({
       id: '',
       name: '',
       data: '',
@@ -75,35 +75,33 @@ export default defineComponent({
       readOnly: false,
     };
 
-    console.log('PipelineEditor setup, initial isDarkMode:', isDarkMode.value);
-    console.log('PipelineEditor setup, initial currentTheme:', currentTheme.value);
-    console.log('PipelineEditor setup, isThemeInitialized:', isThemeInitialized.value);
-
     onMounted(async () => {
       if (!isNewPipeline.value) {
         const id = route.params.id as string;
         console.log('Fetching pipeline with ID:', id);
-        const fetchedPipeline = await store.dispatch('studio/fetchPipelineById', id);
+        await store.dispatch('studio/fetchPipelineById', id);
+        const fetchedPipeline = store.getters['studio/getCurrentPipeline'];
         console.log('Fetched pipeline:', fetchedPipeline);
-        pipeline.value = { ...fetchedPipeline };
-        console.log('Initial pipeline data:', pipeline.value.data);
+        if (fetchedPipeline) {
+          pipelineData.value = { ...fetchedPipeline };
+        }
+        console.log('Initial pipeline data:', pipelineData.value.data);
       }
-      console.log('PipelineEditor mounted, current theme:', currentTheme.value);
     });
 
     const onEditorUpdate = (value: string) => {
       console.log('Editor update:', value);
-      pipeline.value.data = value;
+      pipelineData.value.data = value;
     };
 
     const savePipeline = async () => {
       try {
-        console.log('Saving pipeline:', pipeline.value);
-        console.log('Pipeline data before save:', pipeline.value.data);
+        console.log('Saving pipeline:', pipelineData.value);
+        console.log('Pipeline data before save:', pipelineData.value.data);
         if (isNewPipeline.value) {
-          await store.dispatch('studio/createPipeline', pipeline.value);
+          await store.dispatch('studio/createPipeline', pipelineData.value);
         } else {
-          await store.dispatch('studio/updatePipeline', pipeline.value);
+          await store.dispatch('studio/updatePipeline', pipelineData.value);
         }
         console.log('Pipeline saved successfully');
         router.push({ name: 'Pipelines' });
@@ -117,27 +115,12 @@ export default defineComponent({
       router.push({ name: 'Pipelines' });
     };
 
-    watch(() => pipeline.value.data, (newValue) => {
+    watch(() => pipelineData.value.data, (newValue) => {
       console.log('Pipeline data changed:', newValue);
     });
 
-    // Watch for theme changes
-    watch(isDarkMode, (newValue) => {
-      console.log('PipelineEditor: Dark mode changed:', newValue, 'New theme:', currentTheme.value);
-    });
-
-    // Watch for changes in the current theme
-    watch(currentTheme, (newTheme) => {
-      console.log('PipelineEditor: Current theme changed to:', newTheme);
-    });
-
-    // Watch for theme initialization
-    watch(isThemeInitialized, (initialized) => {
-      console.log('PipelineEditor: Theme initialization state:', initialized);
-    });
-
     return {
-      pipeline,
+      pipelineData,
       isNewPipeline,
       currentTheme,
       isThemeInitialized,

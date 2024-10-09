@@ -19,7 +19,7 @@
           <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             <div class="sm:col-span-4">
               <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-              <input type="text" id="name" v-model="configuration.name" required
+              <input type="text" id="name" v-model="configurationData.name" required
                 class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
             </div>
             <div class="sm:col-span-6">
@@ -27,8 +27,8 @@
                 (JSON)</label>
               <div class="mt-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden dark:bg-gray-800"
                 style="height: calc(100vh - 400px);">
-                <MonacoEditor :key="currentTheme" v-model="editorContent" language="json" :theme="currentTheme"
-                  :options="editorOptions" @change="updateContent" class="h-full" />
+                <MonacoEditor :key="currentTheme" v-model="configurationDataString" language="json"
+                  :theme="currentTheme" :options="editorOptions" class="h-full" @update:modelValue="onEditorUpdate" />
               </div>
             </div>
           </div>
@@ -57,13 +57,22 @@ export default defineComponent({
     const router = useRouter();
     const route = useRoute();
 
-    const configuration = ref({
+    const configurationData = ref({
       id: '',
       name: '',
-      data: '',
+      data: {},
     });
 
-    const editorContent = ref('');
+    const configurationDataString = computed({
+      get: () => JSON.stringify(configurationData.value.data, null, 2),
+      set: (value) => {
+        try {
+          configurationData.value.data = JSON.parse(value);
+        } catch (error) {
+          console.error('Invalid JSON:', error);
+        }
+      },
+    });
 
     const isNewConfiguration = computed(() => route.params.id === 'new');
     const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
@@ -78,43 +87,35 @@ export default defineComponent({
       readOnly: false,
     };
 
-    console.log('ConfigurationEditor setup, initial isDarkMode:', isDarkMode.value);
-    console.log('ConfigurationEditor setup, initial currentTheme:', currentTheme.value);
-    console.log('ConfigurationEditor setup, isThemeInitialized:', isThemeInitialized.value);
-
     onMounted(async () => {
       if (!isNewConfiguration.value) {
         const id = route.params.id as string;
         console.log('Fetching configuration with ID:', id);
-        const fetchedConfiguration = await store.dispatch('studio/fetchConfigurationById', id);
+        await store.dispatch('studio/fetchConfigurationById', id);
+        const fetchedConfiguration = store.getters['studio/getCurrentConfiguration'];
         console.log('Fetched configuration:', fetchedConfiguration);
-        configuration.value = { ...fetchedConfiguration };
-        editorContent.value = typeof configuration.value.data === 'string'
-          ? configuration.value.data
-          : JSON.stringify(configuration.value.data, null, 2);
-        console.log('Editor content set to:', editorContent.value);
+        if (fetchedConfiguration) {
+          configurationData.value = { ...fetchedConfiguration };
+        }
+        console.log('Initial configuration data:', configurationData.value.data);
       }
-      console.log('ConfigurationEditor mounted, current theme:', currentTheme.value);
     });
 
-    const updateContent = (value: string) => {
-      console.log('Updating content:', value);
-      editorContent.value = value;
-      try {
-        configuration.value.data = JSON.parse(value);
-      } catch (error) {
-        console.error('Error parsing JSON:', error);
-        configuration.value.data = value;
-      }
+    const onEditorUpdate = (value: string) => {
+      console.log('Editor update:', value);
+      configurationDataString.value = value;
     };
 
     const saveConfiguration = async () => {
       try {
-        console.log('Saving configuration:', configuration.value);
-        const result = isNewConfiguration.value
-          ? await store.dispatch('studio/createConfiguration', configuration.value)
-          : await store.dispatch('studio/updateConfiguration', configuration.value);
-        console.log('Save result:', result);
+        console.log('Saving configuration:', configurationData.value);
+        console.log('Configuration data before save:', configurationData.value.data);
+        if (isNewConfiguration.value) {
+          await store.dispatch('studio/createConfiguration', configurationData.value);
+        } else {
+          await store.dispatch('studio/updateConfiguration', configurationData.value);
+        }
+        console.log('Configuration saved successfully');
         router.push({ name: 'Configurations' });
       } catch (error) {
         console.error('Error saving Configuration:', error);
@@ -126,42 +127,20 @@ export default defineComponent({
       router.push({ name: 'Configurations' });
     };
 
-    // Watch for changes in the editor content
-    watch(editorContent, (newValue) => {
-      console.log('Editor content changed:', newValue);
-      try {
-        configuration.value.data = JSON.parse(newValue);
-      } catch (error) {
-        console.error('Error parsing JSON:', error);
-        configuration.value.data = newValue;
-      }
-    });
-
-    // Watch for theme changes
-    watch(isDarkMode, (newValue) => {
-      console.log('ConfigurationEditor: Dark mode changed:', newValue, 'New theme:', currentTheme.value);
-    });
-
-    // Watch for changes in the current theme
-    watch(currentTheme, (newTheme) => {
-      console.log('ConfigurationEditor: Current theme changed to:', newTheme);
-    });
-
-    // Watch for theme initialization
-    watch(isThemeInitialized, (initialized) => {
-      console.log('ConfigurationEditor: Theme initialization state:', initialized);
+    watch(() => configurationData.value.data, (newValue) => {
+      console.log('Configuration data changed:', newValue);
     });
 
     return {
-      configuration,
-      editorContent,
+      configurationData,
+      configurationDataString,
       isNewConfiguration,
       currentTheme,
       isThemeInitialized,
       editorOptions,
       saveConfiguration,
       cancel,
-      updateContent,
+      onEditorUpdate,
     };
   },
 });
