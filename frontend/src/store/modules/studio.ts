@@ -17,7 +17,7 @@ export interface Pipeline {
   description: string;
   createdAt: string;
   lastModified: string;
-  status: string; // Add this line
+  status: string;
 }
 
 export interface StudioConfiguration {
@@ -251,6 +251,17 @@ const studioModule: Module<StudioState, RootState> = {
         commit('setCurrentAmberStore', response.data);
       } catch (error) {
         console.error('Error updating amber store:', error);
+        throw error;
+      }
+    },
+    async startJob({ commit, dispatch }, jobId: string) {
+      try {
+        const response = await apiClient.startJob(jobId);
+        commit('setCurrentJob', response.data);
+        // Refresh the jobs list after starting the job
+        await dispatch('fetchJobs');
+      } catch (error) {
+        console.error('Error starting job:', error);
         throw error;
       }
     },

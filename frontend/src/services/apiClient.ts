@@ -77,6 +77,7 @@ interface ApiClient {
   fetchJobData: (id: string) => Promise<AxiosResponse<any>>;
   fetchJobLogs: (id: string) => Promise<AxiosResponse<any>>;
   fetchJobs: () => Promise<AxiosResponse<any>>;
+  startJob: (id: string) => Promise<AxiosResponse<any>>; // Add this line
 
   // Pipeline routes
   createPipeline: (pipelineData: any) => Promise<AxiosResponse<any>>;
@@ -133,6 +134,7 @@ const apiClient: ApiClient = {
   fetchJobData: (id) => axiosInstance.get(`/jobs/${id}/data`),
   fetchJobLogs: (id) => axiosInstance.get(`/jobs/${id}/logs`),
   fetchJobs: () => axiosInstance.get('/jobs'),
+  startJob: (id) => axiosInstance.post(`/jobs/${id}/start`), // Add this line
 
   // Pipeline routes
   createPipeline: (pipelineData) => axiosInstance.post('/pipelines', pipelineData),
