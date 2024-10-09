@@ -19,21 +19,16 @@
           <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             <div class="sm:col-span-4">
               <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-              <input type="text" id="name" v-model="amberStore.name" required
-                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-            </div>
-            <div class="sm:col-span-4">
-              <label for="secure_key_hash" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Secure Key
-                Hash</label>
-              <input type="text" id="secure_key_hash" v-model="amberStore.secure_key_hash" required
+              <input type="text" id="name" v-model="amberStoreData.name" required
                 class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
             </div>
             <div class="sm:col-span-6">
-              <label for="data" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Data (YAML)</label>
+              <label for="data" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Amber Store Data
+                (JSON)</label>
               <div class="mt-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden dark:bg-gray-800"
                 style="height: calc(100vh - 400px);">
-                <MonacoEditor :key="currentTheme" v-model="amberStore.data" language="yaml" :theme="currentTheme"
-                  class="h-full" />
+                <MonacoEditor :key="currentTheme" v-model="amberStoreData.data" language="json" :theme="currentTheme"
+                  :options="editorOptions" class="h-full" @update:modelValue="onEditorUpdate" />
               </div>
             </div>
           </div>
@@ -62,11 +57,10 @@ export default defineComponent({
     const router = useRouter();
     const route = useRoute();
 
-    const amberStore = ref({
+    const amberStoreData = ref({
       id: '',
       name: '',
       data: '',
-      secure_key_hash: '',
     });
 
     const isNewAmberStore = computed(() => route.params.id === 'new');
@@ -74,26 +68,43 @@ export default defineComponent({
     const isThemeInitialized = computed(() => store.getters['theme/isInitialized']);
     const currentTheme = computed(() => isDarkMode.value ? 'vs-dark' : 'vs-light');
 
-    console.log('AmberStoreEditor setup, initial isDarkMode:', isDarkMode.value);
-    console.log('AmberStoreEditor setup, initial currentTheme:', currentTheme.value);
-    console.log('AmberStoreEditor setup, isThemeInitialized:', isThemeInitialized.value);
+    const editorOptions = {
+      minimap: { enabled: false },
+      lineNumbers: 'on',
+      roundedSelection: false,
+      scrollBeyondLastLine: false,
+      readOnly: false,
+    };
 
     onMounted(async () => {
       if (!isNewAmberStore.value) {
         const id = route.params.id as string;
-        const fetchedAmberStore = await store.dispatch('studio/fetchAmberStoreById', id);
-        amberStore.value = { ...fetchedAmberStore };
+        console.log('Fetching amber store with ID:', id);
+        await store.dispatch('studio/fetchAmberStoreById', id);
+        const fetchedAmberStore = store.getters['studio/getCurrentAmberStore'];
+        console.log('Fetched amber store:', fetchedAmberStore);
+        if (fetchedAmberStore) {
+          amberStoreData.value = { ...fetchedAmberStore };
+        }
+        console.log('Initial amber store data:', amberStoreData.value.data);
       }
-      console.log('AmberStoreEditor mounted, current theme:', currentTheme.value);
     });
+
+    const onEditorUpdate = (value: string) => {
+      console.log('Editor update:', value);
+      amberStoreData.value.data = value;
+    };
 
     const saveAmberStore = async () => {
       try {
+        console.log('Saving amber store:', amberStoreData.value);
+        console.log('Amber store data before save:', amberStoreData.value.data);
         if (isNewAmberStore.value) {
-          await store.dispatch('studio/createAmberStore', amberStore.value);
+          await store.dispatch('studio/createAmberStore', amberStoreData.value);
         } else {
-          await store.dispatch('studio/updateAmberStore', amberStore.value);
+          await store.dispatch('studio/updateAmberStore', amberStoreData.value);
         }
+        console.log('Amber store saved successfully');
         router.push({ name: 'AmberStores' });
       } catch (error) {
         console.error('Error saving Amber Store:', error);
@@ -105,28 +116,19 @@ export default defineComponent({
       router.push({ name: 'AmberStores' });
     };
 
-    // Watch for theme changes
-    watch(isDarkMode, (newValue) => {
-      console.log('AmberStoreEditor: Dark mode changed:', newValue, 'New theme:', currentTheme.value);
-    });
-
-    // Watch for changes in the current theme
-    watch(currentTheme, (newTheme) => {
-      console.log('AmberStoreEditor: Current theme changed to:', newTheme);
-    });
-
-    // Watch for theme initialization
-    watch(isThemeInitialized, (initialized) => {
-      console.log('AmberStoreEditor: Theme initialization state:', initialized);
+    watch(() => amberStoreData.value.data, (newValue) => {
+      console.log('Amber store data changed:', newValue);
     });
 
     return {
-      amberStore,
+      amberStoreData,
       isNewAmberStore,
       currentTheme,
       isThemeInitialized,
+      editorOptions,
       saveAmberStore,
       cancel,
+      onEditorUpdate,
     };
   },
 });

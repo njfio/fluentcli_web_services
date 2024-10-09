@@ -1,19 +1,28 @@
 <template>
   <nav :class="['sidebar bg-white dark:bg-gray-800 text-gray-900 dark:text-white', { 'collapsed': isCollapsed }]">
-    <div class="p-4">
-      <div class="flex items-center justify-between mb-4">
-        <h2 v-if="!isCollapsed" class="text-2xl font-semibold">Studio</h2>
+    <div class="p-4 flex flex-col h-full">
+      <div class="flex items-center justify-end mb-4">
         <button @click="toggleSidebar" class="text-gray-500 dark:text-gray-400 focus:outline-none">
           <ChevronDoubleLeftIcon v-if="!isCollapsed" class="h-6 w-6" />
           <ChevronDoubleRightIcon v-else class="h-6 w-6" />
         </button>
       </div>
-      <ul>
-        <li v-for="(item, index) in menuItems" :key="index" class="mb-2">
+      <ul class="flex-grow">
+        <li v-for="(item, index) in mainMenuItems" :key="index" class="mb-2">
           <router-link :to="item.route" class="flex items-center py-2 px-4 rounded transition-colors duration-200"
             :class="{ 'bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-primary-100': $route.name === item.routeName, 'hover:bg-gray-100 dark:hover:bg-gray-700': $route.name !== item.routeName }">
             <component :is="item.icon" class="h-5 w-5" :class="{ 'mr-3': !isCollapsed }" />
             <span v-if="!isCollapsed">{{ item.label }}</span>
+          </router-link>
+        </li>
+      </ul>
+      <ul class="mt-auto">
+        <li class="mb-2">
+          <router-link :to="settingsMenuItem.route"
+            class="flex items-center py-2 px-4 rounded transition-colors duration-200"
+            :class="{ 'bg-primary-100 dark:bg-primary-800 text-primary-900 dark:text-primary-100': $route.name === settingsMenuItem.routeName, 'hover:bg-gray-100 dark:hover:bg-gray-700': $route.name !== settingsMenuItem.routeName }">
+            <component :is="settingsMenuItem.icon" class="h-5 w-5" :class="{ 'mr-3': !isCollapsed }" />
+            <span v-if="!isCollapsed">{{ settingsMenuItem.label }}</span>
           </router-link>
         </li>
       </ul>
@@ -65,7 +74,7 @@ const toggleSidebar = () => {
   emit('toggle');
 };
 
-const menuItems = [
+const mainMenuItems = [
   { label: 'Dashboard', route: '/studio/dashboard', routeName: 'Dashboard', icon: HomeIcon },
   { label: 'Jobs', route: '/studio/jobs', routeName: 'Jobs', icon: BriefcaseIcon },
   { label: 'Pipelines', route: '/studio/pipelines', routeName: 'Pipelines', icon: CogIcon },
@@ -74,8 +83,9 @@ const menuItems = [
   { label: 'Amber Stores', route: '/studio/amberstores', routeName: 'AmberStores', icon: CircleStackIcon },
   { label: 'State Files', route: '/studio/statefiles', routeName: 'StateFiles', icon: DocumentIcon },
   { label: 'Chat', route: '/studio/chat', routeName: 'Chat', icon: ChatIcon },
-  { label: 'Settings', route: '/studio/settings', routeName: 'Settings', icon: CogIcon },
 ];
+
+const settingsMenuItem = { label: 'Settings', route: '/studio/settings', routeName: 'Settings', icon: CogIcon };
 </script>
 
 <style scoped>

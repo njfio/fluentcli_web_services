@@ -15,8 +15,6 @@
           <tr>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
               Name</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
-              Description</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
               Created At</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
@@ -34,13 +32,10 @@
               </router-link>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-              <span :title="dockerFile.description" class="truncate block max-w-xs">{{ dockerFile.description }}</span>
+              {{ formatDate(dockerFile.created_at) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-              {{ formatDate(dockerFile.createdAt) }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-              {{ formatDate(dockerFile.updatedAt) }}
+              {{ formatDate(dockerFile.updated_at) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <router-link :to="{ name: 'DockerFileEditor', params: { id: dockerFile.id } }"
@@ -71,8 +66,7 @@ export default defineComponent({
     const dockerFiles = computed(() => store.getters['studio/getDockerFiles']);
     const filteredDockerFiles = computed(() => {
       return dockerFiles.value.filter((dockerFile: any) =>
-        dockerFile.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        dockerFile.description.toLowerCase().includes(searchQuery.value.toLowerCase())
+        dockerFile.name.toLowerCase().includes(searchQuery.value.toLowerCase())
       );
     });
 

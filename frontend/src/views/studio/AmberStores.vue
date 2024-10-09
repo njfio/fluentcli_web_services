@@ -15,12 +15,10 @@
           <tr>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
               Name</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/4">
-              Description</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
               Created At</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
-              Last Modified</th>
+              Updated At</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
               Actions</th>
           </tr>
@@ -34,12 +32,11 @@
               </router-link>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-              <span :title="amberStore.description" class="truncate block max-w-xs">{{ amberStore.description }}</span>
+              {{ formatDate(amberStore.created_at) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{
-              formatDate(amberStore.createdAt) }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{
-              formatDate(amberStore.lastModified) }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+              {{ formatDate(amberStore.updated_at) }}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <router-link :to="{ name: 'AmberStoreEditor', params: { id: amberStore.id } }"
                 class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-2">Edit</router-link>
@@ -69,8 +66,7 @@ export default defineComponent({
     const amberStores = computed(() => store.getters['studio/getAmberStores']);
     const filteredAmberStores = computed(() => {
       return amberStores.value.filter((amberStore: any) =>
-        amberStore.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        amberStore.description.toLowerCase().includes(searchQuery.value.toLowerCase())
+        amberStore.name.toLowerCase().includes(searchQuery.value.toLowerCase())
       );
     });
 

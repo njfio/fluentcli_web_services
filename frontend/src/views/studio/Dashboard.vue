@@ -109,17 +109,20 @@ export default defineComponent({
     });
 
     const calculateSuccessRate = (jobs: Job[]) => {
+      if (jobs.length === 0) return 'N/A';
       const successfulJobs = jobs.filter(job => job.status === 'completed').length;
       return `${((successfulJobs / jobs.length) * 100).toFixed(1)}%`;
     };
 
     const calculateAvgExecutionTime = (jobs: Job[]) => {
-      const completedJobs = jobs.filter(job => job.status === 'completed');
+      const completedJobs = jobs.filter(job =>
+        job.status === 'completed' && job.started_at && job.completed_at
+      );
       if (completedJobs.length === 0) return 'N/A';
 
       const totalExecutionTime = completedJobs.reduce((sum, job) => {
-        const start = new Date(job.createdAt).getTime();
-        const end = new Date(job.updatedAt).getTime();
+        const start = new Date(job.started_at!).getTime();
+        const end = new Date(job.completed_at!).getTime();
         return sum + (end - start);
       }, 0);
 
@@ -147,22 +150,42 @@ export default defineComponent({
         }],
       };
 
-      updateChartColors();
-    };
-
-    const updateChartColors = () => {
       // Jobs Created Over Time
+      const jobsByDate = jobs.value.reduce((acc, job) => {
+        if (!job.created_at) {
+          console.warn(`Job ${job.id} has no created_at date`);
+          return acc;
+        }
+
+        const date = new Date(job.created_at);
+        if (isNaN(date.getTime())) {
+          console.warn(`Invalid date for job: ${job.id}, created_at: ${job.created_at}`);
+          return acc;
+        }
+
+        const dateString = date.toISOString().split('T')[0];
+        acc[dateString] = (acc[dateString] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const sortedDates = Object.keys(jobsByDate).sort();
+      const jobCounts = sortedDates.map(date => jobsByDate[date]);
+
       jobsOverTimeData.value = {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        labels: sortedDates,
         datasets: [{
           label: 'Jobs Created',
-          data: [12, 19, 3, 5, 2, 3],
+          data: jobCounts,
           borderColor: isDarkMode.value ? '#A5B4FC' : '#3730A3',
           backgroundColor: isDarkMode.value ? 'rgba(165, 180, 252, 0.2)' : 'rgba(55, 48, 163, 0.2)',
           tension: 0.1,
         }],
       };
 
+      updateChartColors();
+    };
+
+    const updateChartColors = () => {
       // Resource Usage (placeholder data)
       resourceUsageData.value = {
         labels: ['CPU', 'Memory', 'Disk'],

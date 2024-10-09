@@ -18,7 +18,8 @@ import StateFiles from '@/views/studio/StateFiles.vue'
 import Chat from '@/views/studio/Chat.vue'
 
 const routes: Array<RouteRecordRaw> = [
-  { path: '/', name: 'Login', component: Login },
+  { path: '/', redirect: '/studio/dashboard' },
+  { path: '/login', name: 'Login', component: Login },
   { path: '/admin', name: 'Admin', component: Admin, meta: { requiresAuth: true } },
   {
     path: '/studio',
@@ -26,6 +27,7 @@ const routes: Array<RouteRecordRaw> = [
     component: Studio,
     meta: { requiresAuth: true },
     children: [
+      { path: '', redirect: { name: 'Dashboard' } },
       { path: 'dashboard', name: 'Dashboard', component: Dashboard },
       { path: 'jobs', name: 'Jobs', component: Jobs },
       { path: 'jobs/:id', name: 'JobDetail', component: JobDetail },

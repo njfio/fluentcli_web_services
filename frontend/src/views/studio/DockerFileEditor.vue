@@ -45,7 +45,7 @@
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter, useRoute } from 'vue-router';
-import MonacoEditor from './MonacoEditor.vue';
+import MonacoEditor from '@/components/studio/editors/MonacoEditor.vue';
 
 export default defineComponent({
   name: 'DockerFileEditor',
