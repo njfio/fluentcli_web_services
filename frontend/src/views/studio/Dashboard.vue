@@ -1,12 +1,13 @@
 <template>
   <div class="dashboard">
-    <h1 class="text-3xl font-bold mb-8 text-gray-800">Dashboard</h1>
-    
+    <h1 class="text-3xl font-bold mb-8 text-gray-800 dark:text-gray-200">Dashboard</h1>
+
     <div v-if="isLoading" class="flex justify-center items-center h-64">
       <div class="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-500"></div>
     </div>
 
-    <div v-else-if="error" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-8" role="alert">
+    <div v-else-if="error"
+      class="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 text-red-700 dark:text-red-200 p-4 mb-8" role="alert">
       <p class="font-bold">Error</p>
       <p>{{ error }}</p>
     </div>
@@ -14,30 +15,34 @@
     <template v-else>
       <!-- Summary Section -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div v-for="(metric, index) in summaryMetrics" :key="index" 
-             class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105"
-             :style="{ animationDelay: `${index * 100}ms` }">
-          <h3 class="text-lg font-semibold mb-2 text-gray-700">{{ metric.label }}</h3>
-          <p class="text-3xl font-bold text-indigo-600">{{ metric.value }}</p>
+        <div v-for="(metric, index) in summaryMetrics" :key="index"
+          class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105"
+          :style="{ animationDelay: `${index * 100}ms` }">
+          <h3 class="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">{{ metric.label }}</h3>
+          <p class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{{ metric.value }}</p>
         </div>
       </div>
 
       <!-- Charts Section -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
-          <h2 class="text-xl font-semibold mb-4 text-gray-800">Job Status Distribution</h2>
+        <div
+          class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
+          <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Job Status Distribution</h2>
           <PieChart v-if="jobStatusData" :chart-data="jobStatusData" />
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
-          <h2 class="text-xl font-semibold mb-4 text-gray-800">Jobs Created Over Time</h2>
+        <div
+          class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
+          <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Jobs Created Over Time</h2>
           <LineChart v-if="jobsOverTimeData" :chart-data="jobsOverTimeData" />
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
-          <h2 class="text-xl font-semibold mb-4 text-gray-800">Resource Usage</h2>
+        <div
+          class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
+          <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Resource Usage</h2>
           <BarChart v-if="resourceUsageData" :chart-data="resourceUsageData" />
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
-          <h2 class="text-xl font-semibold mb-4 text-gray-800">Pipeline Execution Times</h2>
+        <div
+          class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
+          <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Pipeline Execution Times</h2>
           <BarChart v-if="pipelineExecutionData" :chart-data="pipelineExecutionData" />
         </div>
       </div>
@@ -46,7 +51,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref, computed } from 'vue';
+import { defineComponent, onMounted, ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import PieChart from '@/components/charts/PieChart.vue';
 import LineChart from '@/components/charts/LineChart.vue';
@@ -78,12 +83,13 @@ export default defineComponent({
 
     const jobs = computed<Job[]>(() => store.getters['studio/getJobs']);
     const pipelines = computed<Pipeline[]>(() => store.getters['studio/getPipelines']);
+    const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
 
     onMounted(async () => {
       try {
         // Fetch data from the store
         await store.dispatch('studio/fetchAllData');
-        
+
         // Set up summary metrics
         summaryMetrics.value = [
           { label: 'Total Jobs', value: jobs.value.length },
@@ -141,14 +147,18 @@ export default defineComponent({
         }],
       };
 
-      // Jobs Created Over Time (placeholder data)
+      updateChartColors();
+    };
+
+    const updateChartColors = () => {
+      // Jobs Created Over Time
       jobsOverTimeData.value = {
         labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
         datasets: [{
           label: 'Jobs Created',
           data: [12, 19, 3, 5, 2, 3],
-          borderColor: '#3730A3',
-          backgroundColor: 'rgba(55, 48, 163, 0.2)',
+          borderColor: isDarkMode.value ? '#A5B4FC' : '#3730A3',
+          backgroundColor: isDarkMode.value ? 'rgba(165, 180, 252, 0.2)' : 'rgba(55, 48, 163, 0.2)',
           tension: 0.1,
         }],
       };
@@ -169,10 +179,15 @@ export default defineComponent({
         datasets: [{
           label: 'Execution Time (minutes)',
           data: [10, 15, 8, 12],
-          backgroundColor: '#7E57C2',
+          backgroundColor: isDarkMode.value ? '#B39DDB' : '#7E57C2',
         }],
       };
     };
+
+    // Watch for changes in dark mode and update chart colors
+    watch(isDarkMode, () => {
+      updateChartColors();
+    });
 
     return {
       jobStatusData,
@@ -197,13 +212,14 @@ export default defineComponent({
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-.dashboard > div {
+.dashboard>div {
   animation: fadeInUp 0.5s ease-out forwards;
 }
 </style>
