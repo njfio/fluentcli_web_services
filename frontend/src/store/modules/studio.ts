@@ -30,6 +30,12 @@ export interface StudioConfiguration {
   updatedAt: string;
 }
 
+export interface NewStudioConfiguration {
+  name: string;
+  description: string;
+  type: string;
+}
+
 export interface AmberStore {
   id: string;
   name: string;
@@ -275,7 +281,6 @@ const studioModule: Module<StudioState, RootState> = {
         throw error;
       }
     },
-    // Add createDockerFile action
     async createDockerFile({ commit }, dockerFile: Omit<DockerFile, 'id' | 'createdAt' | 'updatedAt'>) {
       try {
         const response = await apiClient.createDockerFile(dockerFile);
@@ -286,8 +291,7 @@ const studioModule: Module<StudioState, RootState> = {
         throw error;
       }
     },
-    // Add createConfiguration action
-    async createConfiguration({ commit }, configuration: Omit<StudioConfiguration, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
+    async createConfiguration({ commit }, configuration: NewStudioConfiguration) {
       try {
         const response = await apiClient.createConfiguration(configuration);
         commit('setCurrentConfiguration', response.data);
@@ -297,7 +301,6 @@ const studioModule: Module<StudioState, RootState> = {
         throw error;
       }
     },
-    // Add createPipeline action
     async createPipeline({ commit }, pipeline: Omit<Pipeline, 'id' | 'createdAt' | 'lastModified' | 'status'>) {
       try {
         const response = await apiClient.createPipeline(pipeline);
@@ -318,7 +321,6 @@ const studioModule: Module<StudioState, RootState> = {
         throw error;
       }
     },
-
   },
   getters: {
     getDockerFiles: (state) => state.dockerFiles,

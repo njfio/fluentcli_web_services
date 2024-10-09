@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { API_URL } from '@/config';
 import AuthService from './AuthService';
-import { StudioConfiguration } from '@/store/modules/studio';
+import { StudioConfiguration, NewStudioConfiguration } from '@/store/modules/studio';
 
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -77,7 +77,7 @@ interface ApiClient {
   fetchJobData: (id: string) => Promise<AxiosResponse<any>>;
   fetchJobLogs: (id: string) => Promise<AxiosResponse<any>>;
   fetchJobs: () => Promise<AxiosResponse<any>>;
-  startJob: (id: string) => Promise<AxiosResponse<any>>; // Add this line
+  startJob: (id: string) => Promise<AxiosResponse<any>>;
 
   // Pipeline routes
   createPipeline: (pipelineData: any) => Promise<AxiosResponse<any>>;
@@ -96,7 +96,7 @@ interface ApiClient {
   fetchDockerFiles: () => Promise<AxiosResponse<any>>;
 
   // Configuration routes
-  createConfiguration: (configurationData: StudioConfiguration) => Promise<AxiosResponse<StudioConfiguration>>;
+  createConfiguration: (configurationData: NewStudioConfiguration) => Promise<AxiosResponse<StudioConfiguration>>;
   listConfigurations: () => Promise<AxiosResponse<StudioConfiguration[]>>;
   getConfiguration: (id: string) => Promise<AxiosResponse<StudioConfiguration>>;
   updateConfiguration: (id: string, configurationData: StudioConfiguration) => Promise<AxiosResponse<StudioConfiguration>>;
@@ -134,7 +134,7 @@ const apiClient: ApiClient = {
   fetchJobData: (id) => axiosInstance.get(`/jobs/${id}/data`),
   fetchJobLogs: (id) => axiosInstance.get(`/jobs/${id}/logs`),
   fetchJobs: () => axiosInstance.get('/jobs'),
-  startJob: (id) => axiosInstance.post(`/jobs/${id}/start`), // Add this line
+  startJob: (id) => axiosInstance.post(`/jobs/${id}/start`),
 
   // Pipeline routes
   createPipeline: (pipelineData) => axiosInstance.post('/pipelines', pipelineData),
