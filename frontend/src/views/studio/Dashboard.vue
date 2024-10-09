@@ -32,8 +32,8 @@
         </div>
         <div
           class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
-          <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Jobs Created Over Time</h2>
-          <LineChart v-if="jobsOverTimeData" :chart-data="jobsOverTimeData" />
+          <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Jobs Completed Over Time</h2>
+          <LineChart v-if="jobsCompletedOverTimeData" :chart-data="jobsCompletedOverTimeData" />
         </div>
         <div
           class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 transform hover:scale-105">
@@ -74,7 +74,7 @@ export default defineComponent({
   setup() {
     const store = useStore();
     const jobStatusData = ref<ChartData<'pie'> | null>(null);
-    const jobsOverTimeData = ref<ChartData<'line'> | null>(null);
+    const jobsCompletedOverTimeData = ref<ChartData<'line'> | null>(null);
     const resourceUsageData = ref<ChartData<'bar'> | null>(null);
     const pipelineExecutionData = ref<ChartData<'bar'> | null>(null);
     const summaryMetrics = ref<SummaryMetric[]>([]);
@@ -93,7 +93,7 @@ export default defineComponent({
         // Set up summary metrics
         summaryMetrics.value = [
           { label: 'Total Jobs', value: jobs.value.length },
-          { label: 'Active Pipelines', value: pipelines.value.length },
+          { label: 'Active Pipelines', value: getActivePipelines(pipelines.value) },
           { label: 'Success Rate', value: calculateSuccessRate(jobs.value) },
           { label: 'Avg. Execution Time', value: calculateAvgExecutionTime(jobs.value) },
         ];
@@ -107,6 +107,10 @@ export default defineComponent({
         isLoading.value = false;
       }
     });
+
+    const getActivePipelines = (pipelines: Pipeline[]) => {
+      return pipelines.filter(pipeline => pipeline.status === 'active').length;
+    };
 
     const calculateSuccessRate = (jobs: Job[]) => {
       if (jobs.length === 0) return 'N/A';
@@ -138,44 +142,42 @@ export default defineComponent({
       // Job Status Distribution
       const statusCounts = {
         completed: jobs.value.filter(job => job.status === 'completed').length,
-        inProgress: jobs.value.filter(job => job.status === 'in_progress').length,
-        failed: jobs.value.filter(job => job.status === 'failed').length,
+        running: jobs.value.filter(job => job.status === 'running').length,
+        pending: jobs.value.filter(job => job.status === 'pending').length,
+        archived: jobs.value.filter(job => job.status === 'archived').length,
       };
 
       jobStatusData.value = {
-        labels: ['Completed', 'In Progress', 'Failed'],
+        labels: ['Completed', 'Running', 'Pending', 'Archived'],
         datasets: [{
-          data: [statusCounts.completed, statusCounts.inProgress, statusCounts.failed],
-          backgroundColor: ['#4CAF50', '#2196F3', '#F44336'],
+          data: [statusCounts.completed, statusCounts.running, statusCounts.pending, statusCounts.archived],
+          backgroundColor: ['#4CAF50', '#2196F3', '#FFC107', '#9E9E9E'],
         }],
       };
 
-      // Jobs Created Over Time
-      const jobsByDate = jobs.value.reduce((acc, job) => {
-        if (!job.created_at) {
-          console.warn(`Job ${job.id} has no created_at date`);
+      // Jobs Completed Over Time (last 45 days)
+      const today = new Date();
+      const last45Days = Array.from({ length: 45 }, (_, i) => {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        return date.toISOString().split('T')[0];
+      }).reverse();
+
+      const completedJobsByDate = jobs.value
+        .filter(job => job.status === 'completed' && job.completed_at)
+        .reduce((acc, job) => {
+          const date = new Date(job.completed_at!).toISOString().split('T')[0];
+          acc[date] = (acc[date] || 0) + 1;
           return acc;
-        }
+        }, {} as Record<string, number>);
 
-        const date = new Date(job.created_at);
-        if (isNaN(date.getTime())) {
-          console.warn(`Invalid date for job: ${job.id}, created_at: ${job.created_at}`);
-          return acc;
-        }
+      const completedJobCounts = last45Days.map(date => completedJobsByDate[date] || 0);
 
-        const dateString = date.toISOString().split('T')[0];
-        acc[dateString] = (acc[dateString] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const sortedDates = Object.keys(jobsByDate).sort();
-      const jobCounts = sortedDates.map(date => jobsByDate[date]);
-
-      jobsOverTimeData.value = {
-        labels: sortedDates,
+      jobsCompletedOverTimeData.value = {
+        labels: last45Days,
         datasets: [{
-          label: 'Jobs Created',
-          data: jobCounts,
+          label: 'Jobs Completed',
+          data: completedJobCounts,
           borderColor: isDarkMode.value ? '#A5B4FC' : '#3730A3',
           backgroundColor: isDarkMode.value ? 'rgba(165, 180, 252, 0.2)' : 'rgba(55, 48, 163, 0.2)',
           tension: 0.1,
@@ -186,23 +188,43 @@ export default defineComponent({
     };
 
     const updateChartColors = () => {
+      const resourceColors = [
+        'rgba(255, 99, 132, 0.8)',   // Red
+        'rgba(54, 162, 235, 0.8)',   // Blue
+        'rgba(255, 206, 86, 0.8)',   // Yellow
+        'rgba(75, 192, 192, 0.8)',   // Green
+      ];
+
       // Resource Usage (placeholder data)
       resourceUsageData.value = {
-        labels: ['CPU', 'Memory', 'Disk'],
+        labels: ['CPU', 'Memory', 'Disk', 'Network'],
         datasets: [{
           label: 'Usage (%)',
-          data: [65, 80, 45],
-          backgroundColor: ['#FFA726', '#66BB6A', '#29B6F6'],
+          data: [65, 80, 45, 70],
+          backgroundColor: resourceColors,
+          borderColor: resourceColors.map(color => color.replace('0.8', '1')),
+          borderWidth: 1
         }],
       };
 
+      const pipelineColors = [
+        'rgba(255, 99, 132, 0.8)',   // Red
+        'rgba(54, 162, 235, 0.8)',   // Blue
+        'rgba(255, 206, 86, 0.8)',   // Yellow
+        'rgba(75, 192, 192, 0.8)',   // Green
+        'rgba(153, 102, 255, 0.8)',  // Purple
+        'rgba(255, 159, 64, 0.8)',   // Orange
+      ];
+
       // Pipeline Execution Times (placeholder data)
       pipelineExecutionData.value = {
-        labels: pipelines.value.slice(0, 4).map(pipeline => pipeline.name),
+        labels: pipelines.value.slice(0, 6).map(pipeline => pipeline.name),
         datasets: [{
           label: 'Execution Time (minutes)',
-          data: [10, 15, 8, 12],
-          backgroundColor: isDarkMode.value ? '#B39DDB' : '#7E57C2',
+          data: [10, 15, 8, 12, 7, 14],
+          backgroundColor: pipelineColors,
+          borderColor: pipelineColors.map(color => color.replace('0.8', '1')),
+          borderWidth: 1
         }],
       };
     };
@@ -214,7 +236,7 @@ export default defineComponent({
 
     return {
       jobStatusData,
-      jobsOverTimeData,
+      jobsCompletedOverTimeData,
       resourceUsageData,
       pipelineExecutionData,
       summaryMetrics,

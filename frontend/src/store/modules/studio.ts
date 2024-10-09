@@ -17,6 +17,7 @@ export interface Pipeline {
   description: string;
   createdAt: string;
   lastModified: string;
+  status: string; // Add this line
 }
 
 export interface StudioConfiguration {
