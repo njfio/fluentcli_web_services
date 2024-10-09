@@ -3,8 +3,14 @@
     <div class="max-w-6xl mx-auto bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
       <div class="px-6 py-4 bg-primary-600 dark:bg-primary-800 text-white flex justify-between items-center">
         <h2 class="text-2xl font-bold">Job Details</h2>
-        <div v-if="job" class="text-sm font-medium px-3 py-1 rounded-full" :class="getStatusClass(job.status)">
-          {{ job.status }}
+        <div class="flex items-center">
+          <button v-if="canStartOrRestartJob" @click="startOrRestartJob"
+            class="mr-4 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">
+            {{ job && job.status === 'completed' ? 'Restart Job' : 'Start Job' }}
+          </button>
+          <div v-if="job" class="text-sm font-medium px-3 py-1 rounded-full" :class="getStatusClass(job.status)">
+            {{ job.status }}
+          </div>
         </div>
       </div>
       <div v-if="loading" class="p-6 text-center">
@@ -75,7 +81,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
@@ -84,6 +90,7 @@ import apiClient from '@/services/apiClient';
 hljs.registerLanguage('json', json);
 
 const route = useRoute();
+const router = useRouter();
 const store = useStore();
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -103,6 +110,10 @@ const jobDetails = computed(() => {
   const details = { id, worker_type, config, pipeline_id, amber_id, status, created_at, updated_at };
   console.log('Computed jobDetails:', details);
   return details;
+});
+
+const canStartOrRestartJob = computed(() => {
+  return job.value && (job.value.status !== 'running' || job.value.status === 'completed');
 });
 
 const highlightedStateFileContent = computed(() => {
@@ -230,6 +241,21 @@ const toggleJobLogs = () => {
   showJobLogs.value = !showJobLogs.value;
   if (showJobLogs.value && !jobLogs.value) {
     fetchJobLogs();
+  }
+};
+
+const startOrRestartJob = async () => {
+  if (!job.value || !job.value.id) return;
+  try {
+    if (job.value.status === 'completed') {
+      await store.dispatch('studio/restartJob', job.value.id);
+    } else {
+      await store.dispatch('studio/startJob', job.value.id);
+    }
+    await fetchJobDetails(); // Refresh job details after starting/restarting the job
+  } catch (error) {
+    console.error('Error starting/restarting job:', error);
+    // Handle error (e.g., show an error message to the user)
   }
 };
 

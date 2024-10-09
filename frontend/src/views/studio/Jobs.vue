@@ -27,7 +27,7 @@
               Created At</th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/12">
               Updated At</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/12">
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-1/6">
               Actions</th>
           </tr>
         </thead>
@@ -70,7 +70,11 @@
               <router-link :to="{ name: 'JobDetail', params: { id: job.id } }"
                 class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-2">View</router-link>
               <button @click="deleteJob(job.id)"
-                class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
+                class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 mr-2">Delete</button>
+              <button v-if="canStartOrRestartJob(job)" @click="startOrRestartJob(job)"
+                class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
+                {{ job.status === 'completed' ? 'Restart' : 'Start' }}
+              </button>
             </td>
           </tr>
         </tbody>
@@ -124,6 +128,25 @@ export default defineComponent({
       }
     };
 
+    const startOrRestartJob = async (job: any) => {
+      try {
+        if (job.status === 'completed') {
+          await store.dispatch('studio/restartJob', job.id);
+        } else {
+          await store.dispatch('studio/startJob', job.id);
+        }
+        // Refresh the jobs list after starting/restarting the job
+        await store.dispatch('studio/fetchJobs');
+      } catch (error) {
+        console.error('Error starting/restarting job:', error);
+        // Handle error (e.g., show an error message to the user)
+      }
+    };
+
+    const canStartOrRestartJob = (job: any) => {
+      return job.status !== 'running' || job.status === 'completed';
+    };
+
     const getStatusClass = (status: string) => {
       const baseClasses = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full';
       switch (status.toLowerCase()) {
@@ -143,6 +166,8 @@ export default defineComponent({
       filteredJobs,
       createNewJob,
       deleteJob,
+      startOrRestartJob,
+      canStartOrRestartJob,
       getStatusClass,
       formatDate,
     };
