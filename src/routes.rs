@@ -119,7 +119,27 @@ pub fn configure_routes() -> Scope {
         .service(
             web::scope("/chat")
                 .wrap(Auth)
-                .route("", web::post().to(chat::send_message))
-                .route("/stream", web::get().to(chat::chat_stream)),
+                .route("/conversations", web::post().to(chat::create_conversation))
+                .route("/conversations/{id}", web::get().to(chat::get_conversation))
+                .route("/messages", web::post().to(chat::create_message))
+                .route(
+                    "/conversations/{id}/messages",
+                    web::get().to(chat::get_messages),
+                )
+                .route("/attachments", web::post().to(chat::create_attachment))
+                .route(
+                    "/messages/{id}/attachments",
+                    web::get().to(chat::get_attachments),
+                )
+                .route("/llm-providers", web::post().to(chat::create_llm_provider))
+                .route("/llm-providers/{id}", web::get().to(chat::get_llm_provider))
+                .route(
+                    "/user-llm-configs",
+                    web::post().to(chat::create_user_llm_config),
+                )
+                .route(
+                    "/user-llm-configs/{user_id}/{provider_id}",
+                    web::get().to(chat::get_user_llm_config),
+                ),
         )
 }

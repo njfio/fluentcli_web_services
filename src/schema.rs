@@ -40,12 +40,35 @@ diesel::table! {
 }
 
 diesel::table! {
+    attachments (id) {
+        id -> Uuid,
+        message_id -> Uuid,
+        #[max_length = 255]
+        file_type -> Varchar,
+        #[max_length = 255]
+        file_path -> Varchar,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     configurations (id) {
         id -> Uuid,
         user_id -> Uuid,
         #[max_length = 255]
         name -> Varchar,
         data -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    conversations (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        title -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -87,6 +110,29 @@ diesel::table! {
 }
 
 diesel::table! {
+    llm_providers (id) {
+        id -> Uuid,
+        #[max_length = 255]
+        name -> Varchar,
+        #[max_length = 255]
+        api_endpoint -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    messages (id) {
+        id -> Uuid,
+        conversation_id -> Uuid,
+        #[max_length = 255]
+        role -> Varchar,
+        content -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     pipelines (id) {
         id -> Uuid,
         user_id -> Uuid,
@@ -121,6 +167,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    user_llm_configs (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        provider_id -> Uuid,
+        #[max_length = 255]
+        api_key -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Uuid,
         #[max_length = 255]
@@ -149,28 +207,38 @@ diesel::table! {
 diesel::joinable!(active_workers -> users (user_id));
 diesel::joinable!(amber_store -> users (user_id));
 diesel::joinable!(api_keys -> users (user_id));
+diesel::joinable!(attachments -> messages (message_id));
 diesel::joinable!(configurations -> users (user_id));
+diesel::joinable!(conversations -> users (user_id));
 diesel::joinable!(docker_files -> users (user_id));
 diesel::joinable!(jobs -> amber_store (amber_id));
 diesel::joinable!(jobs -> configurations (config));
 diesel::joinable!(jobs -> docker_files (worker_type));
 diesel::joinable!(jobs -> pipelines (pipeline_id));
 diesel::joinable!(jobs -> users (user_id));
+diesel::joinable!(messages -> conversations (conversation_id));
 diesel::joinable!(pipelines -> users (user_id));
 diesel::joinable!(secure_vault -> users (user_id));
 diesel::joinable!(secure_vaults -> users (user_id));
+diesel::joinable!(user_llm_configs -> llm_providers (provider_id));
+diesel::joinable!(user_llm_configs -> users (user_id));
 diesel::joinable!(workers -> docker_files (worker_type));
 
 diesel::allow_tables_to_appear_in_same_query!(
     active_workers,
     amber_store,
     api_keys,
+    attachments,
     configurations,
+    conversations,
     docker_files,
     jobs,
+    llm_providers,
+    messages,
     pipelines,
     secure_vault,
     secure_vaults,
+    user_llm_configs,
     users,
     workers,
 );

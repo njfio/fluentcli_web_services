@@ -265,6 +265,60 @@ const studioModule: Module<StudioState, RootState> = {
         throw error;
       }
     },
+    async createAmberStore({ commit }, amberStore: Omit<AmberStore, 'id' | 'createdAt' | 'lastModified'>) {
+      try {
+        const response = await apiClient.createAmberStore(amberStore);
+        commit('setCurrentAmberStore', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating amber store:', error);
+        throw error;
+      }
+    },
+    // Add createDockerFile action
+    async createDockerFile({ commit }, dockerFile: Omit<DockerFile, 'id' | 'createdAt' | 'updatedAt'>) {
+      try {
+        const response = await apiClient.createDockerFile(dockerFile);
+        commit('setCurrentDockerFile', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating docker file:', error);
+        throw error;
+      }
+    },
+    // Add createConfiguration action
+    async createConfiguration({ commit }, configuration: Omit<StudioConfiguration, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
+      try {
+        const response = await apiClient.createConfiguration(configuration);
+        commit('setCurrentConfiguration', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating configuration:', error);
+        throw error;
+      }
+    },
+    // Add createPipeline action
+    async createPipeline({ commit }, pipeline: Omit<Pipeline, 'id' | 'createdAt' | 'lastModified' | 'status'>) {
+      try {
+        const response = await apiClient.createPipeline(pipeline);
+        commit('setCurrentPipeline', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating pipeline:', error);
+        throw error;
+      }
+    },
+    async createJob({ commit }, jobData) {
+      try {
+        const response = await apiClient.createJob(jobData);
+        commit('setCurrentJob', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating job:', error);
+        throw error;
+      }
+    },
+
   },
   getters: {
     getDockerFiles: (state) => state.dockerFiles,

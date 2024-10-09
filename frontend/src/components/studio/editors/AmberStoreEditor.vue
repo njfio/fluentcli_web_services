@@ -22,6 +22,12 @@
               <input type="text" id="name" v-model="amberStoreData.name" required
                 class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
             </div>
+            <div class="sm:col-span-4">
+              <label for="secure_key_hash" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Secure Key
+                Hash</label>
+              <input type="text" id="secure_key_hash" v-model="amberStoreData.secure_key_hash" required
+                class="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+            </div>
             <div class="sm:col-span-6">
               <label for="data" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Amber Store Data
                 (JSON)</label>
@@ -61,6 +67,7 @@ export default defineComponent({
       id: '',
       name: '',
       data: '',
+      secure_key_hash: '',
     });
 
     const isNewAmberStore = computed(() => route.params.id === 'new');

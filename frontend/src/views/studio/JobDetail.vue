@@ -81,7 +81,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useStore } from 'vuex';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
@@ -90,7 +90,6 @@ import apiClient from '@/services/apiClient';
 hljs.registerLanguage('json', json);
 
 const route = useRoute();
-const router = useRouter();
 const store = useStore();
 const loading = ref(false);
 const error = ref<string | null>(null);

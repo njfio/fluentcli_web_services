@@ -95,14 +95,18 @@ impl UserService {
         Ok(())
     }
 
-    pub fn email_exists(pool: &DbPool, email: &str) -> Result<bool, AppError> {
+    pub fn email_exists(pool: &DbPool, email_to_check: &str) -> Result<bool, AppError> {
         use crate::schema::users::dsl::*;
 
         let conn = &mut pool.get()?;
+        log::info!("Checking if email exists: {}", email_to_check);
+
         let count = users
-            .filter(email.eq(email))
+            .filter(email.eq(email_to_check))
             .count()
             .get_result::<i64>(conn)?;
+
+        log::info!("Count for email {}: {}", email_to_check, count);
 
         Ok(count > 0)
     }

@@ -4,7 +4,7 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Queryable, Identifiable, Serialize, Deserialize)]
+#[derive(Queryable, Identifiable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = users)]
 pub struct User {
     pub id: Uuid,
@@ -15,7 +15,7 @@ pub struct User {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct NewUser {
     pub username: String,
     pub email: String,
