@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, defineComponent, h } from 'vue';
 import {
   HomeIcon,
   BriefcaseIcon,
@@ -32,8 +32,28 @@ import {
   DocumentIcon,
   AdjustmentsHorizontalIcon,
   ChevronDoubleLeftIcon,
-  ChevronDoubleRightIcon
+  ChevronDoubleRightIcon,
 } from '@heroicons/vue/24/outline';
+
+const ChatIcon = defineComponent({
+  name: 'ChatIcon',
+  render() {
+    return h('svg', {
+      xmlns: 'http://www.w3.org/2000/svg',
+      fill: 'none',
+      viewBox: '0 0 24 24',
+      stroke: 'currentColor',
+      class: 'w-6 h-6',
+    }, [
+      h('path', {
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '2',
+        d: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
+      }),
+    ]);
+  },
+});
 
 defineProps<{
   isCollapsed: boolean
@@ -53,6 +73,7 @@ const menuItems = [
   { label: 'Docker Files', route: '/studio/dockerfiles', routeName: 'DockerFiles', icon: ServerIcon },
   { label: 'Amber Stores', route: '/studio/amberstores', routeName: 'AmberStores', icon: CircleStackIcon },
   { label: 'State Files', route: '/studio/statefiles', routeName: 'StateFiles', icon: DocumentIcon },
+  { label: 'Chat', route: '/studio/chat', routeName: 'Chat', icon: ChatIcon },
   { label: 'Settings', route: '/studio/settings', routeName: 'Settings', icon: CogIcon },
 ];
 </script>

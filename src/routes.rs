@@ -1,6 +1,6 @@
 use crate::handlers::{
-    amber_store, api_key, configuration, docker_file, fluentcli, job, pipeline, secure_vault, user,
-    worker,
+    amber_store, api_key, chat, configuration, docker_file, fluentcli, job, pipeline, secure_vault,
+    user, worker,
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, HttpResponse, Scope};
@@ -114,5 +114,12 @@ pub fn configure_routes() -> Scope {
             web::scope("/fluentcli")
                 .wrap(Auth)
                 .route("/execute", web::post().to(fluentcli::execute_command)),
+        )
+        // Chat routes
+        .service(
+            web::scope("/chat")
+                .wrap(Auth)
+                .route("", web::post().to(chat::send_message))
+                .route("/stream", web::get().to(chat::chat_stream)),
         )
 }
