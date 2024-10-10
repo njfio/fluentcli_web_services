@@ -56,6 +56,23 @@ impl ChatService {
             })
     }
 
+    pub fn list_conversations(
+        pool: &DbPool,
+        _user_id: Uuid,
+    ) -> Result<Vec<Conversation>, AppError> {
+        use crate::schema::conversations::dsl::*;
+
+        info!("Listing conversations for user_id: {:?}", _user_id);
+
+        conversations
+            .filter(user_id.eq(_user_id))
+            .load::<Conversation>(&mut pool.get()?)
+            .map_err(|e| {
+                error!("Error listing conversations: {:?}", e);
+                AppError::DatabaseError(e)
+            })
+    }
+
     pub fn create_message(
         pool: &DbPool,
         _conversation_id: Uuid,

@@ -76,6 +76,22 @@ pub async fn get_conversation(
     Ok(HttpResponse::Ok().json(conversation))
 }
 
+pub async fn list_conversations(
+    pool: web::Data<DbPool>,
+    user_id: web::ReqData<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    info!("Listing conversations for user: {:?}", *user_id);
+    let conversations = web::block(move || ChatService::list_conversations(&pool, *user_id))
+        .await
+        .map_err(|e| {
+            error!("Error listing conversations: {:?}", e);
+            AppError::GenericError(Box::new(e))
+        })??;
+
+    info!("Conversations listed successfully");
+    Ok(HttpResponse::Ok().json(conversations))
+}
+
 pub async fn create_message(
     pool: web::Data<DbPool>,
     req: web::Json<CreateMessageRequest>,

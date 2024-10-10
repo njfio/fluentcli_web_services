@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { API_URL } from '@/config';
+import { API_URL } from '../config';
 import AuthService from './AuthService';
-import { StudioConfiguration, NewStudioConfiguration } from '@/store/modules/studio';
+import { StudioConfiguration, NewStudioConfiguration } from '../store/modules/studio';
 
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -110,6 +110,19 @@ interface ApiClient {
   updateAmberStore: (id: string, amberStoreData: any) => Promise<AxiosResponse<any>>;
   deleteAmberStore: (id: string) => Promise<AxiosResponse<any>>;
   fetchAmberStores: () => Promise<AxiosResponse<any>>;
+
+  // Chat routes
+  createConversation: (title: string) => Promise<AxiosResponse<any>>;
+  listConversations: () => Promise<AxiosResponse<any>>;
+  getConversation: (id: string) => Promise<AxiosResponse<any>>;
+  createMessage: (conversationId: string, role: string, content: string) => Promise<AxiosResponse<any>>;
+  getMessages: (conversationId: string) => Promise<AxiosResponse<any>>;
+  createAttachment: (messageId: string, fileType: string, filePath: string) => Promise<AxiosResponse<any>>;
+  getAttachments: (messageId: string) => Promise<AxiosResponse<any>>;
+  createLLMProvider: (name: string, apiEndpoint: string) => Promise<AxiosResponse<any>>;
+  getLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
+  createUserLLMConfig: (providerId: string, apiKey: string) => Promise<AxiosResponse<any>>;
+  getUserLLMConfig: (userId: string, providerId: string) => Promise<AxiosResponse<any>>;
 }
 
 const apiClient: ApiClient = {
@@ -167,6 +180,19 @@ const apiClient: ApiClient = {
   updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_stores/${id}`, amberStoreData),
   deleteAmberStore: (id) => axiosInstance.delete(`/amber_stores/${id}`),
   fetchAmberStores: () => axiosInstance.get('/amber_stores'),
+
+  // Chat routes
+  createConversation: (title) => axiosInstance.post('/chat/conversations', { title }),
+  listConversations: () => axiosInstance.get('/chat/conversations'),
+  getConversation: (id) => axiosInstance.get(`/chat/conversations/${id}`),
+  createMessage: (conversationId, role, content) => axiosInstance.post('/chat/messages', { conversation_id: conversationId, role, content }),
+  getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
+  createAttachment: (messageId, fileType, filePath) => axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),
+  getAttachments: (messageId) => axiosInstance.get(`/chat/messages/${messageId}/attachments`),
+  createLLMProvider: (name, apiEndpoint) => axiosInstance.post('/chat/llm-providers', { name, api_endpoint: apiEndpoint }),
+  getLLMProvider: (id) => axiosInstance.get(`/chat/llm-providers/${id}`),
+  createUserLLMConfig: (providerId, apiKey) => axiosInstance.post('/chat/user-llm-configs', { provider_id: providerId, api_key: apiKey }),
+  getUserLLMConfig: (userId, providerId) => axiosInstance.get(`/chat/user-llm-configs/${userId}/${providerId}`),
 };
 
 export default apiClient;

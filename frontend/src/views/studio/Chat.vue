@@ -1,53 +1,72 @@
 <template>
     <div class="chat-container">
         <h1 class="text-2xl font-bold mb-4">AI Chat</h1>
-        <div class="chat-messages" ref="chatMessages">
-            <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
-                <div class="message-content" v-html="renderMarkdown(message.content)"></div>
-            </div>
-        </div>
-        <div class="chat-input">
-            <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage()"
-                @keydown.enter.shift.exact="newline" placeholder="Type your message here... (Shift+Enter for new line)"
-                rows="3" class="w-full p-2 border rounded-md resize-none" :disabled="isLoading"></textarea>
-            <div class="flex justify-between items-center mt-2">
-                <span v-if="isLoading" class="text-gray-600">
-                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-500 inline-block"
-                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                        </circle>
-                        <path class="opacity-75" fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                        </path>
-                    </svg>
-                    AI is thinking...
-                </span>
-                <button @click="sendMessage()" :disabled="isLoading || userInput.trim() === ''"
-                    class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                    Send
+        <div class="flex">
+            <div class="conversation-list w-1/4 pr-4">
+                <h2 class="text-xl font-bold mb-2">Conversations</h2>
+                <ul>
+                    <li v-for="conversation in conversations" :key="conversation.id"
+                        @click="selectConversation(conversation.id)"
+                        :class="{ 'font-bold': currentConversation && conversation.id === currentConversation.id }"
+                        class="cursor-pointer hover:bg-gray-100 p-2 rounded">
+                        {{ conversation.title }}
+                    </li>
+                </ul>
+                <button @click="createNewConversation"
+                    class="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">
+                    New Conversation
                 </button>
             </div>
-        </div>
-        <div v-if="error" class="mt-4 p-4 bg-red-100 text-red-700 rounded-md">
-            {{ error }}
-            <button @click="retryLastMessage" class="ml-2 underline">Retry</button>
+            <div class="chat-content w-3/4">
+                <div v-if="currentConversation" class="chat-messages" ref="chatMessages">
+                    <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
+                        <div class="message-content" v-html="renderMarkdown(message.content)"></div>
+                    </div>
+                </div>
+                <div v-if="currentConversation" class="chat-input">
+                    <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage()"
+                        @keydown.enter.shift.exact="newline"
+                        placeholder="Type your message here... (Shift+Enter for new line)" rows="3"
+                        class="w-full p-2 border rounded-md resize-none" :disabled="isLoading"></textarea>
+                    <div class="flex justify-between items-center mt-2">
+                        <span v-if="isLoading" class="text-gray-600">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-500 inline-block"
+                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                    stroke-width="4">
+                                </circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                            AI is thinking...
+                        </span>
+                        <button @click="sendMessage()" :disabled="isLoading || userInput.trim() === ''"
+                            class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Send
+                        </button>
+                    </div>
+                </div>
+                <div v-if="error" class="mt-4 p-4 bg-red-100 text-red-700 rounded-md">
+                    {{ error }}
+                    <button @click="retryLastMessage" class="ml-2 underline">Retry</button>
+                </div>
+            </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, nextTick, onUnmounted } from 'vue';
-import AuthService from '@/services/AuthService';
+import { defineComponent, ref, computed, onMounted, nextTick, onUnmounted } from 'vue';
+import { useStore } from 'vuex';
+import AuthService from '../../services/AuthService';
+import { Message } from '../../store/modules/chat';
 
-interface ChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
-}
 
 export default defineComponent({
     name: 'Chat',
     setup() {
-        const messages = ref<ChatMessage[]>([]);
+        const store = useStore();
         const userInput = ref('');
         const chatMessages = ref<HTMLElement | null>(null);
         const isLoading = ref(false);
@@ -56,18 +75,35 @@ export default defineComponent({
         let retryCount = 0;
         const maxRetries = 3;
 
+        const conversations = computed(() => store.state.chat.conversations);
+        const currentConversation = computed(() => store.state.chat.currentConversation);
+        const messages = computed(() => store.state.chat.messages);
+
+        const selectConversation = async (conversationId: string) => {
+            await store.dispatch('chat/getConversation', conversationId);
+            await store.dispatch('chat/getMessages', conversationId);
+        };
+
+        const createNewConversation = async () => {
+            const title = prompt('Enter conversation title:');
+            if (title) {
+                const newConversation = await store.dispatch('chat/createConversation', title);
+                await selectConversation(newConversation.id);
+            }
+        };
+
         const sendMessage = async () => {
-            if (userInput.value.trim() === '' || isLoading.value) return;
+            if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value) return;
             await processMessage(userInput.value);
         };
 
         const processMessage = async (message: string, retry = false) => {
-            if (!retry) {
-                const userMessage: ChatMessage = {
+            if (!retry && currentConversation.value) {
+                await store.dispatch('chat/createMessage', {
+                    conversationId: currentConversation.value.id,
                     role: 'user',
                     content: message,
-                };
-                messages.value.push(userMessage);
+                });
                 userInput.value = '';
             }
 
@@ -89,7 +125,7 @@ export default defineComponent({
                     throw new Error('No authentication token found');
                 }
 
-                const response = await fetch(`/api/chat/stream?content=${encodeURIComponent(message)}`, {
+                const response = await fetch(`/chat/stream?content=${encodeURIComponent(message)}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                     },
@@ -103,9 +139,12 @@ export default defineComponent({
                 const reader = response.body?.getReader();
                 const decoder = new TextDecoder();
 
-                let assistantMessage: ChatMessage = {
+                let assistantMessage: Message = {
+                    id: '',
+                    conversationId: currentConversation.value!.id,
                     role: 'assistant',
                     content: '',
+                    createdAt: new Date().toISOString(),
                 };
 
                 while (true) {
@@ -116,11 +155,15 @@ export default defineComponent({
                     const lines = chunk.split('\n');
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
-                            const data = JSON.parse(line.slice(6));
-                            if (assistantMessage.content === '') {
-                                messages.value.push(assistantMessage);
+                            const data = line.slice(6).trim();
+                            if (data === '[DONE]') {
+                                break;
                             }
-                            assistantMessage.content += data.message;
+                            if (assistantMessage.content === '') {
+                                store.commit('chat/addMessage', assistantMessage);
+                            }
+                            assistantMessage.content += data + ' ';
+                            store.commit('chat/updateMessage', assistantMessage);
                             scrollToBottom();
                         }
                     }
@@ -176,7 +219,8 @@ export default defineComponent({
                 .replace(/\n/gim, '<br>');
         };
 
-        onMounted(() => {
+        onMounted(async () => {
+            await store.dispatch('chat/getConversations');
             scrollToBottom();
         });
 
@@ -187,6 +231,8 @@ export default defineComponent({
         });
 
         return {
+            conversations,
+            currentConversation,
             messages,
             userInput,
             sendMessage,
@@ -196,6 +242,8 @@ export default defineComponent({
             newline,
             renderMarkdown,
             retryLastMessage,
+            selectConversation,
+            createNewConversation,
         };
     },
 });
@@ -203,7 +251,7 @@ export default defineComponent({
 
 <style scoped>
 .chat-container {
-    @apply max-w-4xl mx-auto p-4;
+    @apply max-w-6xl mx-auto p-4;
 }
 
 .chat-messages {

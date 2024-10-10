@@ -1,6 +1,6 @@
 use crate::handlers::{
     amber_store, api_key, chat, configuration, docker_file, fluentcli, job, pipeline, secure_vault,
-    user, worker,
+    stream_chat, user, worker,
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, HttpResponse, Scope};
@@ -120,6 +120,7 @@ pub fn configure_routes() -> Scope {
             web::scope("/chat")
                 .wrap(Auth)
                 .route("/conversations", web::post().to(chat::create_conversation))
+                .route("/conversations", web::get().to(chat::list_conversations))
                 .route("/conversations/{id}", web::get().to(chat::get_conversation))
                 .route("/messages", web::post().to(chat::create_message))
                 .route(
@@ -140,6 +141,7 @@ pub fn configure_routes() -> Scope {
                 .route(
                     "/user-llm-configs/{user_id}/{provider_id}",
                     web::get().to(chat::get_user_llm_config),
-                ),
+                )
+                .route("/stream", web::get().to(stream_chat::stream_chat)),
         )
 }
