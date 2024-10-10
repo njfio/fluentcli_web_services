@@ -1,6 +1,8 @@
 use crate::db::db::DbPool;
 use crate::error::AppError;
+use crate::models::message::Message;
 use crate::services::chat_service::ChatService;
+use crate::services::llm_service::{self, LLMService};
 use actix_web::{web, HttpResponse, Responder};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
@@ -16,6 +18,7 @@ pub struct CreateMessageRequest {
     conversation_id: Uuid,
     role: String,
     content: String,
+    provider_id: Option<Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -101,9 +104,10 @@ pub async fn create_message(
         "Creating message for user: {:?}, conversation: {:?}",
         *user_id, req.conversation_id
     );
+    let pool_clone = pool.clone();
     let message = web::block(move || {
         // Check if the user owns the conversation
-        let conversation = ChatService::get_conversation(&pool, req.conversation_id)?;
+        let conversation = ChatService::get_conversation(&pool_clone, req.conversation_id)?;
         if conversation.user_id != *user_id {
             error!(
                 "Unauthorized: User {:?} does not own conversation {:?}",
@@ -112,12 +116,14 @@ pub async fn create_message(
             return Err(AppError::Unauthorized);
         }
 
-        ChatService::create_message(
-            &pool,
+        let user_message = ChatService::create_message(
+            &pool_clone,
             req.conversation_id,
             req.role.clone(),
             req.content.clone(),
-        )
+        )?;
+
+        Ok((user_message, req.provider_id))
     })
     .await
     .map_err(|e| {
@@ -125,8 +131,42 @@ pub async fn create_message(
         AppError::GenericError(Box::new(e))
     })??;
 
-    info!("Message created successfully: {:?}", message);
-    Ok(HttpResponse::Created().json(message))
+    let (user_message, provider_id) = message;
+
+    // If provider_id is provided, process the message with LLM
+    if let Some(provider_id) = provider_id {
+        let messages = ChatService::get_messages(&pool, user_message.conversation_id)?;
+        let llm_messages: Vec<llm_service::ChatMessage> = messages
+            .into_iter()
+            .map(|m| llm_service::ChatMessage {
+                role: m.role,
+                content: m.content,
+            })
+            .collect();
+
+        match LLMService::chat(&pool, provider_id, llm_messages).await {
+            Ok(llm_response) => {
+                let assistant_message = ChatService::create_message(
+                    &pool,
+                    user_message.conversation_id,
+                    "assistant".to_string(),
+                    llm_response,
+                )?;
+                info!(
+                    "Messages created successfully: {:?}",
+                    (&user_message, &assistant_message)
+                );
+                Ok(HttpResponse::Created().json((user_message, Some(assistant_message))))
+            }
+            Err(e) => {
+                error!("Error getting LLM response: {:?}", e);
+                Ok(HttpResponse::Created().json((user_message, Option::<Message>::None)))
+            }
+        }
+    } else {
+        info!("Message created successfully: {:?}", user_message);
+        Ok(HttpResponse::Created().json((user_message, Option::<Message>::None)))
+    }
 }
 
 pub async fn get_messages(

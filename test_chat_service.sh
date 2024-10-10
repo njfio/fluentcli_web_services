@@ -136,7 +136,7 @@ make_request GET "/chat/messages/$message_id/attachments" "" "$token" "200"
 
 # Create an LLM provider
 echo "Creating an LLM provider"
-provider_response=$(make_request POST "/chat/llm-providers" '{"name": "Test Provider", "api_endpoint": "https://api.testprovider.com"}' "$token" "201")
+provider_response=$(make_request POST "/chat/llm-providers" '{"name": "OpenAI", "api_endpoint": "https://api.openai.com/v1/chat/completions"}' "$token" "201")
 provider_id=$(echo "$provider_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Provider ID: $provider_id"
 
@@ -164,6 +164,60 @@ fi
 echo "Getting the user LLM config"
 echo "Debug: user_id=$user_id, provider_id=$provider_id, llm_config_id=$llm_config_id"
 make_request GET "/chat/user-llm-configs/$user_id/$provider_id" "" "$token" "200"
+
+
+test_llm_service_openai() {
+    echo "Testing LLM Service with OpenAI provider..."
+
+    echo "OpenAI Provider ID: $provider_id"
+
+    # Test chat endpoint with OpenAI
+    chat_response=$(make_request POST "/chat/messages" '{
+        "conversation_id": "'"$conversation_id"'",
+        "role": "user",
+        "content": "What is the capital of France?",
+        "provider_id": "'"$provider_id"'"
+    }' "$token" "201")
+
+    # Wait for 5 seconds to allow time for processing
+    sleep 5
+
+    # Get the latest message in the conversation
+    latest_message_response=$(make_request GET "/chat/conversations/$conversation_id/messages" "" "$token" "200")
+    assistant_message=$(echo "$latest_message_response" | grep -o '"content":"[^"]*' | cut -d'"' -f4 | tail -n 1)
+    echo -e "\n==== Assistant Response ===="
+    echo "Latest message response: $latest_message_response"
+    echo "Assistant response: $assistant_message"
+
+    if [[ $assistant_message == *"Paris"* ]]; then
+        echo "LLM Service test passed: Response contains 'Paris'"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "LLM Service test failed: Response does not contain 'Paris'"
+        echo "Response: $assistant_message"
+    fi
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+    echo "LLM Service test completed"
+}
+
+# Call the new function
+test_llm_service_openai
+
+# Print test summary
+echo "Total tests: $TOTAL_TESTS"
+echo "Passed tests: $PASSED_TESTS"
+echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+
+if [ $PASSED_TESTS -eq $TOTAL_TESTS ]; then
+    echo -e "\e[32mAll tests passed!\e[0m"
+    exit 0
+else
+    echo -e "\e[31mSome tests failed.\e[0m"
+    exit 1
+fi
+
 
 # Print test summary
 echo "Total tests: $TOTAL_TESTS"

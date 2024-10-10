@@ -952,6 +952,7 @@ dependencies = [
  "bcrypt",
  "block-modes",
  "block-padding",
+ "bytes",
  "chrono",
  "diesel",
  "diesel_migrations",

@@ -5,6 +5,7 @@ pub mod configuration;
 pub mod docker_file;
 pub mod fluentcli;
 pub mod job;
+pub mod llm;
 pub mod pipeline;
 pub mod secure_vault;
 pub mod stream_chat;

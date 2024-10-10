@@ -28,6 +28,7 @@ services:
       - NEO4J_DB=neo4j
       - RUST_LOG=debug
       - SHARED_TMP_PATH=/shared_tmp
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
       - "8080:8080"
     networks:
@@ -63,6 +64,7 @@ services:
       - RUST_LOG=debug
       - SHARED_TMP_PATH=/shared_tmp
       - FLUENT_STATE_STORE=/shared_tmp/state_store
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     networks:
       - fws_network
 

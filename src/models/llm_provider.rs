@@ -4,7 +4,7 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize)]
+#[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = llm_providers)]
 pub struct LLMProvider {
     pub id: Uuid,

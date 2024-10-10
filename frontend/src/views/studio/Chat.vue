@@ -24,6 +24,16 @@
                     </div>
                 </div>
                 <div v-if="currentConversation" class="chat-input">
+                    <div class="mb-2">
+                        <label for="provider-select" class="block text-sm font-medium text-gray-700">Select LLM
+                            Provider:</label>
+                        <select id="provider-select" v-model="selectedProviderId"
+                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
+                            <option v-for="provider in llmProviders" :key="provider.id" :value="provider.id">
+                                {{ provider.name }}
+                            </option>
+                        </select>
+                    </div>
                     <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage()"
                         @keydown.enter.shift.exact="newline"
                         placeholder="Type your message here... (Shift+Enter for new line)" rows="3"
@@ -41,7 +51,8 @@
                             </svg>
                             AI is thinking...
                         </span>
-                        <button @click="sendMessage()" :disabled="isLoading || userInput.trim() === ''"
+                        <button @click="sendMessage()"
+                            :disabled="isLoading || userInput.trim() === '' || !selectedProviderId"
                             class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             Send
                         </button>
@@ -59,9 +70,8 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, nextTick, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
-import AuthService from '../../services/AuthService';
+import LLMService, { LLMProvider, LLMMessage } from '../../services/LLMService';
 import { Message } from '../../store/modules/chat';
-
 
 export default defineComponent({
     name: 'Chat',
@@ -79,6 +89,25 @@ export default defineComponent({
         const currentConversation = computed(() => store.state.chat.currentConversation);
         const messages = computed(() => store.state.chat.messages);
 
+        const llmProviders = ref<LLMProvider[]>([]);
+        const selectedProviderId = ref<string>('');
+
+        onMounted(async () => {
+            await store.dispatch('chat/getConversations');
+            scrollToBottom();
+            try {
+                llmProviders.value = await LLMService.getProviders();
+                if (llmProviders.value.length > 0) {
+                    selectedProviderId.value = llmProviders.value[0].id;
+                } else {
+                    error.value = 'No LLM providers available. Please contact the administrator.';
+                }
+            } catch (err) {
+                console.error('Error fetching LLM providers:', err);
+                error.value = 'Failed to fetch LLM providers. Please try again later.';
+            }
+        });
+
         const selectConversation = async (conversationId: string) => {
             await store.dispatch('chat/getConversation', conversationId);
             await store.dispatch('chat/getMessages', conversationId);
@@ -93,11 +122,16 @@ export default defineComponent({
         };
 
         const sendMessage = async () => {
-            if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value) return;
+            if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value || !selectedProviderId.value) return;
             await processMessage(userInput.value);
         };
 
         const processMessage = async (message: string, retry = false) => {
+            if (!selectedProviderId.value) {
+                error.value = 'Please select an LLM provider before sending a message.';
+                return;
+            }
+
             if (!retry && currentConversation.value) {
                 await store.dispatch('chat/createMessage', {
                     conversationId: currentConversation.value.id,
@@ -113,30 +147,19 @@ export default defineComponent({
             scrollToBottom();
 
             try {
-                // Abort previous request if it exists
                 if (abortController) {
                     abortController.abort();
                 }
 
                 abortController = new AbortController();
 
-                const token = AuthService.getToken();
-                if (!token) {
-                    throw new Error('No authentication token found');
-                }
+                const llmMessages: LLMMessage[] = messages.value.map((m: Message) => ({
+                    role: m.role as 'system' | 'user' | 'assistant',
+                    content: m.content,
+                }));
 
-                const response = await fetch(`/chat/stream?content=${encodeURIComponent(message)}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    signal: abortController.signal,
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const reader = response.body?.getReader();
+                const stream = await LLMService.streamChat(selectedProviderId.value, llmMessages);
+                const reader = stream.getReader();
                 const decoder = new TextDecoder();
 
                 let assistantMessage: Message = {
@@ -148,24 +171,22 @@ export default defineComponent({
                 };
 
                 while (true) {
-                    const { done, value } = await reader!.read();
+                    const { done, value } = await reader.read();
                     if (done) break;
 
                     const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6).trim();
-                            if (data === '[DONE]') {
-                                break;
-                            }
+                    try {
+                        const parsedChunk = JSON.parse(chunk);
+                        if (parsedChunk.choices && parsedChunk.choices[0].delta.content) {
                             if (assistantMessage.content === '') {
                                 store.commit('chat/addMessage', assistantMessage);
                             }
-                            assistantMessage.content += data + ' ';
+                            assistantMessage.content += parsedChunk.choices[0].delta.content;
                             store.commit('chat/updateMessage', assistantMessage);
                             scrollToBottom();
                         }
+                    } catch (e) {
+                        console.error('Error parsing chunk:', e);
                     }
                 }
 
@@ -174,16 +195,22 @@ export default defineComponent({
 
             } catch (err: any) {
                 console.error('Error sending message:', err);
-                handleError('Failed to send message. Please try again.');
+                handleError(err);
             }
         };
 
-        const handleError = (errorMessage: string) => {
+        const handleError = (err: any) => {
             if (retryCount < maxRetries) {
                 retryCount++;
                 setTimeout(() => processMessage(messages.value[messages.value.length - 1].content, true), 1000 * retryCount);
             } else {
-                error.value = errorMessage;
+                if (err.message === 'Failed to fetch') {
+                    error.value = 'Network error. Please check your internet connection and try again.';
+                } else if (err.response && err.response.status === 401) {
+                    error.value = 'Authentication error. Please log in again.';
+                } else {
+                    error.value = `Error: ${err.message || 'Unknown error occurred'}. Please try again.`;
+                }
                 isLoading.value = false;
                 retryCount = 0;
             }
@@ -219,11 +246,6 @@ export default defineComponent({
                 .replace(/\n/gim, '<br>');
         };
 
-        onMounted(async () => {
-            await store.dispatch('chat/getConversations');
-            scrollToBottom();
-        });
-
         onUnmounted(() => {
             if (abortController) {
                 abortController.abort();
@@ -244,6 +266,8 @@ export default defineComponent({
             retryLastMessage,
             selectConversation,
             createNewConversation,
+            llmProviders,
+            selectedProviderId,
         };
     },
 });
