@@ -13,14 +13,14 @@
                     </li>
                 </ul>
                 <button @click="createNewConversation"
-                    class="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">
+                    class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                     New Conversation
                 </button>
             </div>
             <div class="chat-content w-3/4">
                 <div v-if="currentConversation" class="chat-messages" ref="chatMessages">
                     <div v-for="(message, index) in currentMessages" :key="index" :class="['message', message.role]">
-                        <div class="message-content" v-html="renderMarkdown(message.content)"></div>
+                        <div class="message-content" v-html="message.renderedContent"></div>
                     </div>
                 </div>
                 <div v-if="currentConversation" class="chat-input">
@@ -28,7 +28,7 @@
                         <label for="provider-select" class="block text-sm font-medium text-gray-700">Select LLM
                             Provider:</label>
                         <select id="provider-select" v-model="selectedProviderId"
-                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md">
+                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
                             <option v-for="provider in llmProviders" :key="provider.id" :value="provider.id">
                                 {{ provider.name }}
                             </option>
@@ -40,7 +40,7 @@
                         class="w-full p-2 border rounded-md resize-none" :disabled="isLoading"></textarea>
                     <div class="flex justify-between items-center mt-2">
                         <span v-if="isLoading" class="text-gray-600">
-                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-500 inline-block"
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500 inline-block"
                                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
                                     stroke-width="4">
@@ -53,7 +53,7 @@
                         </span>
                         <button @click="sendMessage()"
                             :disabled="isLoading || userInput.trim() === '' || !selectedProviderId"
-                            class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             Send
                         </button>
                     </div>
@@ -72,6 +72,8 @@ import { defineComponent, ref, computed, onMounted, nextTick, onUnmounted, watch
 import { useStore } from 'vuex';
 import LLMService, { LLMProvider, LLMMessage } from '../../services/LLMService';
 import { Message } from '../../store/modules/chat';
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
 
 export default defineComponent({
     name: 'Chat',
@@ -88,13 +90,16 @@ export default defineComponent({
         const conversations = computed(() => store.state.chat.conversations);
         const currentConversation = computed(() => store.state.chat.currentConversation);
         const messages = computed(() => store.state.chat.messages);
-        const currentMessages = ref<Message[]>([]);
+        const currentMessages = ref<(Message & { renderedContent: string })[]>([]);
 
         const llmProviders = ref<LLMProvider[]>([]);
         const selectedProviderId = ref<string>('');
 
         onMounted(async () => {
             await store.dispatch('chat/getConversations');
+            if (currentConversation.value) {
+                await loadMessages(currentConversation.value.id);
+            }
             scrollToBottom();
             try {
                 llmProviders.value = await LLMService.getProviders();
@@ -109,10 +114,22 @@ export default defineComponent({
             }
         });
 
+        const loadMessages = async (conversationId: string) => {
+            await store.dispatch('chat/getMessages', conversationId);
+            currentMessages.value = await Promise.all(
+                messages.value
+                    .filter((m: Message | null): m is Message => m !== null)
+                    .map(async (m: Message) => ({
+                        ...m,
+                        renderedContent: await renderMarkdown(m.content),
+                    }))
+            );
+            scrollToBottom();
+        };
+
         const selectConversation = async (conversationId: string) => {
             await store.dispatch('chat/getConversation', conversationId);
-            await store.dispatch('chat/getMessages', conversationId);
-            currentMessages.value = messages.value.filter((m: Message | null): m is Message => m !== null);
+            await loadMessages(conversationId);
         };
 
         const createNewConversation = async () => {
@@ -127,7 +144,6 @@ export default defineComponent({
             if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value || !selectedProviderId.value) return;
             await processMessage(userInput.value);
         };
-
         const processMessage = async (message: string, retry = false) => {
             if (!selectedProviderId.value) {
                 error.value = 'Please select an LLM provider before sending a message.';
@@ -142,16 +158,18 @@ export default defineComponent({
                     content: message,
                 });
                 if (userMessage) {
-                    currentMessages.value.push(userMessage);
+                    currentMessages.value.push({
+                        ...userMessage,
+                        renderedContent: await renderMarkdown(userMessage.content),
+                    });
+                    userInput.value = '';
                 }
-                userInput.value = '';
             }
 
             error.value = '';
             isLoading.value = true;
 
             scrollToBottom();
-
             try {
                 if (abortController) {
                     abortController.abort();
@@ -159,16 +177,22 @@ export default defineComponent({
 
                 abortController = new AbortController();
 
+                // Create llmMessages array with the current message
                 const llmMessages: LLMMessage[] = [
-                    ...currentMessages.value.map((m: Message) => ({
-                        role: m.role as 'system' | 'user' | 'assistant',
-                        content: m.content,
-                    })),
                     {
                         role: 'user',
                         content: message,
                     },
                 ];
+
+                // Add previous messages if they exist
+                if (currentMessages.value.length > 1) {
+                    const previousMessages = currentMessages.value.slice(0, -1).map(m => ({
+                        role: m.role as 'system' | 'user' | 'assistant',
+                        content: m.content,
+                    }));
+                    llmMessages.unshift(...previousMessages);
+                }
 
                 console.log('Current Messages:', JSON.stringify(currentMessages.value, null, 2));
                 console.log('LLM Messages:', JSON.stringify(llmMessages, null, 2));
@@ -178,7 +202,7 @@ export default defineComponent({
                 const reader = stream.getReader();
                 const decoder = new TextDecoder();
 
-                let assistantMessage: Message | null = null;
+                let assistantMessage: Message & { renderedContent: string } | null = null;
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -199,19 +223,29 @@ export default defineComponent({
                                 console.log('Parsed chunk:', parsedChunk);
                                 if (parsedChunk.choices && parsedChunk.choices[0].delta.content) {
                                     if (!assistantMessage) {
-                                        assistantMessage = await store.dispatch('chat/createMessage', {
+                                        const newMessage = await store.dispatch('chat/createMessage', {
                                             conversationId: currentConversation.value!.id,
                                             role: 'assistant',
                                             content: '',
                                         });
-                                        if (assistantMessage) {
-                                            currentMessages.value.push(assistantMessage);
+                                        if (newMessage) {
+                                            assistantMessage = {
+                                                ...newMessage,
+                                                renderedContent: '',
+                                            };
+                                            // Use non-null assertion to tell TypeScript that assistantMessage is not null
+                                            currentMessages.value.push(assistantMessage!);
                                         }
                                     }
                                     if (assistantMessage) {
                                         assistantMessage.content += parsedChunk.choices[0].delta.content;
+                                        assistantMessage.renderedContent = await renderMarkdown(assistantMessage.content);
                                         await store.dispatch('chat/updateMessage', assistantMessage);
-                                        currentMessages.value[currentMessages.value.length - 1] = { ...assistantMessage };
+                                        // Update the last message in the array
+                                        const lastIndex = currentMessages.value.length - 1;
+                                        if (lastIndex >= 0) {
+                                            currentMessages.value[lastIndex] = { ...assistantMessage };
+                                        }
                                         scrollToBottom();
                                     }
                                 }
@@ -250,7 +284,7 @@ export default defineComponent({
 
         const retryLastMessage = () => {
             error.value = '';
-            const lastUserMessage = currentMessages.value.filter((m: Message) => m.role === 'user').pop();
+            const lastUserMessage = currentMessages.value.filter((m) => m.role === 'user').pop();
             if (lastUserMessage) {
                 processMessage(lastUserMessage.content, true);
             }
@@ -268,23 +302,15 @@ export default defineComponent({
             userInput.value += '\n';
         };
 
-        const renderMarkdown = (text: string): string => {
+        const renderMarkdown = async (text: string): Promise<string> => {
             if (!text) return '';
-            return text
-                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-                .replace(/\*(.*)\*/gim, '<em>$1</em>')
-                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-                .replace(/- (.*)/gim, '<li>$1</li>')
-                .replace(/\n/gim, '<br>');
+            const rawMarkup = marked(text);
+            return DOMPurify.sanitize(rawMarkup);
         };
 
         watch(currentConversation, async (newConversation) => {
             if (newConversation) {
-                await store.dispatch('chat/getMessages', newConversation.id);
-                currentMessages.value = messages.value.filter((m: Message | null): m is Message => m !== null);
+                await loadMessages(newConversation.id);
             }
         });
 
@@ -293,7 +319,6 @@ export default defineComponent({
                 abortController.abort();
             }
         });
-
         return {
             conversations,
             currentConversation,
@@ -304,7 +329,6 @@ export default defineComponent({
             isLoading,
             error,
             newline,
-            renderMarkdown,
             retryLastMessage,
             selectConversation,
             createNewConversation,
@@ -316,7 +340,7 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.chat-container {
+chat-container {
     @apply max-w-6xl mx-auto p-4;
 }
 
@@ -329,7 +353,7 @@ export default defineComponent({
 }
 
 .message.user {
-    @apply bg-primary-100 text-primary-800;
+    @apply bg-blue-100 text-blue-800;
 }
 
 .message.assistant {
