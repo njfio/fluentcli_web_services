@@ -19,7 +19,7 @@
             </div>
             <div class="chat-content w-3/4">
                 <div v-if="currentConversation" class="chat-messages" ref="chatMessages">
-                    <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
+                    <div v-for="(message, index) in currentMessages" :key="index" :class="['message', message.role]">
                         <div class="message-content" v-html="renderMarkdown(message.content)"></div>
                     </div>
                 </div>
@@ -68,7 +68,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, nextTick, onUnmounted } from 'vue';
+import { defineComponent, ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import LLMService, { LLMProvider, LLMMessage } from '../../services/LLMService';
 import { Message } from '../../store/modules/chat';
@@ -88,6 +88,7 @@ export default defineComponent({
         const conversations = computed(() => store.state.chat.conversations);
         const currentConversation = computed(() => store.state.chat.currentConversation);
         const messages = computed(() => store.state.chat.messages);
+        const currentMessages = ref<Message[]>([]);
 
         const llmProviders = ref<LLMProvider[]>([]);
         const selectedProviderId = ref<string>('');
@@ -111,6 +112,7 @@ export default defineComponent({
         const selectConversation = async (conversationId: string) => {
             await store.dispatch('chat/getConversation', conversationId);
             await store.dispatch('chat/getMessages', conversationId);
+            currentMessages.value = messages.value.filter((m: Message | null): m is Message => m !== null);
         };
 
         const createNewConversation = async () => {
@@ -132,12 +134,16 @@ export default defineComponent({
                 return;
             }
 
+            let userMessage: Message | null = null;
             if (!retry && currentConversation.value) {
-                await store.dispatch('chat/createMessage', {
+                userMessage = await store.dispatch('chat/createMessage', {
                     conversationId: currentConversation.value.id,
                     role: 'user',
                     content: message,
                 });
+                if (userMessage) {
+                    currentMessages.value.push(userMessage);
+                }
                 userInput.value = '';
             }
 
@@ -153,40 +159,66 @@ export default defineComponent({
 
                 abortController = new AbortController();
 
-                const llmMessages: LLMMessage[] = messages.value.map((m: Message) => ({
-                    role: m.role as 'system' | 'user' | 'assistant',
-                    content: m.content,
-                }));
+                const llmMessages: LLMMessage[] = [
+                    ...currentMessages.value.map((m: Message) => ({
+                        role: m.role as 'system' | 'user' | 'assistant',
+                        content: m.content,
+                    })),
+                    {
+                        role: 'user',
+                        content: message,
+                    },
+                ];
+
+                console.log('Current Messages:', JSON.stringify(currentMessages.value, null, 2));
+                console.log('LLM Messages:', JSON.stringify(llmMessages, null, 2));
+                console.log('Selected Provider ID:', selectedProviderId.value);
 
                 const stream = await LLMService.streamChat(selectedProviderId.value, llmMessages);
                 const reader = stream.getReader();
                 const decoder = new TextDecoder();
 
-                let assistantMessage: Message = {
-                    id: '',
-                    conversationId: currentConversation.value!.id,
-                    role: 'assistant',
-                    content: '',
-                    createdAt: new Date().toISOString(),
-                };
+                let assistantMessage: Message | null = null;
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
                     const chunk = decoder.decode(value);
-                    try {
-                        const parsedChunk = JSON.parse(chunk);
-                        if (parsedChunk.choices && parsedChunk.choices[0].delta.content) {
-                            if (assistantMessage.content === '') {
-                                store.commit('chat/addMessage', assistantMessage);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const jsonStr = line.slice(6).trim();
+                            if (jsonStr === '[DONE]') {
+                                console.log('Stream completed');
+                                continue;
                             }
-                            assistantMessage.content += parsedChunk.choices[0].delta.content;
-                            store.commit('chat/updateMessage', assistantMessage);
-                            scrollToBottom();
+                            try {
+                                const parsedChunk = JSON.parse(jsonStr);
+                                console.log('Parsed chunk:', parsedChunk);
+                                if (parsedChunk.choices && parsedChunk.choices[0].delta.content) {
+                                    if (!assistantMessage) {
+                                        assistantMessage = await store.dispatch('chat/createMessage', {
+                                            conversationId: currentConversation.value!.id,
+                                            role: 'assistant',
+                                            content: '',
+                                        });
+                                        if (assistantMessage) {
+                                            currentMessages.value.push(assistantMessage);
+                                        }
+                                    }
+                                    if (assistantMessage) {
+                                        assistantMessage.content += parsedChunk.choices[0].delta.content;
+                                        await store.dispatch('chat/updateMessage', assistantMessage);
+                                        currentMessages.value[currentMessages.value.length - 1] = { ...assistantMessage };
+                                        scrollToBottom();
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Error parsing chunk:', e, 'Raw data:', jsonStr);
+                            }
                         }
-                    } catch (e) {
-                        console.error('Error parsing chunk:', e);
                     }
                 }
 
@@ -202,7 +234,7 @@ export default defineComponent({
         const handleError = (err: any) => {
             if (retryCount < maxRetries) {
                 retryCount++;
-                setTimeout(() => processMessage(messages.value[messages.value.length - 1].content, true), 1000 * retryCount);
+                setTimeout(() => processMessage(currentMessages.value[currentMessages.value.length - 1].content, true), 1000 * retryCount);
             } else {
                 if (err.message === 'Failed to fetch') {
                     error.value = 'Network error. Please check your internet connection and try again.';
@@ -218,7 +250,10 @@ export default defineComponent({
 
         const retryLastMessage = () => {
             error.value = '';
-            processMessage(messages.value[messages.value.length - 1].content, true);
+            const lastUserMessage = currentMessages.value.filter((m: Message) => m.role === 'user').pop();
+            if (lastUserMessage) {
+                processMessage(lastUserMessage.content, true);
+            }
         };
 
         const scrollToBottom = () => {
@@ -234,7 +269,7 @@ export default defineComponent({
         };
 
         const renderMarkdown = (text: string): string => {
-            // This is a very basic markdown renderer. You might want to use a more robust solution in production.
+            if (!text) return '';
             return text
                 .replace(/^# (.*$)/gim, '<h1>$1</h1>')
                 .replace(/^## (.*$)/gim, '<h2>$1</h2>')
@@ -246,6 +281,13 @@ export default defineComponent({
                 .replace(/\n/gim, '<br>');
         };
 
+        watch(currentConversation, async (newConversation) => {
+            if (newConversation) {
+                await store.dispatch('chat/getMessages', newConversation.id);
+                currentMessages.value = messages.value.filter((m: Message | null): m is Message => m !== null);
+            }
+        });
+
         onUnmounted(() => {
             if (abortController) {
                 abortController.abort();
@@ -255,7 +297,7 @@ export default defineComponent({
         return {
             conversations,
             currentConversation,
-            messages,
+            currentMessages,
             userInput,
             sendMessage,
             chatMessages,
@@ -302,7 +344,6 @@ export default defineComponent({
     @apply mt-4;
 }
 
-/* Add some basic styling for rendered markdown */
 .message-content :deep(h1) {
     @apply text-2xl font-bold mb-2;
 }

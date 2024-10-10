@@ -27,23 +27,73 @@ class LLMService {
 
     async streamChat(providerId: string, messages: LLMMessage[]): Promise<ReadableStream<Uint8Array>> {
         const url = new URL('/llm/stream-chat', axiosInstance.defaults.baseURL);
+
+        // Filter out invalid messages
+        const validMessages = messages.filter(msg => msg && msg.role && msg.content);
+
+        const requestBody = {
+            provider_id: providerId,
+            messages: validMessages,
+        };
+
+        console.log('Request body:', JSON.stringify(requestBody, null, 2));
+        console.log('Valid Messages:', JSON.stringify(validMessages, null, 2));
+
         const response = await fetch(url.toString(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
             },
-            body: JSON.stringify({
-                provider_id: providerId,
-                messages,
-            }),
+            body: JSON.stringify(requestBody),
         });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            console.error('Response status:', response.status);
+            console.error('Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
 
         if (!response.body) {
             throw new Error('No response body');
         }
 
-        return response.body;
+        // Create a TransformStream to handle the response and remove duplicates
+        const transformStream = new TransformStream({
+            transform: (chunk, controller) => {
+                const text = new TextDecoder().decode(chunk);
+                const lines = text.split('\n');
+                let buffer = '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const jsonStr = line.slice(6).trim();
+                        if (jsonStr === '[DONE]') {
+                            controller.enqueue(new TextEncoder().encode(line + '\n'));
+                            continue;
+                        }
+                        buffer += jsonStr;
+                        try {
+                            const parsedChunk = JSON.parse(buffer);
+                            console.log('Parsed chunk:', parsedChunk);
+                            if (parsedChunk.choices && parsedChunk.choices[0].delta.content) {
+                                controller.enqueue(new TextEncoder().encode(line + '\n'));
+                            }
+                            buffer = '';
+                        } catch (e) {
+                            // If parsing fails, it might be an incomplete chunk. We'll keep it in the buffer.
+                            console.log('Incomplete chunk, buffering:', buffer);
+                        }
+                    } else {
+                        controller.enqueue(new TextEncoder().encode(line + '\n'));
+                    }
+                }
+            }
+        });
+
+        return response.body.pipeThrough(transformStream);
     }
 }
 

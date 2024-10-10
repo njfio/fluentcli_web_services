@@ -73,6 +73,12 @@ const chatModule: Module<ChatState, RootState> = {
         addMessage(state, message: Message) {
             state.messages.push(message);
         },
+        updateMessage(state, updatedMessage: Message) {
+            const index = state.messages.findIndex(message => message.id === updatedMessage.id);
+            if (index !== -1) {
+                state.messages[index] = updatedMessage;
+            }
+        },
         setAttachments(state, { messageId, attachments }: { messageId: string; attachments: Attachment[] }) {
             state.attachments[messageId] = attachments;
         },
@@ -142,6 +148,18 @@ const chatModule: Module<ChatState, RootState> = {
                 return message;
             } catch (error) {
                 console.error('Error creating message:', error);
+                throw error;
+            }
+        },
+        async updateMessage({ commit }, message: Message) {
+            try {
+                // Assuming you have an API endpoint to update a message
+                // const response = await apiClient.updateMessage(message);
+                // const updatedMessage = response.data;
+                commit('updateMessage', message);
+                return message;
+            } catch (error) {
+                console.error('Error updating message:', error);
                 throw error;
             }
         },
