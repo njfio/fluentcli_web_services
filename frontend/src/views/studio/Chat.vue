@@ -1,7 +1,8 @@
 <template>
-    <div class="chat-container flex h-full bg-gray-100 dark:bg-gray-900">
+    <div
+        class="chat-container flex h-full bg-gray-100 dark:bg-gray-900 overflow-y-auto flex-grow max-h-[calc(100vh-200px)]">
         <!-- Sidebar -->
-        <div :class="['bg-gray-800 flex flex-col transition-all duration-300 ease-in-out',
+        <div :class="['bg-gray-800 flex flex-col transition-all duration-300 ease-in-out max-h-screen',
             isSidebarOpen ? 'w-64' : 'w-16']">
             <!-- Toggle button -->
             <button @click="toggleSidebar" class="p-4 text-gray-300 hover:text-white focus:outline-none"
@@ -12,12 +13,12 @@
                 </svg>
             </button>
 
-            <h2 class="text-xl font-bold mb-4 text-gray-200 px-4" v-if="isSidebarOpen">Conversations</h2>
+            <h2 class="text-xl font-bold mb-4 text-gray-200 px-4 " v-if="isSidebarOpen">Conversations</h2>
             <button @click="createNewConversation"
                 class="mb-4 mx-4 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                 {{ isSidebarOpen ? 'New Conversation' : '+' }}
             </button>
-            <div class="overflow-y-auto flex-grow">
+            <div class="overflow-y-auto flex-grow max-h-[calc(100vh-200px)]">
                 <ul class="space-y-2 px-2">
                     <li v-for="conversation in conversations" :key="conversation.id"
                         @click="selectConversation(conversation.id)"
@@ -107,7 +108,9 @@
             </div>
         </div>
     </div>
+
 </template>
+
 
 <script lang="ts">
 import { defineComponent, onMounted, watch, nextTick, ref } from 'vue';
@@ -209,8 +212,7 @@ export default defineComponent({
             toggleSidebar,
         };
     },
-});
-</script>
+});</script>
 
 <style scoped>
 .chat-container {
