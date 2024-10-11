@@ -1,8 +1,7 @@
 <template>
-    <div
-        class="chat-container flex h-full bg-gray-100 dark:bg-gray-900 overflow-y-auto flex-grow max-h-[calc(100vh-200px)]">
+    <div class="chat-container flex h-full bg-gray-100 dark:bg-gray-900">
         <!-- Sidebar -->
-        <div :class="['bg-gray-800 flex flex-col transition-all duration-300 ease-in-out max-h-screen',
+        <div :class="['bg-gray-800 flex flex-col transition-all duration-300 ease-in-out',
             isSidebarOpen ? 'w-64' : 'w-16']">
             <!-- Toggle button -->
             <button @click="toggleSidebar" class="p-4 text-gray-300 hover:text-white focus:outline-none"
@@ -13,12 +12,12 @@
                 </svg>
             </button>
 
-            <h2 class="text-xl font-bold mb-4 text-gray-200 px-4 " v-if="isSidebarOpen">Conversations</h2>
+            <h2 class="text-xl font-bold mb-4 text-gray-200 px-4" v-if="isSidebarOpen">Conversations</h2>
             <button @click="createNewConversation"
                 class="mb-4 mx-4 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                 {{ isSidebarOpen ? 'New Conversation' : '+' }}
             </button>
-            <div class="overflow-y-auto flex-grow max-h-[calc(100vh-200px)]">
+            <div class="overflow-y-auto flex-grow">
                 <ul class="space-y-2 px-2">
                     <li v-for="conversation in conversations" :key="conversation.id"
                         @click="selectConversation(conversation.id)"
@@ -61,7 +60,7 @@
 
             <!-- Floating Input Area -->
             <div class="fixed bottom-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out"
-                :class="{ 'h-44': isExpanded, 'h-auto': !isExpanded, 'left-64': isSidebarOpen, 'left-16': !isSidebarOpen }">
+                :class="{ 'h-64': isExpanded, 'h-40': !isExpanded, 'left-64': isSidebarOpen, 'left-16': !isSidebarOpen }">
                 <!-- AI Thinking Indicator -->
                 <div v-if="isLoading"
                     class="absolute top-0 left-0 right-0 -translate-y-full bg-white dark:bg-gray-800 p-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center border-t border-gray-200 dark:border-gray-700">
@@ -76,7 +75,7 @@
                     AI is thinking...
                 </div>
 
-                <div class="p-3">
+                <div class="p-3 flex flex-col h-full">
                     <div class="mb-2 flex justify-between items-center">
                         <label for="provider-select"
                             class="block text-xs font-medium text-gray-700 dark:text-gray-300">Select LLM
@@ -91,16 +90,26 @@
                             {{ provider.name }}
                         </option>
                     </select>
-                    <div class="flex items-start">
-                        <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage"
-                            @keydown.enter.shift.exact="newline"
-                            placeholder="Type your message here... (Shift+Enter for new line)"
-                            :rows="isExpanded ? 4 : 1"
-                            class="flex-1 p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            :disabled="isLoading || !currentConversation"></textarea>
+                    <div class="flex-grow relative">
+                        <MonacoEditor v-model="userInput" :options="{
+                            minimap: { enabled: false },
+                            lineNumbers: 'off',
+                            glyphMargin: false,
+                            folding: false,
+                            lineDecorationsWidth: 0,
+                            lineNumbersMinChars: 0,
+                            wordWrap: 'on',
+                            wrappingStrategy: 'advanced',
+                            automaticLayout: true,
+                            scrollBeyondLastLine: false,
+                            fontSize: 14,
+                        }" language="markdown" theme="vs-dark" @keydown.enter.exact.prevent="sendMessage"
+                            @keydown.shift.enter="newline" />
+                    </div>
+                    <div class="mt-2 flex justify-end">
                         <button @click="sendMessage"
                             :disabled="isLoading || userInput.trim() === '' || !selectedProviderId || !currentConversation"
-                            class="ml-3 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                            class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
                             Send
                         </button>
                     </div>
@@ -108,18 +117,21 @@
             </div>
         </div>
     </div>
-
 </template>
-
 
 <script lang="ts">
 import { defineComponent, onMounted, watch, nextTick, ref } from 'vue';
 import { useChatLogic } from '../../components/chat/ChatLogic';
 import LLMService from '../../services/LLMService';
 import { useStore } from 'vuex';
+import MonacoEditor from '../../components/studio/editors/MonacoEditor.vue';
+
 
 export default defineComponent({
     name: 'Chat',
+    components: {
+        MonacoEditor,
+    },
     setup() {
         const store = useStore();
         const {
@@ -212,7 +224,8 @@ export default defineComponent({
             toggleSidebar,
         };
     },
-});</script>
+});
+</script>
 
 <style scoped>
 .chat-container {
@@ -281,5 +294,15 @@ export default defineComponent({
 
 .markdown-body :deep(img) {
     @apply max-w-full h-auto my-2;
+}
+
+/* Add these styles for the Monaco editor */
+:deep(.monaco-editor) {
+    width: 100%;
+    height: 100%;
+}
+
+:deep(.monaco-editor .overflow-guard) {
+    border-radius: 0.375rem;
 }
 </style>
