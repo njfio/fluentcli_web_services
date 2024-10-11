@@ -1,6 +1,7 @@
 import { Module } from 'vuex';
 import { RootState } from '../types';
 import apiClient from '../../services/apiClient';
+import { AxiosError } from 'axios';
 
 export interface Conversation {
     id: string;
@@ -110,12 +111,19 @@ const chatModule: Module<ChatState, RootState> = {
     actions: {
         async getConversations({ commit }) {
             try {
+                console.log('Fetching conversations...');
                 const response = await apiClient.listConversations();
+                console.log('Conversations response:', response);
                 const conversations = response.data;
+                console.log('Fetched conversations:', conversations);
                 commit('setConversations', conversations);
                 return conversations;
             } catch (error) {
                 console.error('Error fetching conversations:', error);
+                if (error instanceof AxiosError && error.response) {
+                    console.error('Error response:', error.response.data);
+                    console.error('Error status:', error.response.status);
+                }
                 throw error;
             }
         },

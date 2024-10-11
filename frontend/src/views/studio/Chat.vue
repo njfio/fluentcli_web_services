@@ -41,7 +41,8 @@
                     <p class="text-gray-500 dark:text-gray-400">No messages yet. Start a conversation!</p>
                 </div>
                 <div v-else class="flex items-center justify-center h-full">
-                    <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.</p>
+                    <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.
+                    </p>
                 </div>
             </div>
 
@@ -100,10 +101,12 @@
 import { defineComponent, onMounted, watch, nextTick, ref } from 'vue';
 import { useChatLogic } from '../../components/chat/ChatLogic';
 import LLMService from '../../services/LLMService';
+import { useStore } from 'vuex';
 
 export default defineComponent({
     name: 'Chat',
     setup() {
+        const store = useStore();
         const {
             userInput,
             isLoading,
@@ -131,6 +134,10 @@ export default defineComponent({
 
         onMounted(async () => {
             try {
+                console.log('Fetching conversations...');
+                await store.dispatch('chat/getConversations');
+                console.log('Conversations fetched:', conversations.value);
+
                 llmProviders.value = await LLMService.getProviders();
                 if (llmProviders.value.length > 0) {
                     selectedProviderId.value = llmProviders.value[0].id;
@@ -138,8 +145,8 @@ export default defineComponent({
                     error.value = 'No LLM providers available. Please contact the administrator.';
                 }
             } catch (err) {
-                console.error('Error fetching LLM providers:', err);
-                error.value = 'Failed to fetch LLM providers. Please try again later.';
+                console.error('Error in onMounted:', err);
+                error.value = 'Failed to fetch conversations or LLM providers. Please try again later.';
             }
         });
 
@@ -182,6 +189,7 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* ... (keep the existing styles) ... */
 .chat-container {
     height: calc(100vh - 64px);
     /* Adjust this value based on your header height */
