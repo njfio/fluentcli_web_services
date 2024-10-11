@@ -134,7 +134,6 @@ export default defineComponent({
             sendMessage,
             retryLastMessage,
             newline,
-            scrollToBottom,
         } = useChatLogic();
 
         const chatMessagesRef = ref<HTMLElement | null>(null);
@@ -147,6 +146,12 @@ export default defineComponent({
 
         const toggleSidebar = () => {
             isSidebarOpen.value = !isSidebarOpen.value;
+        };
+
+        const scrollToBottom = () => {
+            if (chatMessagesRef.value) {
+                chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
+            }
         };
 
         onMounted(async () => {
@@ -180,7 +185,7 @@ export default defineComponent({
             nextTick(() => {
                 scrollToBottom();
             });
-        });
+        }, { deep: true });
 
         return {
             userInput,
