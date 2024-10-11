@@ -1,32 +1,35 @@
 <template>
     <div class="chat-container flex h-full bg-gray-100 dark:bg-gray-900">
         <!-- Sidebar -->
-        <div class="w-1/4 bg-white dark:bg-gray-800 shadow-md p-4 overflow-y-auto">
+        <div class="w-1/4 bg-white dark:bg-gray-800 shadow-md p-4 flex flex-col h-full">
             <h2 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Conversations</h2>
-            <ul class="space-y-2">
-                <li v-for="conversation in conversations" :key="conversation.id"
-                    @click="selectConversation(conversation.id)"
-                    :class="{ 'bg-blue-100 dark:bg-blue-900': currentConversation && conversation.id === currentConversation.id }"
-                    class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out">
-                    <div class="flex items-center">
-                        <svg class="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
-                            </path>
-                        </svg>
-                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ conversation.title }}</span>
-                    </div>
-                </li>
-            </ul>
             <button @click="createNewConversation"
-                class="mt-4 w-full px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                class="mb-4 w-full px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                 New Conversation
             </button>
+            <div class="overflow-y-auto flex-grow">
+                <ul class="space-y-2">
+                    <li v-for="conversation in conversations" :key="conversation.id"
+                        @click="selectConversation(conversation.id)"
+                        :class="{ 'bg-blue-100 dark:bg-blue-900': currentConversation && conversation.id === currentConversation.id }"
+                        class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out">
+                        <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                                </path>
+                            </svg>
+                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ conversation.title }}</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
         </div>
 
         <!-- Chat Area -->
         <div class="flex-1 flex flex-col relative">
+            <!-- ... (keep the rest of the chat area code unchanged) ... -->
             <!-- Chat Messages -->
             <div class="flex-1 overflow-y-auto p-4 pb-32" ref="chatMessages">
                 <div v-if="currentConversation && currentMessages.length > 0">
