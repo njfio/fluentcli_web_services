@@ -71,6 +71,15 @@ pub enum AppError {
 
     #[error("Yaml parse error: {0}")]
     YamlParseError(String),
+
+    #[error("LLM error: {0}")]
+    LLMError(String),
+
+    #[error("OpenAI error: {0}")]
+    OpenAIError(String),
+
+    #[error("Config error: {0}")]
+    ConfigError(String),
 }
 
 impl From<Box<dyn StdError + Send + Sync>> for AppError {

@@ -71,7 +71,7 @@
                 class="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-2">View</router-link>
               <button @click="deleteJob(job.id)"
                 class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 mr-2">Delete</button>
-              <button v-if="canStartOrRestartJob(job)" @click="startOrRestartJob(job)"
+              <button v-if="canStartJob(job)" @click="startJob(job.id)"
                 class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
                 {{ job.status === 'completed' ? 'Restart' : 'Start' }}
               </button>
@@ -128,23 +128,19 @@ export default defineComponent({
       }
     };
 
-    const startOrRestartJob = async (job: any) => {
+    const startJob = async (id: string) => {
       try {
-        if (job.status === 'completed') {
-          await store.dispatch('studio/restartJob', job.id);
-        } else {
-          await store.dispatch('studio/startJob', job.id);
-        }
-        // Refresh the jobs list after starting/restarting the job
+        await store.dispatch('studio/startJob', id);
+        // Refresh the jobs list after starting the job
         await store.dispatch('studio/fetchJobs');
       } catch (error) {
-        console.error('Error starting/restarting job:', error);
+        console.error('Error starting job:', error);
         // Handle error (e.g., show an error message to the user)
       }
     };
 
-    const canStartOrRestartJob = (job: any) => {
-      return job.status !== 'running' || job.status === 'completed';
+    const canStartJob = (job: any) => {
+      return job.status !== 'running';
     };
 
     const getStatusClass = (status: string) => {
@@ -166,8 +162,8 @@ export default defineComponent({
       filteredJobs,
       createNewJob,
       deleteJob,
-      startOrRestartJob,
-      canStartOrRestartJob,
+      startJob,
+      canStartJob,
       getStatusClass,
       formatDate,
     };

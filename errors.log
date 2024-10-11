@@ -1,0 +1,311 @@
+
+
+error[E0618]: expected function, found `AppError`
+  --> src/handlers/chat.rs:47:26
+   |
+47 |             .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+   |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+   |                          |
+   |                          call expression requires function
+   |
+  ::: src/error.rs:31:5
+   |
+31 |     InternalServerError,
+   |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+  --> src/handlers/chat.rs:60:24
+   |
+60 |             return Err(AppError::InternalServerError("Access denied".to_string()));
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------------------------
+   |                        |
+   |                        call expression requires function
+   |
+  ::: src/error.rs:31:5
+   |
+31 |     InternalServerError,
+   |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+  --> src/handlers/chat.rs:65:18
+   |
+65 |     .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+   |                  |
+   |                  call expression requires function
+   |
+  ::: src/error.rs:31:5
+   |
+31 |     InternalServerError,
+   |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+  --> src/handlers/chat.rs:79:24
+   |
+79 |             return Err(AppError::InternalServerError("Access denied".to_string()));
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------------------------
+   |                        |
+   |                        call expression requires function
+   |
+  ::: src/error.rs:31:5
+   |
+31 |     InternalServerError,
+   |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+  --> src/handlers/chat.rs:90:18
+   |
+90 |     .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+   |                  |
+   |                  call expression requires function
+   |
+  ::: src/error.rs:31:5
+   |
+31 |     InternalServerError,
+   |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:104:24
+    |
+104 |             return Err(AppError::InternalServerError("Access denied".to_string()));
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------------------------
+    |                        |
+    |                        call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:110:18
+    |
+110 |     .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+    |                  |
+    |                  call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:125:24
+    |
+125 |             return Err(AppError::InternalServerError("Access denied".to_string()));
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------------------------
+    |                        |
+    |                        call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:136:18
+    |
+136 |     .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+    |                  |
+    |                  call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:151:24
+    |
+151 |             return Err(AppError::InternalServerError("Access denied".to_string()));
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------------------------
+    |                        |
+    |                        call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:157:18
+    |
+157 |     .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+    |                  |
+    |                  call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:171:18
+    |
+171 |     .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+    |                  |
+    |                  call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:184:26
+    |
+184 |             .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+    |                          |
+    |                          call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:198:18
+    |
+198 |     .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+    |                  |
+    |                  call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+error[E0618]: expected function, found `AppError`
+   --> src/handlers/chat.rs:212:18
+    |
+212 |     .map_err(|e| AppError::InternalServerError(e.to_string()))??;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^---------------
+    |                  |
+    |                  call expression requires function
+    |
+   ::: src/error.rs:31:5
+    |
+31  |     InternalServerError,
+    |     ------------------- `AppError::InternalServerError` defined here
+
+   --> src/services/job_service.rs:107:57
+    |
+107 |     pub async fn start_job(pool: &DbPool, job_id: Uuid, user_id: Uuid) -> Result<Job, AppError> {
+    |                                                         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+   --> src/services/job_service.rs:185:13
+    |
+185 |         let temp_file_path_clone = temp_file_path.clone();
+    |             ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_temp_file_path_clone`
+
+   --> src/services/job_service.rs:305:56
+    |
+305 |     pub async fn stop_job(pool: &DbPool, job_id: Uuid, user_id: Uuid) -> Result<Job, AppError> {
+    |                                                        ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
+
+   --> src/services/job_service.rs:332:9
+    |
+332 |         user_id: Uuid,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
+
+   --> src/services/job_service.rs:348:9
+    |
+348 |         user_id: Uuid,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
+
+   --> src/services/job_service.rs:364:9
+    |
+364 |         user_id: Uuid,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
+
+   --> src/services/job_service.rs:380:9
+    |
+380 |         user_id: Uuid,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_user_id`
+
+error[E0308]: mismatched types
+  --> src/services/chat_service.rs:28:50
+   |
+28 |         let new_conversation = NewConversation { user_id, title };
+   |                                                  ^^^^^^^ expected `Uuid`, found `user_id`
+
+error[E0308]: mismatched types
+  --> src/services/chat_service.rs:28:59
+   |
+28 |         let new_conversation = NewConversation { user_id, title };
+   |                                                           ^^^^^ expected `String`, found `title`
+
+error[E0308]: mismatched types
+  --> src/services/chat_service.rs:70:13
+   |
+70 |             conversation_id,
+   |             ^^^^^^^^^^^^^^^ expected `Uuid`, found `conversation_id`
+
+error[E0308]: mismatched types
+  --> src/services/chat_service.rs:71:13
+   |
+71 |             role,
+   |             ^^^^ expected `String`, found `role`
+
+error[E0308]: mismatched types
+  --> src/services/chat_service.rs:72:13
+   |
+72 |             content,
+   |             ^^^^^^^ expected `String`, found `content`
+
+error[E0308]: mismatched types
+   --> src/services/chat_service.rs:129:13
+    |
+129 |             message_id,
+    |             ^^^^^^^^^^ expected `Uuid`, found `message_id`
+
+error[E0308]: mismatched types
+   --> src/services/chat_service.rs:130:13
+    |
+130 |             file_type,
+    |             ^^^^^^^^^ expected `String`, found `file_type`
+
+error[E0308]: mismatched types
+   --> src/services/chat_service.rs:131:13
+    |
+131 |             file_path,
+    |             ^^^^^^^^^ expected `String`, found `file_path`
+
+error[E0308]: mismatched types
+   --> src/services/chat_service.rs:169:45
+    |
+169 |         let new_provider = NewLLMProvider { name, api_endpoint };
+    |                                             ^^^^ expected `String`, found `name`
+
+error[E0308]: mismatched types
+   --> src/services/chat_service.rs:169:51
+    |
+169 |         let new_provider = NewLLMProvider { name, api_endpoint };
+    |                                                   ^^^^^^^^^^^^ expected `String`, found `api_endpoint`
+
+error[E0308]: mismatched types
+   --> src/services/chat_service.rs:208:13
+    |
+208 |             user_id,
+    |             ^^^^^^^ expected `Uuid`, found `user_id`
+
+error[E0308]: mismatched types
+   --> src/services/chat_service.rs:209:13
+    |
+209 |             provider_id,
+    |             ^^^^^^^^^^^ expected `Uuid`, found `provider_id`
+
+error[E0308]: mismatched types
+   --> src/services/chat_service.rs:210:13
+    |
+210 |             api_key,
+    |             ^^^^^^^ expected `String`, found `api_key`

@@ -10,6 +10,7 @@ FluentCLI Web Services is a platform designed to provide a user-friendly interfa
 * **Pipeline management:** Create and manage pipelines with multiple stages and flags.
 * **Job monitoring and management:** Monitor job status, view logs, and manage running jobs.
 * **Cross-platform compatibility:** Access the platform through a desktop application (built with Tauri) or a web application.
+* **Chat system:** Integrated chat functionality for user communication and AI assistance.
 
 ## Architecture
 
@@ -20,7 +21,7 @@ The platform consists of three main components:
   * Data access layer (Diesel ORM) interacts with the PostgreSQL database.
   * FluentCLI integration executes FluentCLI commands and manages job execution.
 * **Database (PostgreSQL):**
-  * Stores user data, job configurations, and execution history.
+  * Stores user data, job configurations, execution history, and chat data.
 * **Frontend (Tauri):**
   * User interface built with HTML, CSS, JavaScript, and Vue.js.
   * Tauri API enables communication with the backend and access to native desktop features.
@@ -66,6 +67,30 @@ The platform consists of three main components:
    * Use the API endpoints under `/docker_files` to manage your Docker files.
 7. **Create and manage jobs:**
    * Use the API endpoints under `/jobs` to create, manage, start, stop, and monitor jobs.
+8. **Use the chat system:**
+   * Use the API endpoints under `/chat` to create conversations, send messages, and manage attachments.
+
+## Chat System
+
+The chat system provides the following functionality:
+
+* Create and manage conversations
+* Send and receive messages within conversations
+* Attach files to messages
+* Configure and use different LLM (Language Model) providers
+* Manage user-specific LLM configurations
+
+To use the chat system, refer to the API documentation for detailed information on the available endpoints and their usage.
+
+## Running Tests
+
+To run the tests for the application, use the following command:
+
+```bash
+./run_tests.sh
+```
+
+This command will execute all the test scripts, including the new chat service tests.
 
 ## Contributing
 

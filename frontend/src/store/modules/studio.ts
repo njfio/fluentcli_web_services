@@ -17,7 +17,7 @@ export interface Pipeline {
   description: string;
   createdAt: string;
   lastModified: string;
-  status: string; // Add this line
+  status: string;
 }
 
 export interface StudioConfiguration {
@@ -28,6 +28,12 @@ export interface StudioConfiguration {
   status: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface NewStudioConfiguration {
+  name: string;
+  description: string;
+  type: string;
 }
 
 export interface AmberStore {
@@ -251,6 +257,67 @@ const studioModule: Module<StudioState, RootState> = {
         commit('setCurrentAmberStore', response.data);
       } catch (error) {
         console.error('Error updating amber store:', error);
+        throw error;
+      }
+    },
+    async startJob({ commit, dispatch }, jobId: string) {
+      try {
+        const response = await apiClient.startJob(jobId);
+        commit('setCurrentJob', response.data);
+        // Refresh the jobs list after starting the job
+        await dispatch('fetchJobs');
+      } catch (error) {
+        console.error('Error starting job:', error);
+        throw error;
+      }
+    },
+    async createAmberStore({ commit }, amberStore: Omit<AmberStore, 'id' | 'createdAt' | 'lastModified'>) {
+      try {
+        const response = await apiClient.createAmberStore(amberStore);
+        commit('setCurrentAmberStore', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating amber store:', error);
+        throw error;
+      }
+    },
+    async createDockerFile({ commit }, dockerFile: Omit<DockerFile, 'id' | 'createdAt' | 'updatedAt'>) {
+      try {
+        const response = await apiClient.createDockerFile(dockerFile);
+        commit('setCurrentDockerFile', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating docker file:', error);
+        throw error;
+      }
+    },
+    async createConfiguration({ commit }, configuration: NewStudioConfiguration) {
+      try {
+        const response = await apiClient.createConfiguration(configuration);
+        commit('setCurrentConfiguration', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating configuration:', error);
+        throw error;
+      }
+    },
+    async createPipeline({ commit }, pipeline: Omit<Pipeline, 'id' | 'createdAt' | 'lastModified' | 'status'>) {
+      try {
+        const response = await apiClient.createPipeline(pipeline);
+        commit('setCurrentPipeline', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating pipeline:', error);
+        throw error;
+      }
+    },
+    async createJob({ commit }, jobData) {
+      try {
+        const response = await apiClient.createJob(jobData);
+        commit('setCurrentJob', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error creating job:', error);
         throw error;
       }
     },

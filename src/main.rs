@@ -1,23 +1,22 @@
 mod db;
 mod error;
-mod models;
-mod schema;
-mod routes;
 mod handlers;
+mod models;
+mod routes;
+mod schema;
 mod services;
 mod utils;
 use dotenv::dotenv;
 
-use actix_web::{App, HttpServer, http, middleware, web};
 use actix_cors::Cors;
+use actix_web::{http, middleware, web, App, HttpServer};
 
 use db::{create_db_pool, setup_database};
 use routes::configure_routes;
 
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "debug"); //remove at release
+    std::env::set_var("RUST_LOG", "debug,fluentcli_web_services=debug"); // Updated this line
     dotenv().ok();
     env_logger::init();
 
@@ -25,7 +24,6 @@ async fn main() -> std::io::Result<()> {
     let pool = create_db_pool().expect("Failed to create database pool");
     setup_database(&pool).expect("Failed to set up database");
     println!("Database setup complete");
-
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -46,9 +44,6 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pool.clone()))
             .service(configure_routes())
     })
-
-
-
     .bind("0.0.0.0:8000")?
     .run()
     .await

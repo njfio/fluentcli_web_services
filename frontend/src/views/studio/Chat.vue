@@ -1,19 +1,72 @@
 <template>
-    <div class="chat-container">
-        <h1 class="text-2xl font-bold mb-4">AI Chat</h1>
-        <div class="chat-messages" ref="chatMessages">
-            <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
-                <div class="message-content" v-html="renderMarkdown(message.content)"></div>
+    <div
+        class="chat-container flex h-full bg-gray-100 dark:bg-gray-900 overflow-y-auto flex-grow max-h-[calc(100vh-200px)]">
+        <!-- Sidebar -->
+        <div :class="['bg-gray-800 flex flex-col transition-all duration-300 ease-in-out max-h-screen',
+            isSidebarOpen ? 'w-64' : 'w-16']">
+            <!-- Toggle button -->
+            <button @click="toggleSidebar" class="p-4 text-gray-300 hover:text-white focus:outline-none"
+                :class="{ 'self-end': isSidebarOpen }">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+
+            <h2 class="text-xl font-bold mb-4 text-gray-200 px-4 " v-if="isSidebarOpen">Conversations</h2>
+            <button @click="createNewConversation"
+                class="mb-4 mx-4 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                {{ isSidebarOpen ? 'New Conversation' : '+' }}
+            </button>
+            <div class="overflow-y-auto flex-grow max-h-[calc(100vh-200px)]">
+                <ul class="space-y-2 px-2">
+                    <li v-for="conversation in conversations" :key="conversation.id"
+                        @click="selectConversation(conversation.id)"
+                        :class="{ 'bg-gray-700': currentConversation && conversation.id === currentConversation.id }"
+                        class="cursor-pointer hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                            </path>
+                        </svg>
+                        <span v-if="isSidebarOpen" class="text-sm text-gray-300 truncate">{{ conversation.title
+                            }}</span>
+                    </li>
+                </ul>
             </div>
         </div>
-        <div class="chat-input">
-            <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage()"
-                @keydown.enter.shift.exact="newline" placeholder="Type your message here... (Shift+Enter for new line)"
-                rows="3" class="w-full p-2 border rounded-md resize-none" :disabled="isLoading"></textarea>
-            <div class="flex justify-between items-center mt-2">
-                <span v-if="isLoading" class="text-gray-600">
-                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-500 inline-block"
-                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+
+        <!-- Chat Area -->
+        <div
+            :class="['flex-1 flex flex-col relative transition-all duration-300 ease-in-out', isSidebarOpen ? 'ml-64' : 'ml-16']">
+            <!-- Chat Messages -->
+            <div class="flex-1 overflow-y-auto p-4 pb-32" ref="chatMessages">
+                <div v-if="currentConversation && currentMessages.length > 0">
+                    <div v-for="(message, index) in currentMessages" :key="index"
+                        :class="['message mb-3 p-3 rounded-lg max-w-3xl',
+                            message.role === 'user' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 ml-auto' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 mr-auto shadow-md']">
+                        <div class="message-content text-sm markdown-body"
+                            v-html="message.renderedContent || message.content">
+                        </div>
+                    </div>
+                </div>
+                <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
+                    <p class="text-gray-500 dark:text-gray-400">No messages yet. Start a conversation!</p>
+                </div>
+                <div v-else class="flex items-center justify-center h-full">
+                    <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.</p>
+                </div>
+            </div>
+
+            <!-- Floating Input Area -->
+            <div class="fixed bottom-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out"
+                :class="{ 'h-44': isExpanded, 'h-auto': !isExpanded, 'left-64': isSidebarOpen, 'left-16': !isSidebarOpen }">
+                <!-- AI Thinking Indicator -->
+                <div v-if="isLoading"
+                    class="absolute top-0 left-0 right-0 -translate-y-full bg-white dark:bg-gray-800 p-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center border-t border-gray-200 dark:border-gray-700">
+                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg"
+                        fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
                         </circle>
                         <path class="opacity-75" fill="currentColor"
@@ -21,237 +74,212 @@
                         </path>
                     </svg>
                     AI is thinking...
-                </span>
-                <button @click="sendMessage()" :disabled="isLoading || userInput.trim() === ''"
-                    class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                    Send
-                </button>
+                </div>
+
+                <div class="p-3">
+                    <div class="mb-2 flex justify-between items-center">
+                        <label for="provider-select"
+                            class="block text-xs font-medium text-gray-700 dark:text-gray-300">Select LLM
+                            Provider:</label>
+                        <button @click="toggleExpand" class="text-blue-600 dark:text-blue-400 text-sm">
+                            {{ isExpanded ? 'Collapse' : 'Expand' }}
+                        </button>
+                    </div>
+                    <select id="provider-select" v-model="selectedProviderId"
+                        class="w-full p-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-2">
+                        <option v-for="provider in llmProviders" :key="provider.id" :value="provider.id">
+                            {{ provider.name }}
+                        </option>
+                    </select>
+                    <div class="flex items-start">
+                        <textarea v-model="userInput" @keydown.enter.exact.prevent="sendMessage"
+                            @keydown.enter.shift.exact="newline"
+                            placeholder="Type your message here... (Shift+Enter for new line)"
+                            :rows="isExpanded ? 4 : 1"
+                            class="flex-1 p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            :disabled="isLoading || !currentConversation"></textarea>
+                        <button @click="sendMessage"
+                            :disabled="isLoading || userInput.trim() === '' || !selectedProviderId || !currentConversation"
+                            class="ml-3 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                            Send
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
-        <div v-if="error" class="mt-4 p-4 bg-red-100 text-red-700 rounded-md">
-            {{ error }}
-            <button @click="retryLastMessage" class="ml-2 underline">Retry</button>
-        </div>
     </div>
+
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, onMounted, nextTick, onUnmounted } from 'vue';
-import AuthService from '@/services/AuthService';
 
-interface ChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
-}
+<script lang="ts">
+import { defineComponent, onMounted, watch, nextTick, ref } from 'vue';
+import { useChatLogic } from '../../components/chat/ChatLogic';
+import LLMService from '../../services/LLMService';
+import { useStore } from 'vuex';
 
 export default defineComponent({
     name: 'Chat',
     setup() {
-        const messages = ref<ChatMessage[]>([]);
-        const userInput = ref('');
-        const chatMessages = ref<HTMLElement | null>(null);
-        const isLoading = ref(false);
-        const error = ref('');
-        let abortController: AbortController | null = null;
-        let retryCount = 0;
-        const maxRetries = 3;
+        const store = useStore();
+        const {
+            userInput,
+            isLoading,
+            error,
+            conversations,
+            currentConversation,
+            currentMessages,
+            llmProviders,
+            selectedProviderId,
+            loadMessages,
+            selectConversation,
+            createNewConversation,
+            sendMessage,
+            retryLastMessage,
+            newline,
+        } = useChatLogic();
 
-        const sendMessage = async () => {
-            if (userInput.value.trim() === '' || isLoading.value) return;
-            await processMessage(userInput.value);
+        const chatMessagesRef = ref<HTMLElement | null>(null);
+        const isExpanded = ref(false);
+        const isSidebarOpen = ref(true);
+
+        const toggleExpand = () => {
+            isExpanded.value = !isExpanded.value;
         };
 
-        const processMessage = async (message: string, retry = false) => {
-            if (!retry) {
-                const userMessage: ChatMessage = {
-                    role: 'user',
-                    content: message,
-                };
-                messages.value.push(userMessage);
-                userInput.value = '';
-            }
-
-            error.value = '';
-            isLoading.value = true;
-
-            scrollToBottom();
-
-            try {
-                // Abort previous request if it exists
-                if (abortController) {
-                    abortController.abort();
-                }
-
-                abortController = new AbortController();
-
-                const token = AuthService.getToken();
-                if (!token) {
-                    throw new Error('No authentication token found');
-                }
-
-                const response = await fetch(`/api/chat/stream?content=${encodeURIComponent(message)}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    signal: abortController.signal,
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const reader = response.body?.getReader();
-                const decoder = new TextDecoder();
-
-                let assistantMessage: ChatMessage = {
-                    role: 'assistant',
-                    content: '',
-                };
-
-                while (true) {
-                    const { done, value } = await reader!.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = JSON.parse(line.slice(6));
-                            if (assistantMessage.content === '') {
-                                messages.value.push(assistantMessage);
-                            }
-                            assistantMessage.content += data.message;
-                            scrollToBottom();
-                        }
-                    }
-                }
-
-                isLoading.value = false;
-                retryCount = 0;
-
-            } catch (err: any) {
-                console.error('Error sending message:', err);
-                handleError('Failed to send message. Please try again.');
-            }
-        };
-
-        const handleError = (errorMessage: string) => {
-            if (retryCount < maxRetries) {
-                retryCount++;
-                setTimeout(() => processMessage(messages.value[messages.value.length - 1].content, true), 1000 * retryCount);
-            } else {
-                error.value = errorMessage;
-                isLoading.value = false;
-                retryCount = 0;
-            }
-        };
-
-        const retryLastMessage = () => {
-            error.value = '';
-            processMessage(messages.value[messages.value.length - 1].content, true);
+        const toggleSidebar = () => {
+            isSidebarOpen.value = !isSidebarOpen.value;
         };
 
         const scrollToBottom = () => {
-            nextTick(() => {
-                if (chatMessages.value) {
-                    chatMessages.value.scrollTop = chatMessages.value.scrollHeight;
+            if (chatMessagesRef.value) {
+                chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
+            }
+        };
+
+        onMounted(async () => {
+            try {
+                console.log('Fetching conversations...');
+                await store.dispatch('chat/getConversations');
+                console.log('Conversations fetched:', conversations.value);
+
+                llmProviders.value = await LLMService.getProviders();
+                if (llmProviders.value.length > 0) {
+                    selectedProviderId.value = llmProviders.value[0].id;
+                } else {
+                    error.value = 'No LLM providers available. Please contact the administrator.';
                 }
-            });
-        };
-
-        const newline = () => {
-            userInput.value += '\n';
-        };
-
-        const renderMarkdown = (text: string): string => {
-            // This is a very basic markdown renderer. You might want to use a more robust solution in production.
-            return text
-                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-                .replace(/\*(.*)\*/gim, '<em>$1</em>')
-                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-                .replace(/- (.*)/gim, '<li>$1</li>')
-                .replace(/\n/gim, '<br>');
-        };
-
-        onMounted(() => {
-            scrollToBottom();
-        });
-
-        onUnmounted(() => {
-            if (abortController) {
-                abortController.abort();
+            } catch (err) {
+                console.error('Error in onMounted:', err);
+                error.value = 'Failed to fetch conversations or LLM providers. Please try again later.';
             }
         });
 
+        watch(currentConversation, async (newConversation) => {
+            if (newConversation) {
+                await loadMessages(newConversation.id);
+                nextTick(() => {
+                    scrollToBottom();
+                });
+            }
+        });
+
+        watch(currentMessages, () => {
+            nextTick(() => {
+                scrollToBottom();
+            });
+        }, { deep: true });
+
         return {
-            messages,
             userInput,
-            sendMessage,
-            chatMessages,
+            chatMessages: chatMessagesRef,
             isLoading,
             error,
-            newline,
-            renderMarkdown,
+            conversations,
+            currentConversation,
+            currentMessages,
+            llmProviders,
+            selectedProviderId,
+            selectConversation,
+            createNewConversation,
+            sendMessage,
             retryLastMessage,
+            newline,
+            scrollToBottom,
+            isExpanded,
+            toggleExpand,
+            isSidebarOpen,
+            toggleSidebar,
         };
     },
-});
-</script>
+});</script>
 
 <style scoped>
 .chat-container {
-    @apply max-w-4xl mx-auto p-4;
+    height: calc(100vh - 64px);
+    /* Adjust this value based on your header height */
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
-.chat-messages {
-    @apply h-[calc(100vh-300px)] overflow-y-auto mb-4 p-4 border rounded-md;
+/* Add this new style for smoother sidebar transition */
+.chat-container>div {
+    transition: all 0.3s ease-in-out;
 }
 
-.message {
-    @apply mb-4 p-3 rounded-lg;
+.markdown-body {
+    @apply text-sm;
 }
 
-.message.user {
-    @apply bg-primary-100 text-primary-800;
-}
-
-.message.assistant {
-    @apply bg-gray-100 text-gray-800;
-}
-
-.message-content {
-    @apply break-words;
-}
-
-.chat-input {
-    @apply mt-4;
-}
-
-/* Add some basic styling for rendered markdown */
-.message-content :deep(h1) {
+.markdown-body :deep(h1) {
     @apply text-2xl font-bold mb-2;
 }
 
-.message-content :deep(h2) {
+.markdown-body :deep(h2) {
     @apply text-xl font-bold mb-2;
 }
 
-.message-content :deep(h3) {
-    @apply text-lg font-bold mb-2;
+.markdown-body :deep(h3) {
+    @apply text-lg font-bold mb-1;
 }
 
-.message-content :deep(ul) {
+.markdown-body :deep(ul) {
     @apply list-disc list-inside mb-2;
 }
 
-.message-content :deep(pre) {
-    @apply bg-gray-100 p-2 rounded mb-2 overflow-x-auto;
+.markdown-body :deep(ol) {
+    @apply list-decimal list-inside mb-2;
 }
 
-.message-content :deep(code) {
-    @apply font-mono text-sm;
+.markdown-body :deep(pre) {
+    @apply bg-gray-100 dark:bg-gray-700 p-2 rounded mb-2 overflow-x-auto;
+}
+
+.markdown-body :deep(code) {
+    @apply font-mono text-sm bg-gray-100 dark:bg-gray-700 p-1 rounded;
+}
+
+.markdown-body :deep(p) {
+    @apply mb-2;
+}
+
+.markdown-body :deep(a) {
+    @apply text-blue-600 dark:text-blue-400 underline;
+}
+
+.markdown-body :deep(blockquote) {
+    @apply border-l-4 border-gray-300 dark:border-gray-600 pl-2 italic my-2;
+}
+
+.markdown-body :deep(table) {
+    @apply border-collapse border border-gray-300 dark:border-gray-600 my-2;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+    @apply border border-gray-300 dark:border-gray-600 p-1;
+}
+
+.markdown-body :deep(img) {
+    @apply max-w-full h-auto my-2;
 }
 </style>

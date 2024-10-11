@@ -11,6 +11,7 @@ import Settings from '../views/studio/Settings.vue';
 import DockerFiles from '../views/studio/DockerFiles.vue';
 import AmberStores from '../views/studio/AmberStores.vue';
 import Jobs from '../views/studio/Jobs.vue';
+import CreateJob from '../views/studio/CreateJob.vue';
 import JobDetail from '@/views/studio/JobDetail.vue'
 import JobData from '@/views/studio/JobData.vue'
 import JobLogs from '@/views/studio/JobLogs.vue'
@@ -30,6 +31,7 @@ const routes: Array<RouteRecordRaw> = [
       { path: '', redirect: { name: 'Dashboard' } },
       { path: 'dashboard', name: 'Dashboard', component: Dashboard },
       { path: 'jobs', name: 'Jobs', component: Jobs },
+      { path: 'jobs/create', name: 'CreateJob', component: CreateJob },
       { path: 'jobs/:id', name: 'JobDetail', component: JobDetail },
       { path: 'jobs/:id/data', name: 'JobData', component: JobData },
       { path: 'jobs/:id/logs', name: 'JobLogs', component: JobLogs },

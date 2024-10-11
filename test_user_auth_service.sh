@@ -69,7 +69,7 @@ print_result() {
 
 # Create a new user
 echo "Creating a new user"
-response=$(make_request POST "/users" '{"username": "testuser", "email": "testuser@example.com", "password": "testpass"}' "" "201")
+response=$(make_request POST "/users" '{"username": "testuser", "email": "chatuser@example.com", "password": "testpass"}' "" "201")
 user_id=$(echo "$response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "User ID: $user_id"
 

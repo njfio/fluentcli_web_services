@@ -1,6 +1,6 @@
 use crate::handlers::{
-    amber_store, api_key, chat, configuration, docker_file, fluentcli, job, pipeline, secure_vault,
-    user, worker,
+    amber_store, api_key, chat, configuration, docker_file, fluentcli, job, llm, pipeline,
+    secure_vault, stream_chat, user, worker,
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, HttpResponse, Scope};
@@ -119,7 +119,38 @@ pub fn configure_routes() -> Scope {
         .service(
             web::scope("/chat")
                 .wrap(Auth)
-                .route("", web::post().to(chat::send_message))
-                .route("/stream", web::get().to(chat::chat_stream)),
+                .route("/conversations", web::post().to(chat::create_conversation))
+                .route("/conversations", web::get().to(chat::list_conversations))
+                .route("/conversations/{id}", web::get().to(chat::get_conversation))
+                .route("/messages", web::post().to(chat::create_message))
+                .route(
+                    "/conversations/{id}/messages",
+                    web::get().to(chat::get_messages),
+                )
+                .route("/attachments", web::post().to(chat::create_attachment))
+                .route(
+                    "/messages/{id}/attachments",
+                    web::get().to(chat::get_attachments),
+                )
+                .route("/llm-providers", web::post().to(chat::create_llm_provider))
+                .route("/llm-providers/{id}", web::get().to(chat::get_llm_provider))
+                .route(
+                    "/user-llm-configs",
+                    web::post().to(chat::create_user_llm_config),
+                )
+                .route(
+                    "/user-llm-configs/{user_id}/{provider_id}",
+                    web::get().to(chat::get_user_llm_config),
+                )
+                .route("/stream", web::get().to(stream_chat::stream_chat)),
+        )
+        // LLM routes
+        .service(
+            web::scope("/llm")
+                .wrap(Auth)
+                .route("/providers", web::post().to(llm::create_llm_provider))
+                .route("/providers", web::get().to(llm::get_llm_providers))
+                .route("/chat", web::post().to(llm::chat))
+                .route("/stream-chat", web::post().to(llm::stream_chat)),
         )
 }

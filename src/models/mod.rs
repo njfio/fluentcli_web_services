@@ -9,3 +9,10 @@ pub mod pipeline;
 pub mod secure_vault;
 pub mod user;
 pub mod worker;
+
+// New chat-related models
+pub mod attachment;
+pub mod conversation;
+pub mod llm_provider;
+pub mod message;
+pub mod user_llm_config;

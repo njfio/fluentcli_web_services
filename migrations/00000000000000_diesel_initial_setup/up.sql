@@ -145,6 +145,52 @@ CREATE TABLE secure_vaults (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Create conversations table
+CREATE TABLE conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    title VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create messages table
+CREATE TABLE messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    conversation_id UUID NOT NULL REFERENCES conversations(id),
+    role VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create attachments table
+CREATE TABLE attachments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message_id UUID NOT NULL REFERENCES messages(id),
+    file_type VARCHAR(255) NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create llm_providers table
+CREATE TABLE llm_providers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    api_endpoint VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create user_llm_configs table
+CREATE TABLE user_llm_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    provider_id UUID NOT NULL REFERENCES llm_providers(id),
+    api_key VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Create indexes for foreign keys
 CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
 CREATE INDEX idx_amber_store_user_id ON amber_store(user_id);
@@ -156,6 +202,11 @@ CREATE INDEX idx_active_workers_user_id ON active_workers(user_id);
 CREATE INDEX idx_jobs_user_id ON jobs(user_id);
 CREATE INDEX idx_jobs_amber_id ON jobs(amber_id);
 CREATE UNIQUE INDEX idx_jobs_uri ON jobs(uri);
+CREATE INDEX idx_conversations_user_id ON conversations(user_id);
+CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX idx_attachments_message_id ON attachments(message_id);
+CREATE INDEX idx_user_llm_configs_user_id ON user_llm_configs(user_id);
+CREATE INDEX idx_user_llm_configs_provider_id ON user_llm_configs(provider_id);
 
 -- Set up triggers for automatic updated_at
 SELECT diesel_manage_updated_at('users');
@@ -166,5 +217,6 @@ SELECT diesel_manage_updated_at('pipelines');
 SELECT diesel_manage_updated_at('docker_files');
 SELECT diesel_manage_updated_at('active_workers');
 SELECT diesel_manage_updated_at('jobs');
--- ```
-
+SELECT diesel_manage_updated_at('conversations');
+SELECT diesel_manage_updated_at('llm_providers');
+SELECT diesel_manage_updated_at('user_llm_configs');

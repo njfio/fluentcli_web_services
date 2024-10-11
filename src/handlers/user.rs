@@ -20,12 +20,23 @@ pub async fn create_user(
     pool: web::Data<DbPool>,
     new_user: web::Json<NewUser>,
 ) -> Result<HttpResponse, AppError> {
+    log::info!("Attempting to create new user: {:?}", new_user);
+
     if UserService::email_exists(&pool, &new_user.email)? {
+        log::warn!("Email already in use: {}", new_user.email);
         return Err(AppError::BadRequest("Email already in use".into()));
     }
 
-    let user = UserService::create_user(&pool, new_user.into_inner())?;
-    Ok(HttpResponse::Created().json(user))
+    match UserService::create_user(&pool, new_user.into_inner()) {
+        Ok(user) => {
+            log::info!("User created successfully: {:?}", user);
+            Ok(HttpResponse::Created().json(user))
+        }
+        Err(e) => {
+            log::error!("Failed to create user: {:?}", e);
+            Err(e)
+        }
+    }
 }
 
 pub async fn login(
@@ -161,11 +172,17 @@ pub async fn validate_token(
                 log::info!("Token extracted: {}", token);
                 match jwt_validate_token(token) {
                     Ok((user_id, token_version)) => {
-                        log::info!("Token validated successfully. User ID: {}, Version: {}", user_id, token_version);
+                        log::info!(
+                            "Token validated successfully. User ID: {}, Version: {}",
+                            user_id,
+                            token_version
+                        );
                         // Check if the user exists in the database
                         match UserService::get_user(&pool, user_id) {
                             Ok(_) => {
-                                return Ok(HttpResponse::Ok().json(json!({ "user_id": user_id, "token_version": token_version })))
+                                return Ok(HttpResponse::Ok().json(
+                                    json!({ "user_id": user_id, "token_version": token_version }),
+                                ))
                             }
                             Err(e) => {
                                 log::error!("User not found: {:?}", e);
