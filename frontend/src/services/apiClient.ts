@@ -56,7 +56,6 @@ axiosInstance.interceptors.response.use(
 );
 
 interface ApiClient {
-  // User routes
   validateToken: () => Promise<AxiosResponse<any>>;
   refreshToken: () => Promise<AxiosResponse<any>>;
   createUser: (userData: any) => Promise<AxiosResponse<any>>;
@@ -110,7 +109,6 @@ interface ApiClient {
   updateAmberStore: (id: string, amberStoreData: any) => Promise<AxiosResponse<any>>;
   deleteAmberStore: (id: string) => Promise<AxiosResponse<any>>;
   fetchAmberStores: () => Promise<AxiosResponse<any>>;
-
   // Chat routes
   createConversation: (title: string) => Promise<AxiosResponse<any>>;
   listConversations: () => Promise<AxiosResponse<any>>;
@@ -123,10 +121,10 @@ interface ApiClient {
   getLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
   createUserLLMConfig: (providerId: string, apiKey: string) => Promise<AxiosResponse<any>>;
   getUserLLMConfig: (userId: string, providerId: string) => Promise<AxiosResponse<any>>;
+  streamChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
 }
 
 const apiClient: ApiClient = {
-  // User routes
   validateToken: () => axiosInstance.get('/users/validate-token'),
   refreshToken: () => axiosInstance.post('/users/refresh'),
   createUser: (userData) => axiosInstance.post('/users', userData),
@@ -180,7 +178,6 @@ const apiClient: ApiClient = {
   updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_stores/${id}`, amberStoreData),
   deleteAmberStore: (id) => axiosInstance.delete(`/amber_stores/${id}`),
   fetchAmberStores: () => axiosInstance.get('/amber_stores'),
-
   // Chat routes
   createConversation: (title) => axiosInstance.post('/chat/conversations', { title }),
   listConversations: () => axiosInstance.get('/chat/conversations'),
@@ -193,6 +190,7 @@ const apiClient: ApiClient = {
   getLLMProvider: (id) => axiosInstance.get(`/chat/llm-providers/${id}`),
   createUserLLMConfig: (providerId, apiKey) => axiosInstance.post('/chat/user-llm-configs', { provider_id: providerId, api_key: apiKey }),
   getUserLLMConfig: (userId, providerId) => axiosInstance.get(`/chat/user-llm-configs/${userId}/${providerId}`),
+  streamChat: (providerId, messages) => axiosInstance.get('/chat/stream', { params: { provider_id: providerId, messages: JSON.stringify(messages) } }),
 };
 
 export default apiClient;

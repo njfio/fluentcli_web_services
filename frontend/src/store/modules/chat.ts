@@ -15,6 +15,7 @@ export interface Message {
     role: string;
     content: string;
     createdAt: string;
+    renderedContent?: string;
 }
 
 export interface Attachment {
@@ -151,17 +152,10 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async updateMessage({ commit }, message: Message) {
-            try {
-                // Assuming you have an API endpoint to update a message
-                // const response = await apiClient.updateMessage(message);
-                // const updatedMessage = response.data;
-                commit('updateMessage', message);
-                return message;
-            } catch (error) {
-                console.error('Error updating message:', error);
-                throw error;
-            }
+        updateMessage({ commit }, message: Message) {
+            console.log('Updating message locally:', message);
+            commit('updateMessage', message);
+            return message;
         },
         async getMessages({ commit }, conversationId: string) {
             try {
