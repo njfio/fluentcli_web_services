@@ -1,34 +1,44 @@
 <template>
     <div class="chat-container flex h-full bg-gray-100 dark:bg-gray-900">
         <!-- Sidebar -->
-        <div class="w-1/4 bg-white dark:bg-gray-800 shadow-md p-4 flex flex-col h-full">
-            <h2 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Conversations</h2>
+        <div :class="['bg-gray-800 flex flex-col transition-all duration-300 ease-in-out',
+            isSidebarOpen ? 'w-64' : 'w-16']">
+            <!-- Toggle button -->
+            <button @click="toggleSidebar" class="p-4 text-gray-300 hover:text-white focus:outline-none"
+                :class="{ 'self-end': isSidebarOpen }">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+
+            <h2 class="text-xl font-bold mb-4 text-gray-200 px-4" v-if="isSidebarOpen">Conversations</h2>
             <button @click="createNewConversation"
-                class="mb-4 w-full px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                New Conversation
+                class="mb-4 mx-4 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                {{ isSidebarOpen ? 'New Conversation' : '+' }}
             </button>
             <div class="overflow-y-auto flex-grow">
-                <ul class="space-y-2">
+                <ul class="space-y-2 px-2">
                     <li v-for="conversation in conversations" :key="conversation.id"
                         @click="selectConversation(conversation.id)"
-                        :class="{ 'bg-blue-100 dark:bg-blue-900': currentConversation && conversation.id === currentConversation.id }"
-                        class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out">
-                        <div class="flex items-center">
-                            <svg class="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
-                                </path>
-                            </svg>
-                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ conversation.title }}</span>
-                        </div>
+                        :class="{ 'bg-gray-700': currentConversation && conversation.id === currentConversation.id }"
+                        class="cursor-pointer hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                            </path>
+                        </svg>
+                        <span v-if="isSidebarOpen" class="text-sm text-gray-300 truncate">{{ conversation.title
+                            }}</span>
                     </li>
                 </ul>
             </div>
         </div>
 
         <!-- Chat Area -->
-        <div class="flex-1 flex flex-col relative">
+        <div
+            :class="['flex-1 flex flex-col relative transition-all duration-300 ease-in-out', isSidebarOpen ? 'ml-64' : 'ml-16']">
             <!-- Chat Messages -->
             <div class="flex-1 overflow-y-auto p-4 pb-32" ref="chatMessages">
                 <div v-if="currentConversation && currentMessages.length > 0">
@@ -49,8 +59,8 @@
             </div>
 
             <!-- Floating Input Area -->
-            <div class="fixed bottom-0 left-1/4 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out"
-                :class="{ 'h-44': isExpanded, 'h-auto': !isExpanded }">
+            <div class="fixed bottom-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out"
+                :class="{ 'h-44': isExpanded, 'h-auto': !isExpanded, 'left-64': isSidebarOpen, 'left-16': !isSidebarOpen }">
                 <!-- AI Thinking Indicator -->
                 <div v-if="isLoading"
                     class="absolute top-0 left-0 right-0 -translate-y-full bg-white dark:bg-gray-800 p-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center border-t border-gray-200 dark:border-gray-700">
@@ -129,9 +139,14 @@ export default defineComponent({
 
         const chatMessagesRef = ref<HTMLElement | null>(null);
         const isExpanded = ref(false);
+        const isSidebarOpen = ref(true);
 
         const toggleExpand = () => {
             isExpanded.value = !isExpanded.value;
+        };
+
+        const toggleSidebar = () => {
+            isSidebarOpen.value = !isSidebarOpen.value;
         };
 
         onMounted(async () => {
@@ -185,16 +200,23 @@ export default defineComponent({
             scrollToBottom,
             isExpanded,
             toggleExpand,
+            isSidebarOpen,
+            toggleSidebar,
         };
     },
-});</script>
+});
+</script>
 
 <style scoped>
-/* ... (keep the existing styles) ... */
 .chat-container {
     height: calc(100vh - 64px);
     /* Adjust this value based on your header height */
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Add this new style for smoother sidebar transition */
+.chat-container>div {
+    transition: all 0.3s ease-in-out;
 }
 
 .markdown-body {
