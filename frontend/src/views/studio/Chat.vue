@@ -187,11 +187,40 @@ export default defineComponent({
     @apply list-disc list-inside mb-2;
 }
 
+.message-content :deep(ol) {
+    @apply list-decimal list-inside mb-2;
+}
+
 .message-content :deep(pre) {
     @apply bg-gray-100 p-2 rounded mb-2 overflow-x-auto;
 }
 
 .message-content :deep(code) {
-    @apply font-mono text-sm;
+    @apply font-mono text-sm bg-gray-100 p-1 rounded;
+}
+
+.message-content :deep(p) {
+    @apply mb-2;
+}
+
+.message-content :deep(a) {
+    @apply text-blue-600 underline;
+}
+
+.message-content :deep(blockquote) {
+    @apply border-l-4 border-gray-300 pl-4 italic my-2;
+}
+
+.message-content :deep(table) {
+    @apply border-collapse border border-gray-300 my-2;
+}
+
+.message-content :deep(th),
+.message-content :deep(td) {
+    @apply border border-gray-300 p-2;
+}
+
+.message-content :deep(img) {
+    @apply max-w-full h-auto my-2;
 }
 </style>
