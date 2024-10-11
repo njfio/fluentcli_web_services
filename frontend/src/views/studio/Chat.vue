@@ -29,14 +29,14 @@
 
         <!-- Chat Area -->
         <div class="flex-1 flex flex-col relative">
-            <!-- ... (keep the rest of the chat area code unchanged) ... -->
             <!-- Chat Messages -->
             <div class="flex-1 overflow-y-auto p-4 pb-32" ref="chatMessages">
                 <div v-if="currentConversation && currentMessages.length > 0">
                     <div v-for="(message, index) in currentMessages" :key="index"
                         :class="['message mb-3 p-3 rounded-lg max-w-3xl',
                             message.role === 'user' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 ml-auto' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 mr-auto shadow-md']">
-                        <div class="message-content text-sm" v-html="message.renderedContent || message.content">
+                        <div class="message-content text-sm markdown-body"
+                            v-html="message.renderedContent || message.content">
                         </div>
                     </div>
                 </div>
@@ -44,8 +44,7 @@
                     <p class="text-gray-500 dark:text-gray-400">No messages yet. Start a conversation!</p>
                 </div>
                 <div v-else class="flex items-center justify-center h-full">
-                    <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.
-                    </p>
+                    <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.</p>
                 </div>
             </div>
 
@@ -188,8 +187,7 @@ export default defineComponent({
             toggleExpand,
         };
     },
-});
-</script>
+});</script>
 
 <style scoped>
 /* ... (keep the existing styles) ... */
@@ -199,56 +197,60 @@ export default defineComponent({
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
-.message-content :deep(h1) {
+.markdown-body {
+    @apply text-sm;
+}
+
+.markdown-body :deep(h1) {
+    @apply text-2xl font-bold mb-2;
+}
+
+.markdown-body :deep(h2) {
+    @apply text-xl font-bold mb-2;
+}
+
+.markdown-body :deep(h3) {
     @apply text-lg font-bold mb-1;
 }
 
-.message-content :deep(h2) {
-    @apply text-base font-bold mb-1;
+.markdown-body :deep(ul) {
+    @apply list-disc list-inside mb-2;
 }
 
-.message-content :deep(h3) {
-    @apply text-sm font-bold mb-1;
+.markdown-body :deep(ol) {
+    @apply list-decimal list-inside mb-2;
 }
 
-.message-content :deep(ul) {
-    @apply list-disc list-inside mb-1;
+.markdown-body :deep(pre) {
+    @apply bg-gray-100 dark:bg-gray-700 p-2 rounded mb-2 overflow-x-auto;
 }
 
-.message-content :deep(ol) {
-    @apply list-decimal list-inside mb-1;
+.markdown-body :deep(code) {
+    @apply font-mono text-sm bg-gray-100 dark:bg-gray-700 p-1 rounded;
 }
 
-.message-content :deep(pre) {
-    @apply bg-gray-100 dark:bg-gray-700 p-2 rounded mb-1 overflow-x-auto;
+.markdown-body :deep(p) {
+    @apply mb-2;
 }
 
-.message-content :deep(code) {
-    @apply font-mono text-xs bg-gray-100 dark:bg-gray-700 p-1 rounded;
-}
-
-.message-content :deep(p) {
-    @apply mb-1;
-}
-
-.message-content :deep(a) {
+.markdown-body :deep(a) {
     @apply text-blue-600 dark:text-blue-400 underline;
 }
 
-.message-content :deep(blockquote) {
-    @apply border-l-4 border-gray-300 dark:border-gray-600 pl-2 italic my-1;
+.markdown-body :deep(blockquote) {
+    @apply border-l-4 border-gray-300 dark:border-gray-600 pl-2 italic my-2;
 }
 
-.message-content :deep(table) {
-    @apply border-collapse border border-gray-300 dark:border-gray-600 my-1;
+.markdown-body :deep(table) {
+    @apply border-collapse border border-gray-300 dark:border-gray-600 my-2;
 }
 
-.message-content :deep(th),
-.message-content :deep(td) {
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
     @apply border border-gray-300 dark:border-gray-600 p-1;
 }
 
-.message-content :deep(img) {
-    @apply max-w-full h-auto my-1;
+.markdown-body :deep(img) {
+    @apply max-w-full h-auto my-2;
 }
 </style>

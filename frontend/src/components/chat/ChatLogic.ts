@@ -4,6 +4,22 @@ import LLMService, { LLMProvider, LLMMessage } from '../../services/LLMService';
 import { Message } from '../../store/modules/chat';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
+import hljs from 'highlight.js';
+
+// Configure marked options for GitHub Flavored Markdown
+(marked as any).setOptions({
+    gfm: true,
+    breaks: true,
+    headerIds: false,
+    highlight: function (code: string, lang: string) {
+        if (lang && hljs.getLanguage(lang)) {
+            try {
+                return hljs.highlight(code, { language: lang }).value;
+            } catch (__) { }
+        }
+        return hljs.highlightAuto(code).value;
+    }
+});
 
 export function useChatLogic() {
     const store = useStore();
@@ -259,8 +275,14 @@ export function useChatLogic() {
 
     async function renderMarkdown(text: string): Promise<string> {
         if (!text) return '';
+
         const rawMarkup = marked(text);
-        return DOMPurify.sanitize(rawMarkup);
+        const sanitizedMarkup = DOMPurify.sanitize(rawMarkup);
+
+        // Wrap the sanitized markup in a div with allowed classes and attributes
+        return `<div class="markdown-content">
+            ${sanitizedMarkup}
+        </div>`;
     }
 
     return {
