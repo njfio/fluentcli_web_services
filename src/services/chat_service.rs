@@ -266,16 +266,30 @@ impl ChatService {
 
     pub fn delete_conversation(pool: &DbPool, _conversation_id: Uuid) -> Result<(), AppError> {
         use crate::schema::conversations::dsl::*;
+        use crate::schema::messages::dsl::*;
 
         info!("Deleting conversation with id: {:?}", _conversation_id);
 
-        diesel::delete(conversations.find(_conversation_id))
-            .execute(&mut pool.get()?)
-            .map_err(|e| {
-                error!("Error deleting conversation: {:?}", e);
-                AppError::DatabaseError(e)
-            })?;
+        let mut conn = pool.get()?;
 
-        Ok(())
+        conn.transaction(|conn| {
+            // First, delete all messages associated with the conversation
+            diesel::delete(messages.filter(conversation_id.eq(_conversation_id)))
+                .execute(conn)
+                .map_err(|e| {
+                    error!("Error deleting messages: {:?}", e);
+                    AppError::DatabaseError(e)
+                })?;
+
+            // Then, delete the conversation itself
+            diesel::delete(conversations.find(_conversation_id))
+                .execute(conn)
+                .map_err(|e| {
+                    error!("Error deleting conversation: {:?}", e);
+                    AppError::DatabaseError(e)
+                })?;
+
+            Ok(())
+        })
     }
 }
