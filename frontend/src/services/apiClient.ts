@@ -109,10 +109,12 @@ interface ApiClient {
   updateAmberStore: (id: string, amberStoreData: any) => Promise<AxiosResponse<any>>;
   deleteAmberStore: (id: string) => Promise<AxiosResponse<any>>;
   fetchAmberStores: () => Promise<AxiosResponse<any>>;
+
   // Chat routes
   createConversation: (title: string) => Promise<AxiosResponse<any>>;
   listConversations: () => Promise<AxiosResponse<any>>;
   getConversation: (id: string) => Promise<AxiosResponse<any>>;
+  deleteConversation: (id: string) => Promise<AxiosResponse<any>>; // Add this line
   createMessage: (conversationId: string, role: string, content: string) => Promise<AxiosResponse<any>>;
   getMessages: (conversationId: string) => Promise<AxiosResponse<any>>;
   createAttachment: (messageId: string, fileType: string, filePath: string) => Promise<AxiosResponse<any>>;
@@ -178,10 +180,12 @@ const apiClient: ApiClient = {
   updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_stores/${id}`, amberStoreData),
   deleteAmberStore: (id) => axiosInstance.delete(`/amber_stores/${id}`),
   fetchAmberStores: () => axiosInstance.get('/amber_stores'),
+
   // Chat routes
   createConversation: (title) => axiosInstance.post('/chat/conversations', { title }),
   listConversations: () => axiosInstance.get('/chat/conversations'),
   getConversation: (id) => axiosInstance.get(`/chat/conversations/${id}`),
+  deleteConversation: (id) => axiosInstance.delete(`/chat/conversations/${id}`), // Add this line
   createMessage: (conversationId, role, content) => axiosInstance.post('/chat/messages', { conversation_id: conversationId, role, content }),
   getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
   createAttachment: (messageId, fileType, filePath) => axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),

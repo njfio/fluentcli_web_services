@@ -48,7 +48,6 @@ export interface ChatState {
     llmProviders: LLMProvider[];
     userLLMConfig: UserLLMConfig | null;
 }
-
 const chatModule: Module<ChatState, RootState> = {
     namespaced: true,
     state: {
@@ -107,8 +106,27 @@ const chatModule: Module<ChatState, RootState> = {
         setUserLLMConfig(state, config: UserLLMConfig) {
             state.userLLMConfig = config;
         },
+        removeConversation(state, conversationId: string) {
+            state.conversations = state.conversations.filter(conv => conv.id !== conversationId);
+            if (state.currentConversation && state.currentConversation.id === conversationId) {
+                state.currentConversation = null;
+            }
+        },
     },
     actions: {
+        // ... (previous actions remain unchanged)
+
+        async deleteConversation({ commit }, conversationId: string) {
+            try {
+                await apiClient.deleteConversation(conversationId);
+                commit('removeConversation', conversationId);
+            } catch (error) {
+                console.error('Error deleting conversation:', error);
+                throw error;
+            }
+        },
+
+
         async getConversations({ commit }) {
             try {
                 console.log('Fetching conversations...');

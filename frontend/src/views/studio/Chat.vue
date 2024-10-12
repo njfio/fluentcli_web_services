@@ -22,16 +22,26 @@
                     <li v-for="conversation in conversations" :key="conversation.id"
                         @click="selectConversation(conversation.id)"
                         :class="{ 'bg-gray-700': currentConversation && conversation.id === currentConversation.id }"
-                        class="cursor-pointer hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out flex flex-col">
-                        <div class="flex items-center">
-                            <svg class="w-4 h-4 mr-2 text-gray-300" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
-                                </path>
-                            </svg>
-                            <span v-if="isSidebarOpen" class="text-sm text-gray-300 truncate">{{ conversation.title
-                                }}</span>
+                        class="cursor-pointer hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out flex flex-col relative">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-gray-300" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                                    </path>
+                                </svg>
+                                <span v-if="isSidebarOpen" class="text-sm text-gray-300 truncate">{{ conversation.title
+                                    }}</span>
+                            </div>
+                            <button v-if="isSidebarOpen" @click.stop="deleteConversation(conversation.id)"
+                                class="text-gray-400 hover:text-red-500 focus:outline-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </div>
                         <span v-if="isSidebarOpen" class="text-xs text-gray-400 mt-1">{{
                             formatDate(conversation.updated_at) }}</span>
@@ -184,6 +194,7 @@ export default defineComponent({
             sendMessage,
             retryLastMessage,
             newline,
+            deleteConversation, // Add this line
         } = useChatLogic();
 
         const chatMessagesRef = ref<HTMLElement | null>(null);
@@ -269,6 +280,7 @@ export default defineComponent({
             isSidebarOpen,
             toggleSidebar,
             formatDate,
+            deleteConversation, // Add this line
         };
     },
 });

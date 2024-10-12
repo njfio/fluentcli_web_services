@@ -68,6 +68,21 @@ export function useChatLogic() {
         }
     }
 
+    async function deleteConversation(conversationId: string) {
+        try {
+            await store.dispatch('chat/deleteConversation', conversationId);
+            // If the deleted conversation was the current one, clear the current messages
+            if (currentConversation.value && currentConversation.value.id === conversationId) {
+                currentMessages.value = [];
+            }
+            // Optionally, you can select another conversation or clear the current conversation
+            // depending on your app's requirements
+        } catch (err) {
+            console.error('Error deleting conversation:', err);
+            error.value = 'Failed to delete conversation. Please try again.';
+        }
+    }
+
     async function sendMessage() {
         if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value || !selectedProviderId.value) return;
         await processMessage(userInput.value);
@@ -298,6 +313,7 @@ export function useChatLogic() {
         loadMessages,
         selectConversation,
         createNewConversation,
+        deleteConversation,
         sendMessage,
         retryLastMessage,
         newline,
