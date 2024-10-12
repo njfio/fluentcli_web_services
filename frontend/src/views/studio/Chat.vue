@@ -3,20 +3,25 @@
         <!-- Sidebar -->
         <div :class="['bg-gray-800 flex flex-col transition-all duration-300 ease-in-out',
             isSidebarOpen ? 'w-64' : 'w-16']">
-            <!-- Toggle button -->
-            <button @click="toggleSidebar" class="p-4 text-gray-300 hover:text-white focus:outline-none"
-                :class="{ 'self-end': isSidebarOpen }">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
+            <!-- Sidebar header -->
+            <div class="flex items-center justify-between p-4">
+                <h2 class="text-xl font-bold text-gray-200" v-if="isSidebarOpen">Conversations</h2>
+                <button @click="toggleSidebar" class="text-gray-300 hover:text-white focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            </div>
 
-            <h2 class="text-xl font-bold mb-4 text-gray-200 px-4" v-if="isSidebarOpen">Conversations</h2>
+            <!-- New Conversation button -->
             <button @click="createNewConversation"
                 class="mb-4 mx-4 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                 {{ isSidebarOpen ? 'New Conversation' : '+' }}
             </button>
+
+            <!-- Rest of the sidebar content -->
             <div class="overflow-y-auto flex-grow">
                 <ul class="space-y-2 px-2">
                     <li v-for="conversation in conversations" :key="conversation.id"
