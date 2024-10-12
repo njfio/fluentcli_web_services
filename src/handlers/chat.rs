@@ -95,6 +95,38 @@ pub async fn list_conversations(
     Ok(HttpResponse::Ok().json(conversations))
 }
 
+pub async fn delete_conversation(
+    pool: web::Data<DbPool>,
+    conversation_id: web::Path<Uuid>,
+    user_id: web::ReqData<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    info!(
+        "Deleting conversation: {:?} for user: {:?}",
+        *conversation_id, *user_id
+    );
+    let result = web::block(move || {
+        // Check if the user owns the conversation
+        let conversation = ChatService::get_conversation(&pool, *conversation_id)?;
+        if conversation.user_id != *user_id {
+            error!(
+                "Unauthorized: User {:?} does not own conversation {:?}",
+                *user_id, *conversation_id
+            );
+            return Err(AppError::Unauthorized);
+        }
+
+        ChatService::delete_conversation(&pool, *conversation_id)
+    })
+    .await
+    .map_err(|e| {
+        error!("Error deleting conversation: {:?}", e);
+        AppError::GenericError(Box::new(e))
+    })??;
+
+    info!("Conversation deleted successfully");
+    Ok(HttpResponse::NoContent().finish())
+}
+
 pub async fn create_message(
     pool: web::Data<DbPool>,
     req: web::Json<CreateMessageRequest>,

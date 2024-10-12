@@ -122,6 +122,10 @@ pub fn configure_routes() -> Scope {
                 .route("/conversations", web::post().to(chat::create_conversation))
                 .route("/conversations", web::get().to(chat::list_conversations))
                 .route("/conversations/{id}", web::get().to(chat::get_conversation))
+                .route(
+                    "/conversations/{id}",
+                    web::delete().to(chat::delete_conversation),
+                ) // Add this line
                 .route("/messages", web::post().to(chat::create_message))
                 .route(
                     "/conversations/{id}/messages",
