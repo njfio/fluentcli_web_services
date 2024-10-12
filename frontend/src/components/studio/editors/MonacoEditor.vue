@@ -15,36 +15,44 @@ export default defineComponent({
         },
         language: {
             type: String,
-            default: 'yaml',
+            default: 'markdown',
         },
         theme: {
             type: String,
-            default: 'vs-light',
+            default: 'vs-dark',
+        },
+        options: {
+            type: Object,
+            default: () => ({}),
         },
     },
-    emits: ['update:modelValue'],
+    emits: ['update:modelValue', 'keydown', 'send-message'],
     setup(props, { emit }) {
         const editorContainer = ref<HTMLElement | null>(null);
         let editor: monaco.editor.IStandaloneCodeEditor | null = null;
         const currentTheme = ref(props.theme);
 
-        console.log('MonacoEditor setup, initial theme:', props.theme);
-
         const initMonaco = () => {
             if (editorContainer.value) {
-                console.log('Initializing Monaco editor with theme:', currentTheme.value);
                 if (editor) {
-                    console.log('Disposing existing editor');
                     editor.dispose();
                 }
                 editor = monaco.editor.create(editorContainer.value, {
+                    value: props.modelValue,
+                    language: props.language,
+                    theme: currentTheme.value,
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    lineNumbers: 'off',
+                    glyphMargin: false,
+                    folding: false,
+                    lineDecorationsWidth: 0,
                     lineNumbersMinChars: 0,
                     wordWrap: 'on',
                     wrappingStrategy: 'advanced',
-                    automaticLayout: true,
-                    scrollBeyondLastLine: false,
                     fontSize: 14,
-                    fontFamily: 'Menlo, Monaco, monospace',
+                    fontFamily: 'Menlo, Monaco, "Courier New", monospace',
                     cursorBlinking: 'smooth',
                     cursorSmoothCaretAnimation: 'on',
                     smoothScrolling: true,
@@ -64,19 +72,42 @@ export default defineComponent({
                         horizontal: 'hidden'
                     },
                     renderLineHighlight: 'none',
-                    fixedOverflowWidgets: true
+                    fixedOverflowWidgets: true,
+                    ...props.options,
                 });
 
                 editor.onDidChangeModelContent(() => {
                     emit('update:modelValue', editor?.getValue());
                 });
 
-                console.log('Monaco editor initialized with theme:', currentTheme.value);
+                editor.onKeyDown((e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.keyCode === monaco.KeyCode.Enter) {
+                        e.preventDefault();
+                        emit('send-message');
+                    } else {
+                        emit('keydown', e);
+                    }
+                });
+            }
+        };
+
+
+        const handleNewline = () => {
+            if (editor) {
+                const selection = editor.getSelection();
+                if (selection) {
+                    const position = selection.getPosition();
+                    editor.executeEdits('', [{
+                        range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                        text: '\n',
+                        forceMoveMarkers: true
+                    }]);
+                    editor.setPosition({ lineNumber: position.lineNumber + 1, column: 1 });
+                }
             }
         };
 
         onMounted(() => {
-            console.log('MonacoEditor mounted, current theme:', currentTheme.value);
             nextTick(() => {
                 initMonaco();
             });
@@ -95,22 +126,22 @@ export default defineComponent({
         });
 
         watch(() => props.theme, (newTheme) => {
-            console.log('Theme prop changed in MonacoEditor:', newTheme);
             currentTheme.value = newTheme;
-            nextTick(() => {
-                if (editor) {
-                    console.log('Updating Monaco editor theme to:', newTheme);
-                    monaco.editor.setTheme(newTheme);
-                } else {
-                    console.warn('Editor not initialized, reinitializing with new theme');
-                    initMonaco();
-                }
-            });
-        }, { immediate: true });
+            if (editor) {
+                monaco.editor.setTheme(newTheme);
+            }
+        });
+
+        watch(() => props.options, (newOptions) => {
+            if (editor) {
+                editor.updateOptions(newOptions);
+            }
+        }, { deep: true });
 
         return {
             editorContainer,
             currentTheme,
+            handleNewline,
         };
     },
 });

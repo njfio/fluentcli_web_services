@@ -38,9 +38,15 @@
 
         <!-- Chat Area -->
         <div class="flex-1 flex flex-col relative transition-all duration-300 ease-in-out"
-            :class="[isSidebarOpen ? 'ml-64' : 'ml-16']">
+            :class="[isSidebarOpen ? 'ml-64' : 'ml-16']" :style="{
+                maxWidth: isSidebarOpen ? 'calc(100% - 20rem)' : 'calc(100% - 10rem)',
+                width: '100%'
+            }">
             <!-- Chat Messages -->
-            <div class="flex-1 overflow-y-auto p-4 pb-40" ref="chatMessages">
+            <div class="flex-1 overflow-y-auto p-4" :style="{
+                paddingBottom: isExpanded ? 'calc(66vh + 1rem)' : '8rem',
+                maxWidth: '100%'
+            }" ref="chatMessages">
                 <div v-if="currentConversation && currentMessages.length > 0">
                     <div v-for="(message, index) in currentMessages" :key="index"
                         :class="['message mb-3 p-3 rounded-lg max-w-3xl',
@@ -59,9 +65,13 @@
             </div>
 
             <!-- Floating Input Area -->
-            <div class="fixed bottom-0 right-5 bg-gray-800 border-t border-gray-700 transition-all duration-300 ease-in-out"
-                :class="[isExpanded ? 'h-64' : 'h-40']" :style="{
-                    width: isSidebarOpen ? 'calc(75% - 16rem)' : 'calc(75% - 4rem)'
+            <div class="fixed bottom-0 right-5 bg-gray-800 border-t border-gray-700 transition-all duration-300 ease-in-out rounded-tl-lg shadow-lg"
+                :class="[
+                    isExpanded ? 'h-[66vh]' : 'h-40',
+                ]" :style="{
+                    width: isSidebarOpen ? 'calc(75% - 16rem)' : 'calc(75% - 4rem)',
+                    right: '1rem',
+                    left: 'auto'
                 }">
                 <!-- AI Thinking Indicator -->
                 <div v-if="isLoading"
@@ -125,8 +135,7 @@
                             },
                             renderLineHighlight: 'none',
                             fixedOverflowWidgets: true
-                        }" language="markdown" theme="vs-dark" @keydown.enter.exact.prevent="sendMessage"
-                            @keydown.shift.enter="newline" />
+                        }" language="markdown" theme="vs-dark" @send-message="sendMessage" />
                     </div>
                     <div class="mt-2 flex justify-end">
                         <button @click="sendMessage"
@@ -187,7 +196,7 @@ export default defineComponent({
 
         const scrollToBottom = () => {
             if (chatMessagesRef.value) {
-                chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
+                chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight + 20;
             }
         };
 
@@ -251,19 +260,20 @@ export default defineComponent({
 
 <style scoped>
 .fixed {
-    max-height: calc(100vh - 64px);
+    max-height: 58vh;
     overflow-y: auto;
 }
 
 .chat-container {
-    height: calc(100vh - 64px);
+    height: calc(99vh - 150px);
     overflow: hidden;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
 .chat-container {
-    height: calc(100vh - 64px);
+    padding-bottom: 20px;
+    margin-bottom: 20px;
     /* Adjust this value based on your header height */
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
 /* Add this new style for smoother sidebar transition */
