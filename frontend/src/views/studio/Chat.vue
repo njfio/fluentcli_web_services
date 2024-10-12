@@ -22,21 +22,26 @@
                     <li v-for="conversation in conversations" :key="conversation.id"
                         @click="selectConversation(conversation.id)"
                         :class="{ 'bg-gray-700': currentConversation && conversation.id === currentConversation.id }"
-                        class="cursor-pointer hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out flex items-center">
-                        <svg class="w-4 h-4 mr-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
-                            </path>
-                        </svg>
-                        <span v-if="isSidebarOpen" class="text-sm text-gray-300 truncate">{{ conversation.title
-                            }}</span>
+                        class="cursor-pointer hover:bg-gray-700 p-2 rounded-lg transition duration-150 ease-in-out flex flex-col">
+                        <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-gray-300" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                                </path>
+                            </svg>
+                            <span v-if="isSidebarOpen" class="text-sm text-gray-300 truncate">{{ conversation.title
+                                }}</span>
+                        </div>
+                        <span v-if="isSidebarOpen" class="text-xs text-gray-400 mt-1">{{
+                            formatDate(conversation.updated_at) }}</span>
                     </li>
                 </ul>
             </div>
         </div>
 
         <!-- Chat Area -->
+        <!-- ... (rest of the template remains unchanged) ... -->
         <div class="flex-1 flex flex-col relative transition-all duration-300 ease-in-out"
             :class="[isSidebarOpen ? 'ml-64' : 'ml-16']" :style="{
                 maxWidth: isSidebarOpen ? 'calc(100% - 20rem)' : 'calc(100% - 10rem)',
@@ -157,7 +162,6 @@ import LLMService from '../../services/LLMService';
 import { useStore } from 'vuex';
 import MonacoEditor from '../../components/studio/editors/MonacoEditor.vue';
 
-
 export default defineComponent({
     name: 'Chat',
     components: {
@@ -198,6 +202,17 @@ export default defineComponent({
             if (chatMessagesRef.value) {
                 chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight + 20;
             }
+        };
+
+        const formatDate = (dateString: string) => {
+            const date = new Date(dateString);
+            return date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         };
 
         onMounted(async () => {
@@ -253,19 +268,21 @@ export default defineComponent({
             toggleExpand,
             isSidebarOpen,
             toggleSidebar,
+            formatDate,
         };
     },
 });
 </script>
 
 <style scoped>
+/* ... (styles remain unchanged) ... */
 .fixed {
     max-height: 58vh;
     overflow-y: auto;
 }
 
 .chat-container {
-    height: calc(99vh - 150px);
+    height: calc(99vh - 140px);
     overflow: hidden;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
