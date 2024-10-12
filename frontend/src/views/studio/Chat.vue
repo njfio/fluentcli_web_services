@@ -37,14 +37,14 @@
         </div>
 
         <!-- Chat Area -->
-        <div
-            :class="['flex-1 flex flex-col relative transition-all duration-300 ease-in-out', isSidebarOpen ? 'ml-64' : 'ml-16']">
+        <div class="flex-1 flex flex-col relative transition-all duration-300 ease-in-out"
+            :class="[isSidebarOpen ? 'ml-64' : 'ml-16']">
             <!-- Chat Messages -->
-            <div class="flex-1 overflow-y-auto p-4 pb-32" ref="chatMessages">
+            <div class="flex-1 overflow-y-auto p-4 pb-40" ref="chatMessages">
                 <div v-if="currentConversation && currentMessages.length > 0">
                     <div v-for="(message, index) in currentMessages" :key="index"
                         :class="['message mb-3 p-3 rounded-lg max-w-3xl',
-                            message.role === 'user' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 ml-auto' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 mr-auto shadow-md']">
+                            message.role === 'user' ? 'bg-blue-600 text-white ml-auto' : 'bg-gray-700 text-white mr-auto']">
                         <div class="message-content text-sm markdown-body"
                             v-html="message.renderedContent || message.content">
                         </div>
@@ -59,11 +59,13 @@
             </div>
 
             <!-- Floating Input Area -->
-            <div class="fixed bottom-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out"
-                :class="{ 'h-64': isExpanded, 'h-40': !isExpanded, 'left-64': isSidebarOpen, 'left-16': !isSidebarOpen }">
+            <div class="fixed bottom-0 right-5 bg-gray-800 border-t border-gray-700 transition-all duration-300 ease-in-out"
+                :class="[isExpanded ? 'h-64' : 'h-40']" :style="{
+                    width: isSidebarOpen ? 'calc(75% - 16rem)' : 'calc(75% - 4rem)'
+                }">
                 <!-- AI Thinking Indicator -->
                 <div v-if="isLoading"
-                    class="absolute top-0 left-0 right-0 -translate-y-full bg-white dark:bg-gray-800 p-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center border-t border-gray-200 dark:border-gray-700">
+                    class="absolute top-0 left-0 right-0 -translate-y-full bg-gray-800 p-2 text-xs text-gray-400 flex items-center justify-center border-t border-gray-700">
                     <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg"
                         fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
@@ -77,20 +79,19 @@
 
                 <div class="p-3 flex flex-col h-full">
                     <div class="mb-2 flex justify-between items-center">
-                        <label for="provider-select"
-                            class="block text-xs font-medium text-gray-700 dark:text-gray-300">Select LLM
+                        <label for="provider-select" class="block text-xs font-medium text-gray-300">Select LLM
                             Provider:</label>
-                        <button @click="toggleExpand" class="text-blue-600 dark:text-blue-400 text-sm">
+                        <button @click="toggleExpand" class="text-blue-400 text-sm">
                             {{ isExpanded ? 'Collapse' : 'Expand' }}
                         </button>
                     </div>
                     <select id="provider-select" v-model="selectedProviderId"
-                        class="w-full p-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-2">
+                        class="w-full p-1 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-gray-100 mb-2">
                         <option v-for="provider in llmProviders" :key="provider.id" :value="provider.id">
                             {{ provider.name }}
                         </option>
                     </select>
-                    <div class="flex-grow relative">
+                    <div class="flex-grow relative" :style="{ height: isExpanded ? '40rem' : '2rem' }">
                         <MonacoEditor v-model="userInput" :options="{
                             minimap: { enabled: false },
                             lineNumbers: 'off',
@@ -103,6 +104,27 @@
                             automaticLayout: true,
                             scrollBeyondLastLine: false,
                             fontSize: 14,
+                            fontFamily: 'Menlo, Monaco, monospace',
+                            cursorBlinking: 'smooth',
+                            cursorSmoothCaretAnimation: true,
+                            smoothScrolling: true,
+                            contextmenu: false,
+                            quickSuggestions: false,
+                            suggestOnTriggerCharacters: false,
+                            acceptSuggestionOnEnter: 'off',
+                            tabCompletion: 'off',
+                            wordBasedSuggestions: false,
+                            parameterHints: { enabled: false },
+                            links: false,
+                            renderWhitespace: 'none',
+                            overviewRulerLanes: 0,
+                            hideCursorInOverviewRuler: true,
+                            scrollbar: {
+                                vertical: 'hidden',
+                                horizontal: 'hidden'
+                            },
+                            renderLineHighlight: 'none',
+                            fixedOverflowWidgets: true
                         }" language="markdown" theme="vs-dark" @keydown.enter.exact.prevent="sendMessage"
                             @keydown.shift.enter="newline" />
                     </div>
@@ -228,6 +250,16 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.fixed {
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+}
+
+.chat-container {
+    height: calc(100vh - 64px);
+    overflow: hidden;
+}
+
 .chat-container {
     height: calc(100vh - 64px);
     /* Adjust this value based on your header height */

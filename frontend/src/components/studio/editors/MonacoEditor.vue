@@ -38,12 +38,33 @@ export default defineComponent({
                     editor.dispose();
                 }
                 editor = monaco.editor.create(editorContainer.value, {
-                    value: props.modelValue,
-                    language: props.language,
-                    theme: currentTheme.value,
+                    lineNumbersMinChars: 0,
+                    wordWrap: 'on',
+                    wrappingStrategy: 'advanced',
                     automaticLayout: true,
-                    minimap: { enabled: false },
                     scrollBeyondLastLine: false,
+                    fontSize: 14,
+                    fontFamily: 'Menlo, Monaco, monospace',
+                    cursorBlinking: 'smooth',
+                    cursorSmoothCaretAnimation: 'on',
+                    smoothScrolling: true,
+                    contextmenu: false,
+                    quickSuggestions: false,
+                    suggestOnTriggerCharacters: false,
+                    acceptSuggestionOnEnter: 'off',
+                    tabCompletion: 'off',
+                    wordBasedSuggestions: 'off',
+                    parameterHints: { enabled: false },
+                    links: false,
+                    renderWhitespace: 'none',
+                    overviewRulerLanes: 0,
+                    hideCursorInOverviewRuler: true,
+                    scrollbar: {
+                        vertical: 'hidden',
+                        horizontal: 'hidden'
+                    },
+                    renderLineHighlight: 'none',
+                    fixedOverflowWidgets: true
                 });
 
                 editor.onDidChangeModelContent(() => {
