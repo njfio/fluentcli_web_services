@@ -26,26 +26,23 @@ class LLMService {
     }
 
     async streamChat(providerId: string, messages: LLMMessage[]): Promise<ReadableStream<Uint8Array>> {
-        const url = new URL('/llm/stream-chat', axiosInstance.defaults.baseURL);
+        const url = new URL('/chat/stream', axiosInstance.defaults.baseURL);
 
         // Filter out invalid messages
         const validMessages = messages.filter(msg => msg && msg.role && msg.content);
 
-        const requestBody = {
-            provider_id: providerId,
-            messages: validMessages,
-        };
+        // Add query parameters
+        url.searchParams.append('provider_id', providerId);
+        url.searchParams.append('messages', JSON.stringify(validMessages));
 
-        console.log('Request body:', JSON.stringify(requestBody, null, 2));
+        console.log('Request URL:', url.toString());
         console.log('Valid Messages:', JSON.stringify(validMessages, null, 2));
 
         const response = await fetch(url.toString(), {
-            method: 'POST',
+            method: 'GET',
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
             },
-            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {

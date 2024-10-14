@@ -115,7 +115,11 @@ diesel::table! {
         #[max_length = 255]
         name -> Varchar,
         #[max_length = 255]
+        provider_type -> Varchar,
+        #[max_length = 255]
         api_endpoint -> Varchar,
+        supported_modalities -> Jsonb,
+        configuration -> Jsonb,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

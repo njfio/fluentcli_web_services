@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { API_URL } from '../config';
 import AuthService from './AuthService';
 import { StudioConfiguration, NewStudioConfiguration } from '../store/modules/studio';
+import store from '../store';
 
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -9,14 +10,22 @@ export const axiosInstance: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
+  withCredentials: true, // This ensures credentials are sent with every request
 });
 
-// Request interceptor to add the auth token to headers
+
+// Request interceptor to add the auth token and user ID to headers
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = AuthService.getToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
+
+      // Add user ID to the headers
+      const userId = store.getters.userId;
+      if (userId) {
+        config.headers['X-User-ID'] = userId;
+      }
     }
     console.log(`Making ${config.method?.toUpperCase()} request to ${config.url}`);
     return config;
@@ -26,6 +35,7 @@ axiosInstance.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
 
 // Response interceptor to handle global errors
 axiosInstance.interceptors.response.use(
@@ -54,7 +64,6 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
 interface ApiClient {
   validateToken: () => Promise<AxiosResponse<any>>;
   refreshToken: () => Promise<AxiosResponse<any>>;
@@ -109,12 +118,11 @@ interface ApiClient {
   updateAmberStore: (id: string, amberStoreData: any) => Promise<AxiosResponse<any>>;
   deleteAmberStore: (id: string) => Promise<AxiosResponse<any>>;
   fetchAmberStores: () => Promise<AxiosResponse<any>>;
-
   // Chat routes
-  createConversation: (title: string) => Promise<AxiosResponse<any>>;
+  createConversation: (data: { user_id: string; title: string }) => Promise<AxiosResponse<any>>;
   listConversations: () => Promise<AxiosResponse<any>>;
   getConversation: (id: string) => Promise<AxiosResponse<any>>;
-  deleteConversation: (id: string) => Promise<AxiosResponse<any>>; // Add this line
+  deleteConversation: (id: string) => Promise<AxiosResponse<any>>;
   createMessage: (conversationId: string, role: string, content: string) => Promise<AxiosResponse<any>>;
   getMessages: (conversationId: string) => Promise<AxiosResponse<any>>;
   createAttachment: (messageId: string, fileType: string, filePath: string) => Promise<AxiosResponse<any>>;
@@ -180,12 +188,11 @@ const apiClient: ApiClient = {
   updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_stores/${id}`, amberStoreData),
   deleteAmberStore: (id) => axiosInstance.delete(`/amber_stores/${id}`),
   fetchAmberStores: () => axiosInstance.get('/amber_stores'),
-
   // Chat routes
-  createConversation: (title) => axiosInstance.post('/chat/conversations', { title }),
+  createConversation: (data) => axiosInstance.post('/chat/conversations', data),
   listConversations: () => axiosInstance.get('/chat/conversations'),
   getConversation: (id) => axiosInstance.get(`/chat/conversations/${id}`),
-  deleteConversation: (id) => axiosInstance.delete(`/chat/conversations/${id}`), // Add this line
+  deleteConversation: (id) => axiosInstance.delete(`/chat/conversations/${id}`),
   createMessage: (conversationId, role, content) => axiosInstance.post('/chat/messages', { conversation_id: conversationId, role, content }),
   getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
   createAttachment: (messageId, fileType, filePath) => axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),

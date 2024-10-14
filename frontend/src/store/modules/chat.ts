@@ -3,6 +3,7 @@ import { RootState } from '../types';
 import apiClient from '../../services/apiClient';
 import { AxiosError } from 'axios';
 
+
 export interface Conversation {
     id: string;
     title: string;
@@ -114,8 +115,6 @@ const chatModule: Module<ChatState, RootState> = {
         },
     },
     actions: {
-        // ... (previous actions remain unchanged)
-
         async deleteConversation({ commit }, conversationId: string) {
             try {
                 await apiClient.deleteConversation(conversationId);
@@ -125,11 +124,9 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-
-
         async getConversations({ commit }) {
             try {
-                console.log('Fetching conversations...');
+                console.log('Fetching conversations');
                 const response = await apiClient.listConversations();
                 console.log('Conversations response:', response);
                 const conversations = response.data;
@@ -145,9 +142,13 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createConversation({ commit }, title: string) {
+        async createConversation({ commit, rootState }, title: string) {
             try {
-                const response = await apiClient.createConversation(title);
+                const userId = rootState.auth.user?.user_id;
+                if (!userId) {
+                    throw new Error('User ID not found');
+                }
+                const response = await apiClient.createConversation({ user_id: userId, title });
                 const conversation = response.data;
                 commit('addConversation', conversation);
                 return conversation;
@@ -156,6 +157,7 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
+
         async getConversation({ commit }, id: string) {
             try {
                 const response = await apiClient.getConversation(id);
@@ -261,6 +263,7 @@ const chatModule: Module<ChatState, RootState> = {
             }
         },
     },
+
     getters: {
         getConversationById: (state) => (id: string) => {
             return state.conversations.find(conversation => conversation.id === id);

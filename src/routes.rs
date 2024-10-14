@@ -125,7 +125,7 @@ pub fn configure_routes() -> Scope {
                 .route(
                     "/conversations/{id}",
                     web::delete().to(chat::delete_conversation),
-                ) // Add this line
+                )
                 .route("/messages", web::post().to(chat::create_message))
                 .route(
                     "/conversations/{id}/messages",
@@ -143,7 +143,7 @@ pub fn configure_routes() -> Scope {
                     web::post().to(chat::create_user_llm_config),
                 )
                 .route(
-                    "/user-llm-configs/{user_id}/{provider_id}",
+                    "/user-llm-configs",
                     web::get().to(chat::get_user_llm_config),
                 )
                 .route("/stream", web::get().to(stream_chat::stream_chat)),
@@ -154,7 +154,7 @@ pub fn configure_routes() -> Scope {
                 .wrap(Auth)
                 .route("/providers", web::post().to(llm::create_llm_provider))
                 .route("/providers", web::get().to(llm::get_llm_providers))
-                .route("/chat", web::post().to(llm::chat))
-                .route("/stream-chat", web::post().to(llm::stream_chat)),
+                .route("/providers/{id}", web::get().to(llm::get_llm_provider))
+                .route("/chat", web::post().to(llm::llm_chat)),
         )
 }

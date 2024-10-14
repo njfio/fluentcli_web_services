@@ -5,7 +5,6 @@ import { Message } from '../../store/modules/chat';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
-
 // Configure marked options for GitHub Flavored Markdown
 (marked as any).setOptions({
     gfm: true,
@@ -20,7 +19,6 @@ import hljs from 'highlight.js';
         return hljs.highlightAuto(code).value;
     }
 });
-
 export function useChatLogic() {
     const store = useStore();
     const userInput = ref('');
@@ -59,12 +57,16 @@ export function useChatLogic() {
         await store.dispatch('chat/getConversation', conversationId);
         await loadMessages(conversationId);
     }
-
     async function createNewConversation() {
         const title = prompt('Enter conversation title:');
         if (title) {
-            const newConversation = await store.dispatch('chat/createConversation', title);
-            await selectConversation(newConversation.id);
+            try {
+                const newConversation = await store.dispatch('chat/createConversation', title);
+                await selectConversation(newConversation.id);
+            } catch (err) {
+                console.error('Error creating new conversation:', err);
+                error.value = 'Failed to create a new conversation. Please try again.';
+            }
         }
     }
 
@@ -299,7 +301,6 @@ export function useChatLogic() {
             ${sanitizedMarkup}
         </div>`;
     }
-
     return {
         userInput,
         chatMessages,

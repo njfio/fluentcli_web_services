@@ -10,13 +10,17 @@ use dotenv::dotenv;
 
 use actix_cors::Cors;
 use actix_web::{http, middleware, web, App, HttpServer};
+use log::debug;
 
 use db::{create_db_pool, setup_database};
 use routes::configure_routes;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "debug,fluentcli_web_services=debug"); // Updated this line
+    std::env::set_var(
+        "RUST_LOG",
+        "debug,actix_web=debug,actix_cors=trace,fluentcli_web_services=debug",
+    );
     dotenv().ok();
     env_logger::init();
 
@@ -26,17 +30,9 @@ async fn main() -> std::io::Result<()> {
     println!("Database setup complete");
 
     HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin() // Be cautious with this in production environments
-            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
-            .allowed_headers(vec![
-                http::header::AUTHORIZATION,
-                http::header::ACCEPT,
-                http::header::CONTENT_TYPE,
-            ])
-            .supports_credentials()
-            .max_age(3600);
+        let cors = Cors::permissive().supports_credentials().max_age(3600);
+
+        debug!("CORS configuration: {:?}", cors);
 
         App::new()
             .wrap(cors)

@@ -1,12 +1,20 @@
 use crate::db::db::DbPool;
 use crate::error::AppError;
-use crate::models::message::Message;
 use crate::services::chat_service::ChatService;
-use crate::services::llm_service::{self, LLMService};
-use actix_web::{web, HttpResponse, Responder};
+use crate::services::llm_service::{LLMChatMessage, LLMService};
+use crate::utils::extractors::AuthenticatedUser;
+use actix_web::{web, HttpResponse};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
+
+#[derive(Deserialize)]
+pub struct CreateMessageRequest {
+    conversation_id: Uuid,
+    role: String,
+    content: Value,
+}
 
 #[derive(Deserialize)]
 pub struct CreateConversationRequest {
@@ -14,11 +22,12 @@ pub struct CreateConversationRequest {
 }
 
 #[derive(Deserialize)]
-pub struct CreateMessageRequest {
-    conversation_id: Uuid,
-    role: String,
-    content: String,
-    provider_id: Option<Uuid>,
+pub struct CreateLLMProviderRequest {
+    name: String,
+    provider_type: String,
+    api_endpoint: String,
+    supported_modalities: Value,
+    configuration: Value,
 }
 
 #[derive(Deserialize)]
@@ -28,267 +37,104 @@ pub struct CreateAttachmentRequest {
     file_path: String,
 }
 
-#[derive(Deserialize)]
-pub struct CreateLLMProviderRequest {
-    name: String,
-    api_endpoint: String,
-}
-
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct CreateUserLLMConfigRequest {
+    user_id: Uuid,
     provider_id: Uuid,
     api_key: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct LLMChatRequest {
+    conversation_id: Uuid,
+    provider_id: Uuid,
+    messages: Vec<LLMChatMessage>,
+}
+
+#[derive(Deserialize)]
+pub struct GetUserLLMConfigQuery {
+    user_id: Uuid,
+    provider_id: Uuid,
+}
 pub async fn create_conversation(
+    user: AuthenticatedUser,
     pool: web::Data<DbPool>,
     req: web::Json<CreateConversationRequest>,
-    user_id: web::ReqData<Uuid>,
 ) -> Result<HttpResponse, AppError> {
-    info!(
-        "Creating conversation for user: {:?}, title: {}",
-        *user_id, req.title
-    );
     let conversation =
-        web::block(move || ChatService::create_conversation(&pool, *user_id, req.title.clone()))
+        web::block(move || ChatService::create_conversation(&pool, user.0, req.title.clone()))
             .await
-            .map_err(|e| {
-                error!("Error creating conversation: {:?}", e);
-                AppError::GenericError(Box::new(e))
-            })??;
+            .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
-    info!("Conversation created successfully: {:?}", conversation);
     Ok(HttpResponse::Created().json(conversation))
-}
-
-pub async fn get_conversation(
-    pool: web::Data<DbPool>,
-    conversation_id: web::Path<Uuid>,
-    user_id: web::ReqData<Uuid>,
-) -> Result<HttpResponse, AppError> {
-    let conversation = web::block(move || {
-        let conversation = ChatService::get_conversation(&pool, *conversation_id)?;
-        if conversation.user_id != *user_id {
-            return Err(AppError::Unauthorized);
-        }
-        Ok(conversation)
-    })
-    .await
-    .map_err(|e| AppError::GenericError(Box::new(e)))??;
-
-    Ok(HttpResponse::Ok().json(conversation))
-}
-
-pub async fn list_conversations(
-    pool: web::Data<DbPool>,
-    user_id: web::ReqData<Uuid>,
-) -> Result<HttpResponse, AppError> {
-    info!("Listing conversations for user: {:?}", *user_id);
-    let conversations = web::block(move || ChatService::list_conversations(&pool, *user_id))
-        .await
-        .map_err(|e| {
-            error!("Error listing conversations: {:?}", e);
-            AppError::GenericError(Box::new(e))
-        })??;
-
-    info!("Conversations listed successfully");
-    Ok(HttpResponse::Ok().json(conversations))
-}
-
-pub async fn delete_conversation(
-    pool: web::Data<DbPool>,
-    conversation_id: web::Path<Uuid>,
-    user_id: web::ReqData<Uuid>,
-) -> Result<HttpResponse, AppError> {
-    info!(
-        "Deleting conversation: {:?} for user: {:?}",
-        *conversation_id, *user_id
-    );
-    let result = web::block(move || {
-        // Check if the user owns the conversation
-        let conversation = ChatService::get_conversation(&pool, *conversation_id)?;
-        if conversation.user_id != *user_id {
-            error!(
-                "Unauthorized: User {:?} does not own conversation {:?}",
-                *user_id, *conversation_id
-            );
-            return Err(AppError::Unauthorized);
-        }
-
-        ChatService::delete_conversation(&pool, *conversation_id)
-    })
-    .await
-    .map_err(|e| {
-        error!("Error deleting conversation: {:?}", e);
-        AppError::GenericError(Box::new(e))
-    })??;
-
-    info!("Conversation deleted successfully");
-    Ok(HttpResponse::NoContent().finish())
 }
 
 pub async fn create_message(
     pool: web::Data<DbPool>,
     req: web::Json<CreateMessageRequest>,
-    user_id: web::ReqData<Uuid>,
 ) -> Result<HttpResponse, AppError> {
-    info!(
-        "Creating message for user: {:?}, conversation: {:?}",
-        *user_id, req.conversation_id
-    );
-    let pool_clone = pool.clone();
     let message = web::block(move || {
-        // Check if the user owns the conversation
-        let conversation = ChatService::get_conversation(&pool_clone, req.conversation_id)?;
-        if conversation.user_id != *user_id {
-            error!(
-                "Unauthorized: User {:?} does not own conversation {:?}",
-                *user_id, req.conversation_id
-            );
-            return Err(AppError::Unauthorized);
-        }
-
-        let user_message = ChatService::create_message(
-            &pool_clone,
+        ChatService::create_message(
+            &pool,
             req.conversation_id,
             req.role.clone(),
             req.content.clone(),
-        )?;
-
-        Ok((user_message, req.provider_id))
+        )
     })
     .await
-    .map_err(|e| {
-        error!("Error creating message: {:?}", e);
-        AppError::GenericError(Box::new(e))
-    })??;
+    .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
-    let (user_message, provider_id) = message;
+    Ok(HttpResponse::Created().json(message))
+}
 
-    // If provider_id is provided, process the message with LLM
-    if let Some(provider_id) = provider_id {
-        let messages = ChatService::get_messages(&pool, user_message.conversation_id)?;
-        let llm_messages: Vec<llm_service::ChatMessage> = messages
-            .into_iter()
-            .map(|m| llm_service::ChatMessage {
-                role: m.role,
-                content: m.content,
-            })
-            .collect();
+pub async fn get_conversation(
+    pool: web::Data<DbPool>,
+    conversation_id: web::Path<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    let conversation =
+        web::block(move || ChatService::get_conversation(&pool, conversation_id.into_inner()))
+            .await
+            .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
-        match LLMService::chat(&pool, provider_id, llm_messages).await {
-            Ok(llm_response) => {
-                let assistant_message = ChatService::create_message(
-                    &pool,
-                    user_message.conversation_id,
-                    "assistant".to_string(),
-                    llm_response,
-                )?;
-                info!(
-                    "Messages created successfully: {:?}",
-                    (&user_message, &assistant_message)
-                );
-                Ok(HttpResponse::Created().json((user_message, Some(assistant_message))))
-            }
-            Err(e) => {
-                error!("Error getting LLM response: {:?}", e);
-                Ok(HttpResponse::Created().json((user_message, Option::<Message>::None)))
-            }
-        }
-    } else {
-        info!("Message created successfully: {:?}", user_message);
-        Ok(HttpResponse::Created().json((user_message, Option::<Message>::None)))
-    }
+    Ok(HttpResponse::Ok().json(conversation))
+}
+
+pub async fn list_conversations(
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+) -> Result<HttpResponse, AppError> {
+    let conversations = web::block(move || ChatService::list_conversations(&pool, user.0))
+        .await
+        .map_err(|e| AppError::GenericError(Box::new(e)))??;
+
+    Ok(HttpResponse::Ok().json(conversations))
 }
 
 pub async fn get_messages(
     pool: web::Data<DbPool>,
     conversation_id: web::Path<Uuid>,
-    user_id: web::ReqData<Uuid>,
 ) -> Result<HttpResponse, AppError> {
-    let conversation_uuid = *conversation_id;
-    let messages = web::block(move || {
-        // Check if the user owns the conversation
-        let conversation = ChatService::get_conversation(&pool, conversation_uuid)?;
-        if conversation.user_id != *user_id {
-            return Err(AppError::Unauthorized);
-        }
-
-        ChatService::get_messages(&pool, conversation_uuid)
-    })
-    .await
-    .map_err(|e| AppError::GenericError(Box::new(e)))??;
+    let messages =
+        web::block(move || ChatService::get_messages(&pool, conversation_id.into_inner()))
+            .await
+            .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
     Ok(HttpResponse::Ok().json(messages))
-}
-
-pub async fn create_attachment(
-    pool: web::Data<DbPool>,
-    req: web::Json<CreateAttachmentRequest>,
-    user_id: web::ReqData<Uuid>,
-) -> Result<HttpResponse, AppError> {
-    info!(
-        "Creating attachment for user: {:?}, message: {:?}",
-        *user_id, req.message_id
-    );
-    let attachment = web::block(move || {
-        // Check if the user owns the message's conversation
-        let message = ChatService::get_message(&pool, req.message_id)?;
-        let conversation = ChatService::get_conversation(&pool, message.conversation_id)?;
-        if conversation.user_id != *user_id {
-            error!(
-                "Unauthorized: User {:?} does not own conversation for message {:?}",
-                *user_id, req.message_id
-            );
-            return Err(AppError::Unauthorized);
-        }
-
-        ChatService::create_attachment(
-            &pool,
-            req.message_id,
-            req.file_type.clone(),
-            req.file_path.clone(),
-        )
-    })
-    .await
-    .map_err(|e| {
-        error!("Error creating attachment: {:?}", e);
-        AppError::GenericError(Box::new(e))
-    })??;
-
-    info!("Attachment created successfully: {:?}", attachment);
-    Ok(HttpResponse::Created().json(attachment))
-}
-
-pub async fn get_attachments(
-    pool: web::Data<DbPool>,
-    message_id: web::Path<Uuid>,
-    user_id: web::ReqData<Uuid>,
-) -> Result<HttpResponse, AppError> {
-    let message_uuid = *message_id;
-    let attachments = web::block(move || {
-        // Check if the user owns the message's conversation
-        let message = ChatService::get_message(&pool, message_uuid)?;
-        let conversation = ChatService::get_conversation(&pool, message.conversation_id)?;
-        if conversation.user_id != *user_id {
-            return Err(AppError::Unauthorized);
-        }
-
-        ChatService::get_attachments(&pool, message_uuid)
-    })
-    .await
-    .map_err(|e| AppError::GenericError(Box::new(e)))??;
-
-    Ok(HttpResponse::Ok().json(attachments))
 }
 
 pub async fn create_llm_provider(
     pool: web::Data<DbPool>,
     req: web::Json<CreateLLMProviderRequest>,
-    _user_id: web::ReqData<Uuid>,
 ) -> Result<HttpResponse, AppError> {
     let provider = web::block(move || {
-        ChatService::create_llm_provider(&pool, req.name.clone(), req.api_endpoint.clone())
+        ChatService::create_llm_provider(
+            &pool,
+            req.name.clone(),
+            req.provider_type.clone(),
+            req.api_endpoint.clone(),
+            req.supported_modalities.clone(),
+            req.configuration.clone(),
+        )
     })
     .await
     .map_err(|e| AppError::GenericError(Box::new(e)))??;
@@ -299,37 +145,175 @@ pub async fn create_llm_provider(
 pub async fn get_llm_provider(
     pool: web::Data<DbPool>,
     provider_id: web::Path<Uuid>,
-    _user_id: web::ReqData<Uuid>,
 ) -> Result<HttpResponse, AppError> {
-    let provider = web::block(move || ChatService::get_llm_provider(&pool, *provider_id))
+    let provider =
+        web::block(move || ChatService::get_llm_provider(&pool, provider_id.into_inner()))
+            .await
+            .map_err(|e| AppError::GenericError(Box::new(e)))??;
+
+    Ok(HttpResponse::Ok().json(provider))
+}
+
+pub async fn delete_conversation(
+    pool: web::Data<DbPool>,
+    conversation_id: web::Path<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    web::block(move || ChatService::delete_conversation(&pool, conversation_id.into_inner()))
         .await
         .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
-    Ok(HttpResponse::Ok().json(provider))
+    Ok(HttpResponse::NoContent().finish())
+}
+
+pub async fn get_message(
+    pool: web::Data<DbPool>,
+    message_id: web::Path<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    let message = web::block(move || ChatService::get_message(&pool, message_id.into_inner()))
+        .await
+        .map_err(|e| AppError::GenericError(Box::new(e)))??;
+
+    Ok(HttpResponse::Ok().json(message))
+}
+
+pub async fn create_attachment(
+    pool: web::Data<DbPool>,
+    req: web::Json<CreateAttachmentRequest>,
+) -> Result<HttpResponse, AppError> {
+    let attachment = web::block(move || {
+        ChatService::create_attachment(
+            &pool,
+            req.message_id,
+            req.file_type.clone(),
+            req.file_path.clone(),
+        )
+    })
+    .await
+    .map_err(|e| AppError::GenericError(Box::new(e)))??;
+
+    Ok(HttpResponse::Created().json(attachment))
+}
+
+pub async fn get_attachments(
+    pool: web::Data<DbPool>,
+    message_id: web::Path<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    let attachments =
+        web::block(move || ChatService::get_attachments(&pool, message_id.into_inner()))
+            .await
+            .map_err(|e| AppError::GenericError(Box::new(e)))??;
+
+    Ok(HttpResponse::Ok().json(attachments))
 }
 
 pub async fn create_user_llm_config(
     pool: web::Data<DbPool>,
     req: web::Json<CreateUserLLMConfigRequest>,
-    user_id: web::ReqData<Uuid>,
 ) -> Result<HttpResponse, AppError> {
+    info!("Attempting to create user LLM config: {:?}", req);
     let config = web::block(move || {
-        ChatService::create_user_llm_config(&pool, *user_id, req.provider_id, req.api_key.clone())
+        ChatService::create_user_llm_config(
+            &pool,
+            req.user_id,
+            req.provider_id,
+            req.api_key.clone(),
+        )
     })
     .await
-    .map_err(|e| AppError::GenericError(Box::new(e)))??;
+    .map_err(|e| {
+        error!("Error creating user LLM config: {:?}", e);
+        AppError::GenericError(Box::new(e))
+    })??;
 
+    info!("User LLM config created successfully: {:?}", config);
     Ok(HttpResponse::Created().json(config))
 }
 
 pub async fn get_user_llm_config(
     pool: web::Data<DbPool>,
-    path: web::Path<(Uuid, Uuid)>,
+    query: web::Query<GetUserLLMConfigQuery>,
 ) -> Result<HttpResponse, AppError> {
-    let (user_id, provider_id) = path.into_inner();
-    let config = web::block(move || ChatService::get_user_llm_config(&pool, user_id, provider_id))
+    let config = web::block(move || {
+        ChatService::get_user_llm_config(&pool, query.user_id, query.provider_id)
+    })
+    .await
+    .map_err(|e| AppError::GenericError(Box::new(e)))??;
+
+    Ok(HttpResponse::Ok().json(config))
+}
+
+pub async fn llm_chat(
+    pool: web::Data<DbPool>,
+    req: web::Json<LLMChatRequest>,
+) -> Result<HttpResponse, AppError> {
+    info!("Starting llm_chat function");
+    info!("Request: {:?}", req);
+
+    let response = LLMService::llm_chat(&pool, req.provider_id, req.messages.clone()).await?;
+    info!("Received LLM response: {:?}", response);
+
+    // Parse the LLM response
+    let parsed_response: Value = serde_json::from_str(&response).map_err(|e| {
+        error!("Failed to parse LLM response: {:?}", e);
+        AppError::SerializationError(format!("Failed to parse LLM response: {}", e))
+    })?;
+
+    info!("Parsed LLM response: {:?}", parsed_response);
+
+    // Extract the content from the parsed response
+    let content = parsed_response["choices"][0]["message"]["content"]
+        .as_str()
+        .ok_or_else(|| {
+            error!("Failed to extract content from LLM response");
+            AppError::SerializationError("Failed to extract content from LLM response".to_string())
+        })?;
+
+    info!("Extracted content: {:?}", content);
+
+    // Create a proper JSON value for the content
+    let content_json = serde_json::json!(content);
+
+    // Clone the values we need for the closure
+    let conversation_id = req.conversation_id;
+    let pool_clone = pool.clone();
+
+    // Save the LLM response as a new message
+    let new_message = web::block(move || {
+        info!("Attempting to create new message with LLM response");
+        info!("Conversation ID: {:?}", conversation_id);
+        info!("Content JSON: {:?}", content_json);
+        ChatService::create_message(
+            &pool_clone,
+            conversation_id,
+            "assistant".to_string(),
+            content_json,
+        )
+    })
+    .await
+    .map_err(|e| {
+        error!("Error in web::block for create_message: {:?}", e);
+        AppError::GenericError(Box::new(e))
+    })??;
+
+    info!("New message created: {:?}", new_message);
+
+    // Fetch the updated messages to confirm the new message was added
+    let updated_messages = web::block(move || ChatService::get_messages(&pool, conversation_id))
+        .await
+        .map_err(|e| {
+            error!("Error in web::block for get_messages: {:?}", e);
+            AppError::GenericError(Box::new(e))
+        })??;
+
+    info!("Updated messages: {:?}", updated_messages);
+
+    Ok(HttpResponse::Ok().json(new_message))
+}
+
+pub async fn get_llm_providers(pool: web::Data<DbPool>) -> Result<HttpResponse, AppError> {
+    let providers = web::block(move || LLMService::get_llm_providers(&pool))
         .await
         .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
-    Ok(HttpResponse::Ok().json(config))
+    Ok(HttpResponse::Ok().json(providers))
 }

@@ -171,11 +171,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, watch, nextTick, ref } from 'vue';
+import { defineComponent, onMounted, watch, nextTick, ref, computed } from 'vue';
 import { useChatLogic } from '../../components/chat/ChatLogic';
 import LLMService from '../../services/LLMService';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import MonacoEditor from '../../components/studio/editors/MonacoEditor.vue';
+import { RootState } from '../../store/types';
 
 export default defineComponent({
     name: 'Chat',
@@ -183,7 +185,8 @@ export default defineComponent({
         MonacoEditor,
     },
     setup() {
-        const store = useStore();
+        const store = useStore<RootState>();
+        const router = useRouter();
         const {
             userInput,
             isLoading,
@@ -199,12 +202,24 @@ export default defineComponent({
             sendMessage,
             retryLastMessage,
             newline,
-            deleteConversation, // Add this line
+            deleteConversation,
         } = useChatLogic();
 
         const chatMessagesRef = ref<HTMLElement | null>(null);
         const isExpanded = ref(false);
         const isSidebarOpen = ref(true);
+
+        // Get the authentication state from the store
+        const isAuthenticated = computed(() => {
+            const authState = store.getters.isAuthenticated;
+            console.log('Auth state in Chat component:', authState);
+            return authState;
+        });
+        const userId = computed(() => {
+            const id = store.getters.userId;
+            console.log('User ID in Chat component:', id);
+            return id;
+        });
 
         const toggleExpand = () => {
             isExpanded.value = !isExpanded.value;
@@ -233,7 +248,19 @@ export default defineComponent({
 
         onMounted(async () => {
             try {
+                console.log('Chat component mounted');
+                console.log('Is authenticated:', isAuthenticated.value);
+                console.log('User ID:', userId.value);
                 console.log('Fetching conversations...');
+                if (!isAuthenticated.value) {
+                    console.log('User not authenticated. Redirecting to login...');
+                    router.push('/login');
+                    return;
+                }
+                if (!userId.value) {
+                    console.error('User is authenticated but user ID is missing');
+                    return;
+                }
                 await store.dispatch('chat/getConversations');
                 console.log('Conversations fetched:', conversations.value);
 
@@ -285,14 +312,13 @@ export default defineComponent({
             isSidebarOpen,
             toggleSidebar,
             formatDate,
-            deleteConversation, // Add this line
+            deleteConversation,
         };
     },
 });
 </script>
 
 <style scoped>
-/* ... (styles remain unchanged) ... */
 .fixed {
     max-height: 58vh;
     overflow-y: auto;

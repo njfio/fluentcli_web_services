@@ -8,6 +8,7 @@ use crate::models::user_llm_config::{NewUserLLMConfig, UserLLMConfig};
 use crate::schema::{attachments, conversations, llm_providers, messages, user_llm_configs};
 use diesel::prelude::*;
 use log::{error, info};
+use serde_json::Value;
 use uuid::Uuid;
 
 pub struct ChatService;
@@ -72,33 +73,52 @@ impl ChatService {
                 AppError::DatabaseError(e)
             })
     }
-
     pub fn create_message(
         pool: &DbPool,
         _conversation_id: Uuid,
         _role: String,
-        _content: String,
+        _content: Value,
     ) -> Result<Message, AppError> {
         use crate::schema::messages::dsl::*;
 
         info!(
-            "Creating new message - conversation_id: {:?}, role: {:?}",
-            _conversation_id, _role
+            "Creating new message - conversation_id: {:?}, role: {:?}, content: {:?}",
+            _conversation_id, _role, _content
         );
+
+        let content_string = serde_json::to_string(&_content)
+            .map_err(|e| AppError::SerializationError(e.to_string()))?;
+
+        info!("Serialized content: {:?}", content_string);
 
         let new_message = NewMessage {
             conversation_id: _conversation_id,
             role: _role,
-            content: _content,
+            content: content_string,
         };
 
-        diesel::insert_into(messages)
-            .values(&new_message)
-            .get_result::<Message>(&mut pool.get()?)
-            .map_err(|e| {
-                error!("Error creating message: {:?}", e);
-                AppError::DatabaseError(e)
-            })
+        let mut conn = pool.get()?;
+
+        conn.transaction(|conn| {
+            info!("Starting transaction to insert new message");
+            let result = diesel::insert_into(messages)
+                .values(&new_message)
+                .get_result::<Message>(conn);
+
+            match result {
+                Ok(message) => {
+                    info!(
+                        "Successfully created message within transaction: {:?}",
+                        message
+                    );
+                    Ok(message)
+                }
+                Err(e) => {
+                    error!("Error creating message within transaction: {:?}", e);
+                    Err(AppError::DatabaseError(e))
+                }
+            }
+        })
     }
 
     pub fn get_message(pool: &DbPool, _message_id: Uuid) -> Result<Message, AppError> {
@@ -123,13 +143,23 @@ impl ChatService {
             _conversation_id
         );
 
-        messages
-            .filter(crate::schema::messages::conversation_id.eq(_conversation_id))
-            .load::<Message>(&mut pool.get()?)
-            .map_err(|e| {
+        let result = messages
+            .filter(conversation_id.eq(_conversation_id))
+            .load::<Message>(&mut pool.get()?);
+
+        match result {
+            Ok(msgs) => {
+                info!("Successfully fetched {} messages", msgs.len());
+                for (i, msg) in msgs.iter().enumerate() {
+                    info!("Message {}: {:?}", i, msg);
+                }
+                Ok(msgs)
+            }
+            Err(e) => {
                 error!("Error fetching messages: {:?}", e);
-                AppError::DatabaseError(e)
-            })
+                Err(AppError::DatabaseError(e))
+            }
+        }
     }
 
     pub fn create_attachment(
@@ -166,7 +196,7 @@ impl ChatService {
         info!("Fetching attachments for message_id: {:?}", _message_id);
 
         attachments
-            .filter(crate::schema::attachments::message_id.eq(_message_id))
+            .filter(message_id.eq(_message_id))
             .load::<Attachment>(&mut pool.get()?)
             .map_err(|e| {
                 error!("Error fetching attachments: {:?}", e);
@@ -177,18 +207,24 @@ impl ChatService {
     pub fn create_llm_provider(
         pool: &DbPool,
         _name: String,
+        _provider_type: String,
         _api_endpoint: String,
+        _supported_modalities: Value,
+        _configuration: Value,
     ) -> Result<LLMProvider, AppError> {
         use crate::schema::llm_providers::dsl::*;
 
         info!(
-            "Creating new LLM provider - name: {:?}, api_endpoint: {:?}",
-            _name, _api_endpoint
+            "Creating new LLM provider - name: {:?}, type: {:?}, api_endpoint: {:?}",
+            _name, _provider_type, _api_endpoint
         );
 
         let new_provider = NewLLMProvider {
             name: _name,
+            provider_type: _provider_type,
             api_endpoint: _api_endpoint,
+            supported_modalities: _supported_modalities,
+            configuration: _configuration,
         };
 
         diesel::insert_into(llm_providers)
@@ -255,8 +291,8 @@ impl ChatService {
         );
 
         user_llm_configs
-            .filter(crate::schema::user_llm_configs::user_id.eq(_user_id))
-            .filter(crate::schema::user_llm_configs::provider_id.eq(_provider_id))
+            .filter(user_id.eq(_user_id))
+            .filter(provider_id.eq(_provider_id))
             .first::<UserLLMConfig>(&mut pool.get()?)
             .map_err(|e| {
                 error!("Error fetching user LLM config: {:?}", e);

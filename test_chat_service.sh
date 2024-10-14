@@ -111,6 +111,10 @@ fi
 echo "Getting the created conversation"
 make_request GET "/chat/conversations/$conversation_id" "" "$token" "200"
 
+# List all conversations for the user
+echo "Listing all conversations for the user"
+make_request GET "/chat/conversations" "" "$token" "200"
+
 # Create a new message in the conversation
 echo "Creating a new message"
 message_response=$(make_request POST "/chat/messages" '{"conversation_id": "'"$conversation_id"'", "role": "user", "content": "Hello, this is a test message"}' "$token" "201")
@@ -136,7 +140,16 @@ make_request GET "/chat/messages/$message_id/attachments" "" "$token" "200"
 
 # Create an LLM provider
 echo "Creating an LLM provider"
-provider_response=$(make_request POST "/chat/llm-providers" '{"name": "OpenAI", "api_endpoint": "https://api.openai.com/v1/chat/completions"}' "$token" "201")
+provider_response=$(make_request POST "/llm/providers" '{
+    "name": "OpenAI",
+    "provider_type": "gpt",
+    "api_endpoint": "https://api.openai.com/v1/chat/completions",
+    "supported_modalities": ["text"],
+    "configuration": {
+        "model": "gpt-3.5-turbo",
+        "max_tokens": 150
+    }
+}' "$token" "201")
 provider_id=$(echo "$provider_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Provider ID: $provider_id"
 
@@ -147,11 +160,15 @@ fi
 
 # Get the created LLM provider
 echo "Getting the created LLM provider"
-make_request GET "/chat/llm-providers/$provider_id" "" "$token" "200"
+make_request GET "/llm/providers/$provider_id" "" "$token" "200"
 
 # Create a user LLM config
 echo "Creating a user LLM config"
-llm_config_response=$(make_request POST "/chat/user-llm-configs" '{"provider_id": "'"$provider_id"'", "api_key": "test_api_key"}' "$token" "201")
+llm_config_response=$(make_request POST "/chat/user-llm-configs" '{
+    "user_id": "'"$user_id"'",
+    "provider_id": "'"$provider_id"'",
+    "api_key": "test_api_key"
+}' "$token" "201")
 llm_config_id=$(echo "$llm_config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "LLM Config ID: $llm_config_id"
 
@@ -162,64 +179,52 @@ fi
 
 # Get the user LLM config
 echo "Getting the user LLM config"
-echo "Debug: user_id=$user_id, provider_id=$provider_id, llm_config_id=$llm_config_id"
-make_request GET "/chat/user-llm-configs/$user_id/$provider_id" "" "$token" "200"
+make_request GET "/chat/user-llm-configs?user_id=$user_id&provider_id=$provider_id" "" "$token" "200"
 
+# Test LLM chat
+echo "Testing LLM chat"
+chat_response=$(make_request POST "/llm/chat" '{
+    "provider_id": "'"$provider_id"'",
+    "conversation_id": "'"$conversation_id"'",
+    "messages": [
+        {"role": "user", "content": "What is the capital of France?"}
+    ]
+}' "$token" "200")
 
-test_llm_service_openai() {
-    echo "Testing LLM Service with OpenAI provider..."
+# Parse the chat response
+assistant_message=$(echo "$chat_response" )
+echo -e "\n==== Assistant Response ===="
+echo "Assistant response: $assistant_message"
 
-    echo "OpenAI Provider ID: $provider_id"
-
-    # Test chat endpoint with OpenAI
-    chat_response=$(make_request POST "/chat/messages" '{
-        "conversation_id": "'"$conversation_id"'",
-        "role": "user",
-        "content": "What is the capital of France?",
-        "provider_id": "'"$provider_id"'"
-    }' "$token" "201")
-
-    # Wait for 5 seconds to allow time for processing
-    sleep 5
-
-    # Get the latest message in the conversation
-    latest_message_response=$(make_request GET "/chat/conversations/$conversation_id/messages" "" "$token" "200")
-    assistant_message=$(echo "$latest_message_response" | grep -o '"content":"[^"]*' | cut -d'"' -f4 | tail -n 1)
-    echo -e "\n==== Assistant Response ===="
-    echo "Latest message response: $latest_message_response"
-    echo "Assistant response: $assistant_message"
-
-    if [[ $assistant_message == *"Paris"* ]]; then
-        echo "LLM Service test passed: Response contains 'Paris'"
-        PASSED_TESTS=$((PASSED_TESTS + 1))
-    else
-        echo "LLM Service test failed: Response does not contain 'Paris'"
-        echo "Response: $assistant_message"
-    fi
-
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-
-    echo "LLM Service test completed"
-}
-
-# Call the new function
-test_llm_service_openai
-
-# Print test summary
-echo "Total tests: $TOTAL_TESTS"
-echo "Passed tests: $PASSED_TESTS"
-echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
-
-if [ $PASSED_TESTS -eq $TOTAL_TESTS ]; then
-    echo -e "\e[32mAll tests passed!\e[0m"
-    exit 0
+if [[ $assistant_message == *"Paris"* ]]; then
+    echo "LLM Service test passed: Response contains 'Paris'"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
 else
-    echo -e "\e[31mSome tests failed.\e[0m"
-    exit 1
+    echo "LLM Service test failed: Response does not contain 'Paris'"
+    echo "Full response: $chat_response"
 fi
 
+TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-# Print test summary
+# Check if the LLM response was saved to the database
+echo "Checking if LLM response was saved to the database"
+messages_response=$(make_request GET "/chat/conversations/$conversation_id/messages" "" "$token" "200")
+echo "Messages in the conversation:"
+echo "$messages_response"
+
+# Parse the messages response and check for the assistant message
+if echo "$messages_response" | grep -q '"role":"assistant"' && echo "$messages_response" | grep -q '"content":".*Paris.*"'; then
+    echo "Database write test passed: LLM response found in the conversation messages"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+else
+    echo "Database write test failed: LLM response not found in the conversation messages"
+    echo "Full messages response: $messages_response"
+fi
+
+TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+# Print final test results
+echo -e "\n==== Test Results ===="
 echo "Total tests: $TOTAL_TESTS"
 echo "Passed tests: $PASSED_TESTS"
 echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"

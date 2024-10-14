@@ -6,55 +6,62 @@ use futures::stream::{self, Stream, StreamExt};
 use log::{debug, error, info};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::env;
 use std::pin::Pin;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ChatMessage {
+pub struct LLMChatMessage {
     pub role: String,
-    pub content: String,
+    pub content: Value,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct OpenAIRequest {
+struct LLMApiRequest {
     model: String,
-    messages: Vec<ChatMessage>,
+    messages: Vec<LLMChatMessage>,
     stream: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct OpenAIResponse {
-    choices: Vec<OpenAIChoice>,
+struct LLMApiResponse {
+    choices: Vec<LLMApiChoice>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct OpenAIChoice {
-    message: ChatMessage,
+struct LLMApiChoice {
+    message: LLMChatMessage,
 }
 
 pub struct LLMService;
 
 impl LLMService {
-    fn get_openai_api_key() -> Result<String, AppError> {
-        env::var("OPENAI_API_KEY")
-            .map_err(|_| AppError::ConfigError("OpenAI API key not found".to_string()))
+    fn get_llm_api_key(provider_name: &str) -> Result<String, AppError> {
+        let key_name = format!("{}_API_KEY", provider_name.to_uppercase());
+        env::var(&key_name).map_err(|_| AppError::ConfigError(format!("{} not found", key_name)))
     }
 
     pub fn create_llm_provider(
         pool: &DbPool,
-        provider_name: String,
-        provider_api_endpoint: String,
+        llm_name: String,
+        llm_provider_type: String,
+        llm_api_endpoint: String,
+        llm_supported_modalities: Value,
+        llm_configuration: Value,
     ) -> Result<LLMProvider, AppError> {
         use crate::schema::llm_providers::dsl::*;
 
-        let new_provider = NewLLMProvider {
-            name: provider_name,
-            api_endpoint: provider_api_endpoint,
+        let new_llm_provider = NewLLMProvider {
+            name: llm_name,
+            provider_type: llm_provider_type,
+            api_endpoint: llm_api_endpoint,
+            supported_modalities: llm_supported_modalities,
+            configuration: llm_configuration,
         };
 
         diesel::insert_into(llm_providers)
-            .values(&new_provider)
+            .values(&new_llm_provider)
             .get_result::<LLMProvider>(&mut pool.get()?)
             .map_err(AppError::DatabaseError)
     }
@@ -67,119 +74,116 @@ impl LLMService {
             .map_err(AppError::DatabaseError)
     }
 
-    pub fn get_llm_provider(pool: &DbPool, provider_id: Uuid) -> Result<LLMProvider, AppError> {
+    pub fn get_llm_provider(pool: &DbPool, llm_provider_id: Uuid) -> Result<LLMProvider, AppError> {
         use crate::schema::llm_providers::dsl::*;
 
         llm_providers
-            .find(provider_id)
+            .find(llm_provider_id)
             .first::<LLMProvider>(&mut pool.get()?)
             .map_err(AppError::DatabaseError)
     }
 
-    pub async fn chat(
+    pub async fn llm_chat(
         pool: &DbPool,
-        provider_id: Uuid,
-        messages: Vec<ChatMessage>,
+        llm_provider_id: Uuid,
+        llm_messages: Vec<LLMChatMessage>,
     ) -> Result<String, AppError> {
-        info!("Starting chat with provider_id: {}", provider_id);
-        let provider = Self::get_llm_provider(pool, provider_id)?;
-        info!("Using provider: {:?}", provider);
+        info!("Starting chat with provider_id: {}", llm_provider_id);
+        let llm_provider = Self::get_llm_provider(pool, llm_provider_id)?;
+        info!("Using provider: {:?}", llm_provider);
 
         let client = Client::new();
-        let api_key = Self::get_openai_api_key()?;
+        let llm_api_key = Self::get_llm_api_key(&llm_provider.name)?;
         debug!(
             "API key retrieved successfully: {}",
-            api_key.chars().take(5).collect::<String>() + "..."
+            llm_api_key.chars().take(5).collect::<String>() + "..."
         );
 
-        let openai_request = OpenAIRequest {
-            model: "gpt-3.5-turbo".to_string(),
-            messages: messages.clone(),
+        let llm_api_request = LLMApiRequest {
+            model: llm_provider.configuration["model"]
+                .as_str()
+                .unwrap_or("default")
+                .to_string(),
+            messages: llm_messages,
             stream: false,
         };
-        debug!("Sending request to OpenAI API: {:?}", openai_request);
+        debug!("Sending request to LLM API: {:?}", llm_api_request);
 
-        // Ensure the API endpoint is correct
-        let api_endpoint = "https://api.openai.com/v1/chat/completions";
-        debug!("Using API endpoint: {}", api_endpoint);
+        let llm_api_endpoint = &llm_provider.api_endpoint;
+        debug!("Using API endpoint: {}", llm_api_endpoint);
 
-        let response = client
-            .post(api_endpoint)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&openai_request)
+        let llm_response = client
+            .post(llm_api_endpoint)
+            .header("Authorization", format!("Bearer {}", llm_api_key))
+            .json(&llm_api_request)
             .send()
             .await
             .map_err(|e| {
-                error!("Error sending request to OpenAI: {:?}", e);
                 AppError::ExternalServiceError(format!("Failed to send request: {}", e))
             })?;
 
-        let status = response.status();
-        debug!("Received response from OpenAI API with status: {}", status);
+        let llm_status = llm_response.status();
+        debug!("Received response from LLM API with status: {}", llm_status);
 
-        let response_text = response.text().await.map_err(|e| {
-            error!("Error reading response body: {:?}", e);
+        let llm_response_text = llm_response.text().await.map_err(|e| {
             AppError::ExternalServiceError(format!("Failed to read response: {}", e))
         })?;
-        debug!("Response body: {}", response_text);
+        debug!("Response body: {}", llm_response_text);
 
-        if !status.is_success() {
-            error!(
-                "OpenAI API returned an error. Status: {}, Body: {}",
-                status, response_text
-            );
+        if !llm_status.is_success() {
             return Err(AppError::ExternalServiceError(format!(
-                "OpenAI API error: Status {}, Body: {}",
-                status, response_text
+                "LLM API error: Status {}, Body: {}",
+                llm_status, llm_response_text
             )));
         }
 
-        let openai_response: OpenAIResponse =
-            serde_json::from_str(&response_text).map_err(|e| {
-                error!("Error parsing OpenAI response: {:?}", e);
+        let llm_api_response: LLMApiResponse =
+            serde_json::from_str(&llm_response_text).map_err(|e| {
                 AppError::ExternalServiceError(format!("Failed to parse response: {}", e))
             })?;
 
-        info!("Parsed OpenAI response successfully");
+        info!("Parsed LLM response successfully");
 
-        if openai_response.choices.is_empty() {
-            error!("OpenAI response contains no choices");
+        if llm_api_response.choices.is_empty() {
             return Err(AppError::ExternalServiceError(
-                "OpenAI response contains no choices".to_string(),
+                "LLM response contains no choices".to_string(),
             ));
         }
 
-        Ok(openai_response.choices[0].message.content.clone())
+        serde_json::to_string(&llm_api_response.choices[0].message.content)
+            .map_err(|e| AppError::SerializationError(e.to_string()))
     }
 
-    pub async fn stream_chat(
+    pub async fn llm_stream_chat(
         pool: &DbPool,
-        provider_id: Uuid,
-        messages: Vec<ChatMessage>,
+        llm_provider_id: Uuid,
+        llm_messages: Vec<LLMChatMessage>,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<String, AppError>> + Send>>, AppError> {
-        let provider = Self::get_llm_provider(pool, provider_id)?;
+        let llm_provider = Self::get_llm_provider(pool, llm_provider_id)?;
         let client = Client::new();
-        let api_key = Self::get_openai_api_key()?;
+        let llm_api_key = Self::get_llm_api_key(&llm_provider.name)?;
 
-        let openai_request = OpenAIRequest {
-            model: "gpt-3.5-turbo".to_string(),
-            messages,
+        let llm_api_request = LLMApiRequest {
+            model: llm_provider.configuration["model"]
+                .as_str()
+                .unwrap_or("default")
+                .to_string(),
+            messages: llm_messages,
             stream: true,
         };
 
-        // Ensure the API endpoint is correct
-        let api_endpoint = "https://api.openai.com/v1/chat/completions";
-        debug!("Using API endpoint for streaming: {}", api_endpoint);
+        let llm_api_endpoint = &llm_provider.api_endpoint;
+        debug!("Using API endpoint for streaming: {}", llm_api_endpoint);
 
-        let response = client
-            .post(api_endpoint)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&openai_request)
+        let llm_response = client
+            .post(llm_api_endpoint)
+            .header("Authorization", format!("Bearer {}", llm_api_key))
+            .json(&llm_api_request)
             .send()
             .await
             .map_err(|e| AppError::ExternalServiceError(e.to_string()))?;
 
-        let stream = stream::unfold(response, |mut response| async move {
+        let llm_stream = stream::unfold(llm_response, |mut response| async move {
             let chunk = response.chunk().await.ok()??;
             if chunk.is_empty() {
                 None
@@ -190,6 +194,6 @@ impl LLMService {
         })
         .boxed();
 
-        Ok(stream)
+        Ok(llm_stream)
     }
 }

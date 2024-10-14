@@ -1,3 +1,4 @@
+-- Previous content remains unchanged...
 -- Create users tablediesel migration run
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -171,12 +172,14 @@ CREATE TABLE attachments (
     file_path VARCHAR(255) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- Create llm_providers table
+-- Update llm_providers table
 CREATE TABLE llm_providers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
+    provider_type VARCHAR(255) NOT NULL,
     api_endpoint VARCHAR(255) NOT NULL,
+    supported_modalities JSONB NOT NULL,
+    configuration JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -218,5 +221,8 @@ SELECT diesel_manage_updated_at('docker_files');
 SELECT diesel_manage_updated_at('active_workers');
 SELECT diesel_manage_updated_at('jobs');
 SELECT diesel_manage_updated_at('conversations');
+
 SELECT diesel_manage_updated_at('llm_providers');
 SELECT diesel_manage_updated_at('user_llm_configs');
+
+
