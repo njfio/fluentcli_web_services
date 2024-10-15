@@ -10,9 +10,8 @@ export const axiosInstance: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
-  withCredentials: true, // This ensures credentials are sent with every request
+  withCredentials: true,
 });
-
 
 // Request interceptor to add the auth token and user ID to headers
 axiosInstance.interceptors.request.use(
@@ -20,8 +19,6 @@ axiosInstance.interceptors.request.use(
     const token = AuthService.getToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
-
-      // Add user ID to the headers
       const userId = store.getters.userId;
       if (userId) {
         config.headers['X-User-ID'] = userId;
@@ -36,7 +33,6 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-
 // Response interceptor to handle global errors
 axiosInstance.interceptors.response.use(
   (response) => {
@@ -45,17 +41,6 @@ axiosInstance.interceptors.response.use(
   },
   (error) => {
     console.error('API Error:', error);
-    if (error.response) {
-      console.error('Error response:', error.response.data);
-      console.error('Error status:', error.response.status);
-      console.error('Error headers:', error.response.headers);
-    } else if (error.request) {
-      console.error('Error request:', error.request);
-    } else {
-      console.error('Error message:', error.message);
-    }
-
-    // Handle unauthorized access globally
     if (error.response && error.response.status === 401) {
       console.log('Unauthorized access detected, logging out...');
       AuthService.logout();
@@ -64,7 +49,9 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 interface ApiClient {
+  // User routes
   validateToken: () => Promise<AxiosResponse<any>>;
   refreshToken: () => Promise<AxiosResponse<any>>;
   createUser: (userData: any) => Promise<AxiosResponse<any>>;
@@ -95,6 +82,7 @@ interface ApiClient {
   deletePipeline: (id: string) => Promise<AxiosResponse<any>>;
   fetchPipelines: () => Promise<AxiosResponse<any>>;
 
+
   // Docker File routes
   createDockerFile: (dockerFileData: any) => Promise<AxiosResponse<any>>;
   listDockerFiles: () => Promise<AxiosResponse<any>>;
@@ -102,6 +90,7 @@ interface ApiClient {
   updateDockerFile: (id: string, dockerFileData: any) => Promise<AxiosResponse<any>>;
   deleteDockerFile: (id: string) => Promise<AxiosResponse<any>>;
   fetchDockerFiles: () => Promise<AxiosResponse<any>>;
+
 
   // Configuration routes
   createConfiguration: (configurationData: NewStudioConfiguration) => Promise<AxiosResponse<StudioConfiguration>>;
@@ -118,6 +107,7 @@ interface ApiClient {
   updateAmberStore: (id: string, amberStoreData: any) => Promise<AxiosResponse<any>>;
   deleteAmberStore: (id: string) => Promise<AxiosResponse<any>>;
   fetchAmberStores: () => Promise<AxiosResponse<any>>;
+
   // Chat routes
   createConversation: (data: { user_id: string; title: string }) => Promise<AxiosResponse<any>>;
   listConversations: () => Promise<AxiosResponse<any>>;
@@ -127,14 +117,19 @@ interface ApiClient {
   getMessages: (conversationId: string) => Promise<AxiosResponse<any>>;
   createAttachment: (messageId: string, fileType: string, filePath: string) => Promise<AxiosResponse<any>>;
   getAttachments: (messageId: string) => Promise<AxiosResponse<any>>;
+
+  // LLM routes
   createLLMProvider: (name: string, apiEndpoint: string) => Promise<AxiosResponse<any>>;
+  listLLMProviders: () => Promise<AxiosResponse<any>>;
   getLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
   createUserLLMConfig: (providerId: string, apiKey: string) => Promise<AxiosResponse<any>>;
   getUserLLMConfig: (userId: string, providerId: string) => Promise<AxiosResponse<any>>;
+  llmChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
   streamChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
 }
 
 const apiClient: ApiClient = {
+  // User routes
   validateToken: () => axiosInstance.get('/users/validate-token'),
   refreshToken: () => axiosInstance.post('/users/refresh'),
   createUser: (userData) => axiosInstance.post('/users', userData),
@@ -165,6 +160,7 @@ const apiClient: ApiClient = {
   deletePipeline: (id) => axiosInstance.delete(`/pipelines/${id}`),
   fetchPipelines: () => axiosInstance.get('/pipelines'),
 
+
   // Docker File routes
   createDockerFile: (dockerFileData) => axiosInstance.post('/docker_files', dockerFileData),
   listDockerFiles: () => axiosInstance.get('/docker_files'),
@@ -172,6 +168,7 @@ const apiClient: ApiClient = {
   updateDockerFile: (id, dockerFileData) => axiosInstance.put(`/docker_files/${id}`, dockerFileData),
   deleteDockerFile: (id) => axiosInstance.delete(`/docker_files/${id}`),
   fetchDockerFiles: () => axiosInstance.get('/docker_files'),
+
 
   // Configuration routes
   createConfiguration: (configurationData) => axiosInstance.post('/configurations', configurationData),
@@ -181,6 +178,7 @@ const apiClient: ApiClient = {
   deleteConfiguration: (id) => axiosInstance.delete(`/configurations/${id}`),
   fetchConfigurations: () => axiosInstance.get('/configurations'),
 
+
   // Amber Store routes
   createAmberStore: (amberStoreData) => axiosInstance.post('/amber_stores', amberStoreData),
   listAmberStores: () => axiosInstance.get('/amber_stores'),
@@ -188,6 +186,7 @@ const apiClient: ApiClient = {
   updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_stores/${id}`, amberStoreData),
   deleteAmberStore: (id) => axiosInstance.delete(`/amber_stores/${id}`),
   fetchAmberStores: () => axiosInstance.get('/amber_stores'),
+
   // Chat routes
   createConversation: (data) => axiosInstance.post('/chat/conversations', data),
   listConversations: () => axiosInstance.get('/chat/conversations'),
@@ -197,11 +196,15 @@ const apiClient: ApiClient = {
   getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
   createAttachment: (messageId, fileType, filePath) => axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),
   getAttachments: (messageId) => axiosInstance.get(`/chat/messages/${messageId}/attachments`),
-  createLLMProvider: (name, apiEndpoint) => axiosInstance.post('/chat/llm-providers', { name, api_endpoint: apiEndpoint }),
-  getLLMProvider: (id) => axiosInstance.get(`/chat/llm-providers/${id}`),
-  createUserLLMConfig: (providerId, apiKey) => axiosInstance.post('/chat/user-llm-configs', { provider_id: providerId, api_key: apiKey }),
-  getUserLLMConfig: (userId, providerId) => axiosInstance.get(`/chat/user-llm-configs/${userId}/${providerId}`),
-  streamChat: (providerId, messages) => axiosInstance.get('/chat/stream', { params: { provider_id: providerId, messages: JSON.stringify(messages) } }),
+
+  // LLM routes
+  createLLMProvider: (name, apiEndpoint) => axiosInstance.post('/llm/providers', { name, api_endpoint: apiEndpoint }),
+  listLLMProviders: () => axiosInstance.get('/llm/providers'),
+  getLLMProvider: (id) => axiosInstance.get(`/llm/providers/${id}`),
+  createUserLLMConfig: (providerId, apiKey) => axiosInstance.post('/llm/user-configs', { provider_id: providerId, api_key: apiKey }),
+  getUserLLMConfig: (userId, providerId) => axiosInstance.get(`/llm/user-configs/${userId}/${providerId}`),
+  llmChat: (providerId, messages) => axiosInstance.post('/llm/chat', { provider_id: providerId, messages }),
+  streamChat: (providerId, messages) => axiosInstance.get('/llm/stream_chat', { params: { provider_id: providerId, messages: JSON.stringify(messages) } }),
 };
 
 export default apiClient;

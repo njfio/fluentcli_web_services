@@ -73,6 +73,7 @@ impl ChatService {
                 AppError::DatabaseError(e)
             })
     }
+
     pub fn create_message(
         pool: &DbPool,
         _conversation_id: Uuid,
@@ -202,6 +203,13 @@ impl ChatService {
                 error!("Error fetching attachments: {:?}", e);
                 AppError::DatabaseError(e)
             })
+    }
+
+    pub fn get_llm_providers(pool: &DbPool) -> Result<Vec<LLMProvider>, AppError> {
+        use crate::schema::llm_providers::dsl::*;
+        let mut conn = pool.get()?;
+        let providers = llm_providers.load::<LLMProvider>(&mut conn)?;
+        Ok(providers)
     }
 
     pub fn create_llm_provider(

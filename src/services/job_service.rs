@@ -3,6 +3,7 @@ use crate::error::AppError;
 use crate::handlers::user;
 use crate::models::fluentcli::CommandRequest;
 use crate::models::job::{Job, NewJob, UpdateJob};
+
 use crate::services::fluentcli_service::FluentCLIService;
 use crate::services::pipeline_service::PipelineService;
 use diesel::prelude::*;
