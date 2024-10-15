@@ -10,6 +10,10 @@ export default createStore<RootState>({
       user: null,
       isAuthenticated: false,
     },
+    chat: {
+      isExpanded: false,
+      isSidebarOpen: true,
+    },
   },
   mutations: {
     setUser(state, user: User | null) {
