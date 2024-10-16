@@ -85,7 +85,7 @@ export default defineComponent({
         'select-conversation': (id: string) => typeof id === 'string',
         'delete-conversation': (id: string) => typeof id === 'string',
     },
-    setup(props, { emit }) {
+    setup(_, { emit }) {
         const toggleSidebar = () => {
             emit('toggle-sidebar');
         };
