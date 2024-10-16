@@ -5,6 +5,7 @@ pub mod configuration_service;
 pub mod docker_file_service;
 pub mod fluentcli_service;
 pub mod job_service;
+pub mod llm_provider;
 pub mod llm_providers;
 pub mod llm_service;
 pub mod pipeline_service;

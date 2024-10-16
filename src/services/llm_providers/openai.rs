@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::services::llm_service::{LLMChatMessage, LLMProviderTrait};
+use crate::services::llm_service::{LLMChatMessage, LLMProviderTrait, LLMServiceError};
 use futures::stream::{self, Stream, StreamExt};
 use log::{debug, error, warn};
 use reqwest::Client;
@@ -14,7 +14,7 @@ impl LLMProviderTrait for OpenAIProvider {
         messages: &[LLMChatMessage],
         config: &Value,
         api_key: &str,
-    ) -> Result<reqwest::RequestBuilder, AppError> {
+    ) -> Result<reqwest::RequestBuilder, LLMServiceError> {
         let client = Client::new();
         let model = config["model"].as_str().unwrap_or("gpt-3.5-turbo");
 
@@ -34,7 +34,7 @@ impl LLMProviderTrait for OpenAIProvider {
             .json(&request_body))
     }
 
-    fn parse_response(&self, response_text: &str) -> Result<String, AppError> {
+    fn parse_response(&self, response_text: &str) -> Result<String, LLMServiceError> {
         debug!("Parsing OpenAI response: {}", response_text);
 
         // First, try to parse as a JSON object
@@ -63,7 +63,7 @@ impl LLMProviderTrait for OpenAIProvider {
     fn stream_response(
         &self,
         response: reqwest::Response,
-    ) -> Pin<Box<dyn Stream<Item = Result<String, AppError>> + Send>> {
+    ) -> Pin<Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send>> {
         Box::pin(
             stream::unfold(response, |mut response| async move {
                 match response.chunk().await {
@@ -96,7 +96,12 @@ impl LLMProviderTrait for OpenAIProvider {
                     Ok(None) => None,
                     Err(e) => {
                         error!("Error in stream_response: {:?}", e);
-                        Some((Err(AppError::ExternalServiceError(e.to_string())), response))
+                        Some((
+                            Err(LLMServiceError(AppError::ExternalServiceError(
+                                e.to_string(),
+                            ))),
+                            response,
+                        ))
                     }
                 }
             })

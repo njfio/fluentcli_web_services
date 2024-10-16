@@ -1,7 +1,7 @@
 use crate::db::db::DbPool;
 use crate::error::AppError;
 use crate::services::chat_service::ChatService;
-use crate::services::llm_service::{chat as llm_chat, LLMChatMessage};
+use crate::services::llm_service::{chat as llm_chat, LLMChatMessage, LLMServiceError};
 use crate::utils::extractors::AuthenticatedUser;
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
@@ -43,9 +43,9 @@ pub async fn llm_chat_handler(
     .await
     .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
-    let response = llm_chat(&provider, &user_config, req.messages.clone())
+    let response = llm_chat(&pool, &provider, &user_config, req.messages.clone())
         .await
-        .map_err(|e| AppError::ExternalServiceError(e.to_string()))?;
+        .map_err(|e: LLMServiceError| AppError::ExternalServiceError(e.to_string()))?;
 
     // Save the LLM response to the database
     let new_message = web::block({

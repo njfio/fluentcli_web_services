@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::services::llm_service::{LLMChatMessage, LLMProviderTrait};
+use crate::services::llm_service::{LLMChatMessage, LLMProviderTrait, LLMServiceError};
 use futures::stream::{self, Stream, StreamExt};
 use log::{debug, error};
 use reqwest::Client;
@@ -14,10 +14,12 @@ impl LLMProviderTrait for AnthropicProvider {
         messages: &[LLMChatMessage],
         config: &Value,
         api_key: &str,
-    ) -> Result<reqwest::RequestBuilder, AppError> {
+    ) -> Result<reqwest::RequestBuilder, LLMServiceError> {
         let client = Client::new();
         let model = config["model"].as_str().ok_or_else(|| {
-            AppError::BadRequest("Model not specified for Anthropic provider".to_string())
+            LLMServiceError(AppError::BadRequest(
+                "Model not specified for Anthropic provider".to_string(),
+            ))
         })?;
 
         let messages: Vec<Value> = messages
@@ -47,7 +49,7 @@ impl LLMProviderTrait for AnthropicProvider {
             .json(&request_body))
     }
 
-    fn parse_response(&self, response_text: &str) -> Result<String, AppError> {
+    fn parse_response(&self, response_text: &str) -> Result<String, LLMServiceError> {
         debug!("Anthropic raw response: {}", response_text);
         Ok(response_text.to_string())
     }
@@ -55,7 +57,7 @@ impl LLMProviderTrait for AnthropicProvider {
     fn stream_response(
         &self,
         response: reqwest::Response,
-    ) -> Pin<Box<dyn Stream<Item = Result<String, AppError>> + Send>> {
+    ) -> Pin<Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send>> {
         Box::pin(
             stream::unfold(response, |mut response| async move {
                 match response.chunk().await {
@@ -86,7 +88,12 @@ impl LLMProviderTrait for AnthropicProvider {
                     Ok(None) => None,
                     Err(e) => {
                         error!("Error in stream_response: {:?}", e);
-                        Some((Err(AppError::ExternalServiceError(e.to_string())), response))
+                        Some((
+                            Err(LLMServiceError(AppError::ExternalServiceError(
+                                e.to_string(),
+                            ))),
+                            response,
+                        ))
                     }
                 }
             })

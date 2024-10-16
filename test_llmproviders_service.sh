@@ -96,9 +96,21 @@ if [ -z "$token" ]; then
     exit 1
 fi
 
+# Create a new API key
+echo "Creating a new API key"
+api_key_response=$(make_request POST "/api_keys" '{"user_id": "'"$user_id"'", "name": "TestAPIKey"}' "$token" "201")
+api_key_id=$(echo "$api_key_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "API Key ID: $api_key_id"
+
+if [ -z "$api_key_id" ]; then
+    echo "Failed to create API key. Exiting."
+    exit 1
+fi
+
 # Create a new LLM provider
 echo "Creating a new LLM provider"
 provider_response=$(make_request POST "/llm/providers" '{
+    "user_id": "'"$user_id"'",
     "name": "TestProvider",
     "provider_type": "gpt",
     "api_endpoint": "https://api.testprovider.com/v1",
@@ -115,11 +127,10 @@ if [ -z "$provider_id" ]; then
     echo "Failed to create LLM provider. Exiting."
     exit 1
 fi
+
 # Get the created LLM provider
 echo "Getting the created LLM provider"
 make_request GET "/llm/providers/$provider_id" "" "$token" "200"
-
-# ... (keep all other code unchanged)
 
 # Test LLM chat
 echo "Testing LLM chat"
@@ -133,6 +144,37 @@ chat_response=$(make_request POST "/llm/chat" '{
 # Get all LLM providers
 echo "Getting all LLM providers"
 make_request GET "/llm/providers" "" "$token" "200"
+
+# Create a user LLM config
+echo "Creating a user LLM config"
+config_response=$(make_request POST "/chat/user-llm-configs" '{
+    "user_id": "'"$user_id"'",
+    "provider_id": "'"$provider_id"'",
+    "api_key_id": "'"$api_key_id"'"
+}' "$token" "201")
+config_id=$(echo "$config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+echo "Config ID: $config_id"
+
+if [ -z "$config_id" ]; then
+    echo "Failed to create user LLM config. Exiting."
+    exit 1
+fi
+
+# Get the created user LLM config
+echo "Getting the created user LLM config"
+make_request GET "/chat/user-llm-configs/$config_id" "" "$token" "200"
+
+# Test creating a user LLM config with an invalid provider ID (error case)
+echo "Testing creation of user LLM config with invalid provider ID"
+make_request POST "/chat/user-llm-configs" '{
+    "user_id": "'"$user_id"'",
+    "provider_id": "00000000-0000-0000-0000-000000000000",
+    "api_key_id": "'"$api_key_id"'"
+}' "$token" "400"
+
+# Test getting a non-existent user LLM config (error case)
+echo "Testing retrieval of non-existent user LLM config"
+make_request GET "/chat/user-llm-configs/00000000-0000-0000-0000-000000000000" "" "$token" "404"
 
 # Print test summary
 echo "Total tests: $TOTAL_TESTS"

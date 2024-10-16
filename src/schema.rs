@@ -112,6 +112,7 @@ diesel::table! {
 diesel::table! {
     llm_providers (id) {
         id -> Uuid,
+        user_id -> Uuid,
         #[max_length = 255]
         name -> Varchar,
         #[max_length = 255]
@@ -175,8 +176,7 @@ diesel::table! {
         id -> Uuid,
         user_id -> Uuid,
         provider_id -> Uuid,
-        #[max_length = 255]
-        api_key -> Varchar,
+        api_key_id -> Uuid,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -220,10 +220,12 @@ diesel::joinable!(jobs -> configurations (config));
 diesel::joinable!(jobs -> docker_files (worker_type));
 diesel::joinable!(jobs -> pipelines (pipeline_id));
 diesel::joinable!(jobs -> users (user_id));
+diesel::joinable!(llm_providers -> users (user_id));
 diesel::joinable!(messages -> conversations (conversation_id));
 diesel::joinable!(pipelines -> users (user_id));
 diesel::joinable!(secure_vault -> users (user_id));
 diesel::joinable!(secure_vaults -> users (user_id));
+diesel::joinable!(user_llm_configs -> api_keys (api_key_id));
 diesel::joinable!(user_llm_configs -> llm_providers (provider_id));
 diesel::joinable!(user_llm_configs -> users (user_id));
 diesel::joinable!(workers -> docker_files (worker_type));

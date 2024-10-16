@@ -10,7 +10,7 @@ use uuid::Uuid;
 pub struct CreateUserLLMConfigRequest {
     user_id: Uuid,
     provider_id: Uuid,
-    api_key: String,
+    api_key_id: Uuid, // Changed from api_key: String to api_key_id: Uuid
 }
 
 #[derive(Deserialize)]
@@ -29,7 +29,7 @@ pub async fn create_user_llm_config(
             &pool,
             req.user_id,
             req.provider_id,
-            req.api_key.clone(),
+            req.api_key_id, // Changed from req.api_key.clone() to req.api_key_id
         )
     })
     .await

@@ -1,4 +1,6 @@
 -- Drop indexes
+DROP INDEX IF EXISTS idx_llm_providers_user_id;
+DROP INDEX IF EXISTS idx_user_llm_configs_api_key_id;
 DROP INDEX IF EXISTS idx_user_llm_configs_provider_id;
 DROP INDEX IF EXISTS idx_user_llm_configs_user_id;
 DROP INDEX IF EXISTS idx_attachments_message_id;

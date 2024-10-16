@@ -32,8 +32,11 @@ pub async fn stream_chat(
         })
         .collect();
 
-    let stream = llm_stream_chat(&provider, &user_config, llm_messages).await;
+    let stream = llm_stream_chat(&pool, &provider, &user_config, llm_messages).await;
 
-    Ok(HttpResponse::Ok()
-        .streaming(stream.map(|result| result.map(|content| web::Bytes::from(content)))))
+    Ok(HttpResponse::Ok().streaming(stream.map(|result| {
+        result
+            .map(|content| web::Bytes::from(content))
+            .map_err(|e| actix_web::error::ErrorInternalServerError(e))
+    })))
 }

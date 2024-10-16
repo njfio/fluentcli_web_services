@@ -214,6 +214,7 @@ impl ChatService {
 
     pub fn create_llm_provider(
         pool: &DbPool,
+        _user_id: Uuid,
         _name: String,
         _provider_type: String,
         _api_endpoint: String,
@@ -228,6 +229,7 @@ impl ChatService {
         );
 
         let new_provider = NewLLMProvider {
+            user_id: _user_id,
             name: _name,
             provider_type: _provider_type,
             api_endpoint: _api_endpoint,
@@ -257,12 +259,11 @@ impl ChatService {
                 AppError::DatabaseError(e)
             })
     }
-
     pub fn create_user_llm_config(
         pool: &DbPool,
         _user_id: Uuid,
         _provider_id: Uuid,
-        _api_key: String,
+        _api_key_id: Uuid,
     ) -> Result<UserLLMConfig, AppError> {
         use crate::schema::user_llm_configs::dsl::*;
 
@@ -274,7 +275,7 @@ impl ChatService {
         let new_config = NewUserLLMConfig {
             user_id: _user_id,
             provider_id: _provider_id,
-            api_key: _api_key,
+            api_key_id: _api_key_id,
         };
 
         diesel::insert_into(user_llm_configs)

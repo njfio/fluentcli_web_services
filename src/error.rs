@@ -97,6 +97,9 @@ pub enum AppError {
 
     #[error("Bad request: {0}")]
     BadRequestError(String),
+
+    #[error("Provider not found: {0}")]
+    ProviderNotFound(String),
 }
 
 impl From<BlockingError> for AppError {
@@ -114,6 +117,7 @@ impl ResponseError for AppError {
             AppError::AuthenticationError => StatusCode::UNAUTHORIZED,
             AppError::ExternalServiceError(_) => StatusCode::BAD_GATEWAY,
             AppError::UnsupportedProviderError(_) => StatusCode::BAD_REQUEST,
+            AppError::ProviderNotFound(_) => StatusCode::NOT_FOUND,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
