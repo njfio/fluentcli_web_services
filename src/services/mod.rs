@@ -1,4 +1,5 @@
 pub mod amber_store_service;
+pub mod api_key_service;
 pub mod chat_service;
 pub mod configuration_service;
 pub mod docker_file_service;
