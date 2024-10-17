@@ -4,6 +4,22 @@ BASE_URL="http://localhost:8000"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 
+# Check and print environment variables
+check_env_var() {
+    local var_name=$1
+    local var_value=${!var_name}
+    if [ -z "$var_value" ]; then
+        echo "$var_name is not set"
+    else
+        echo "$var_name: ${var_value:0:5}..."
+    fi
+}
+
+echo "Checking environment variables:"
+check_env_var "AMBER_FLUENT_OPENAI_API_KEY"
+check_env_var "AMBER_FLUENT_ANTHROPIC_KEY_01"
+check_env_var "AMBER_FLUENT_COHERE_API_KEY_01"
+
 # Function to make API requests
 make_request() {
     local method=$1
@@ -96,80 +112,159 @@ if [ -z "$token" ]; then
     exit 1
 fi
 
-# Create a new API key
-echo "Creating a new API key"
-api_key_response=$(make_request POST "/api_keys" '{"user_id": "'"$user_id"'", "name": "TestAPIKey"}' "$token" "201")
-api_key_id=$(echo "$api_key_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
-echo "API Key ID: $api_key_id"
+# Function to test a specific provider
+test_provider() {
+    local name=$1
+    local api_key
+    local provider_type
+    local model
+    
+    case $name in
+        "OpenAI")
+            api_key="$AMBER_FLUENT_OPENAI_API_KEY"
+            provider_type="openai"
+            model="gpt-3.5-turbo"
+            ;;
+        "Anthropic")
+            api_key="$AMBER_FLUENT_ANTHROPIC_KEY_01"
+            provider_type="anthropic"
+            model="claude-2"
+            ;;
+        "Cohere")
+            api_key="$AMBER_FLUENT_COHERE_API_KEY_01"
+            provider_type="cohere"
+            model="command"
+            ;;
+        *)
+            echo "Unknown provider $name. Skipping."
+            return
+            ;;
+    esac
 
-if [ -z "$api_key_id" ]; then
-    echo "Failed to create API key. Exiting."
-    exit 1
-fi
+    if [ -z "$api_key" ]; then
+        echo "API key for $name is not set. Skipping."
+        return
+    fi
 
-# Create a new LLM provider
-echo "Creating a new LLM provider"
-provider_response=$(make_request POST "/llm/providers" '{
-    "user_id": "'"$user_id"'",
-    "name": "TestProvider",
-    "provider_type": "gpt",
-    "api_endpoint": "https://api.testprovider.com/v1",
-    "supported_modalities": ["text"],
-    "configuration": {
-        "model": "gpt-3.5-turbo",
-        "max_tokens": 150
-    }
-}' "$token" "201")
-provider_id=$(echo "$provider_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
-echo "Provider ID: $provider_id"
+    echo "Testing $name provider"
+    # Create a new API key
+    echo "Creating a new API key for $name"
+    api_key_response=$(make_request POST "/api_keys" '{
+        "key_value": "'"$api_key"'",
+        "description": "Test '"$name"' API Key"
+    }' "$token" "201")
+    api_key_id=$(echo "$api_key_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    echo "$name API Key ID: $api_key_id"
 
-if [ -z "$provider_id" ]; then
-    echo "Failed to create LLM provider. Exiting."
-    exit 1
-fi
+    if [ -z "$api_key_id" ]; then
+        echo "Failed to create $name API key. Skipping further tests."
+        return
+    fi
 
-# Get the created LLM provider
-echo "Getting the created LLM provider"
-make_request GET "/llm/providers/$provider_id" "" "$token" "200"
+    # Create a new LLM provider
+    echo "Creating a new LLM provider for $name"
+    provider_response=$(make_request POST "/llm/providers" '{
+        "user_id": "'"$user_id"'",
+        "name": "Test'"$name"'Provider",
+        "provider_type": "'"$provider_type"'",
+        "api_endpoint": "https://api.'"$provider_type"'.com/v1",
+        "supported_modalities": ["text"],
+        "configuration": {
+            "model": "'"$model"'",
+            "max_tokens": 150
+        }
+    }' "$token" "201")
+    provider_id=$(echo "$provider_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    echo "$name Provider ID: $provider_id"
 
-# Test LLM chat
-echo "Testing LLM chat"
-chat_response=$(make_request POST "/llm/chat" '{
-    "provider_id": "'"$provider_id"'",
-    "messages": [
-        {"role": "user", "content": "Hello, how are you?"}
-    ]
-}' "$token" "200")
+    if [ -z "$provider_id" ]; then
+        echo "Failed to create $name LLM provider. Skipping further tests."
+        return
+    fi
+
+    # Get the created LLM provider
+    echo "Getting the created $name LLM provider"
+    make_request GET "/llm/providers/$provider_id" "" "$token" "200"
+
+    # Test LLM chat
+    echo "Testing $name LLM chat"
+    chat_response=$(make_request POST "/llm/chat" '{
+        "provider_id": "'"$provider_id"'",
+        "messages": [
+            {"role": "user", "content": "Hello, how are you?"}
+        ]
+    }' "$token" "200")
+
+    # Create a user LLM config
+    echo "Creating a user LLM config for $name"
+    config_response=$(make_request POST "/chat/user-llm-configs" '{
+        "user_id": "'"$user_id"'",
+        "provider_id": "'"$provider_id"'",
+        "api_key_id": "'"$api_key_id"'"
+    }' "$token" "201")
+    config_id=$(echo "$config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    echo "$name Config ID: $config_id"
+
+    if [ -z "$config_id" ]; then
+        echo "Failed to create $name user LLM config. Skipping further tests."
+        return
+    fi
+
+    # Get the created user LLM config
+    echo "Getting the created $name user LLM config"
+    make_request GET "/chat/user-llm-configs/$config_id" "" "$token" "200"
+
+    # Delete the user LLM config
+    echo "Deleting the $name user LLM config"
+    make_request DELETE "/chat/user-llm-configs/$config_id" "" "$token" "204"
+
+    # Verify the user LLM config was deleted
+    echo "Verifying the $name user LLM config was deleted"
+    make_request GET "/chat/user-llm-configs/$config_id" "" "$token" "404"
+
+    # Delete the LLM provider
+    echo "Deleting the $name LLM provider"
+    make_request DELETE "/llm/providers/$provider_id" "" "$token" "204"
+
+    # Verify the LLM provider was deleted
+    echo "Verifying the $name LLM provider was deleted"
+    make_request GET "/llm/providers/$provider_id" "" "$token" "404"
+
+    # Add a small delay before deleting the API key
+    sleep 2
+
+    # Delete the API key
+    echo "Deleting the $name API key"
+    delete_response=$(make_request DELETE "/api_keys/$api_key_id" "" "$token" "204")
+    delete_status=$(echo "$delete_response" | tail -n 1)
+    if [ "$delete_status" != "204" ]; then
+        echo "Failed to delete $name API key. Status: $delete_status"
+        echo "Response: $delete_response"
+        echo "API Key ID: $api_key_id"
+        echo "Attempting to retrieve the API key to check its status..."
+        make_request GET "/api_keys/$api_key_id" "" "$token" "200"
+    else
+        # Verify the API key was deleted
+        echo "Verifying the $name API key was deleted"
+        make_request GET "/api_keys/$api_key_id" "" "$token" "404"
+    fi
+}
+
+# Test each provider
+test_provider "OpenAI"
+test_provider "Anthropic"
+test_provider "Cohere"
 
 # Get all LLM providers
 echo "Getting all LLM providers"
 make_request GET "/llm/providers" "" "$token" "200"
-
-# Create a user LLM config
-echo "Creating a user LLM config"
-config_response=$(make_request POST "/chat/user-llm-configs" '{
-    "user_id": "'"$user_id"'",
-    "provider_id": "'"$provider_id"'",
-    "api_key_id": "'"$api_key_id"'"
-}' "$token" "201")
-config_id=$(echo "$config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
-echo "Config ID: $config_id"
-
-if [ -z "$config_id" ]; then
-    echo "Failed to create user LLM config. Exiting."
-    exit 1
-fi
-
-# Get the created user LLM config
-echo "Getting the created user LLM config"
-make_request GET "/chat/user-llm-configs/$config_id" "" "$token" "200"
 
 # Test creating a user LLM config with an invalid provider ID (error case)
 echo "Testing creation of user LLM config with invalid provider ID"
 make_request POST "/chat/user-llm-configs" '{
     "user_id": "'"$user_id"'",
     "provider_id": "00000000-0000-0000-0000-000000000000",
-    "api_key_id": "'"$api_key_id"'"
+    "api_key_id": "00000000-0000-0000-0000-000000000000"
 }' "$token" "400"
 
 # Test getting a non-existent user LLM config (error case)

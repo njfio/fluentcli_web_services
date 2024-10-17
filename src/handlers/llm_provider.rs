@@ -4,7 +4,7 @@ use crate::models::llm_provider::{LLMProvider, NewLLMProvider};
 use crate::models::user_llm_config::{NewUserLLMConfig, UserLLMConfig};
 use crate::services::llm_provider::LLMProviderService;
 use actix_web::{web, HttpResponse, Responder};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Deserialize, Debug)]
@@ -17,7 +17,7 @@ pub struct CreateLLMProviderRequest {
     pub configuration: serde_json::Value,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct CreateUserLLMConfigRequest {
     pub user_id: Uuid,
     pub provider_id: Uuid,
@@ -49,13 +49,18 @@ pub async fn get_llm_provider(
     pool: web::Data<DbPool>,
     provider_id: web::Path<Uuid>,
 ) -> Result<impl Responder, AppError> {
-    let provider =
+    let result =
         web::block(move || LLMProviderService::get_llm_provider(&pool, provider_id.into_inner()))
             .await
-            .map_err(|e| AppError::InternalServerError)?
-            .map_err(|e| e)?;
+            .map_err(|e| AppError::InternalServerError)?;
 
-    Ok(HttpResponse::Ok().json(provider))
+    match result {
+        Ok(provider) => Ok(HttpResponse::Ok().json(provider)),
+        Err(AppError::DatabaseError(diesel::result::Error::NotFound)) => {
+            Ok(HttpResponse::NotFound().finish())
+        }
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn update_llm_provider(
@@ -104,6 +109,23 @@ pub async fn create_user_llm_config(
     pool: web::Data<DbPool>,
     req: web::Json<CreateUserLLMConfigRequest>,
 ) -> Result<impl Responder, AppError> {
+    let req_clone = req.0.clone();
+    let pool_clone = pool.clone();
+
+    // Check if the provider exists
+    let provider_exists = web::block(move || {
+        LLMProviderService::get_llm_provider(&pool_clone, req_clone.provider_id)
+    })
+    .await
+    .map_err(|e| AppError::InternalServerError)?
+    .is_ok();
+
+    if !provider_exists {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "error": format!("Provider with ID {} not found", req.provider_id)
+        })));
+    }
+
     let new_config = NewUserLLMConfig {
         user_id: req.user_id,
         provider_id: req.provider_id,
@@ -112,17 +134,10 @@ pub async fn create_user_llm_config(
 
     let config = web::block(move || LLMProviderService::create_user_llm_config(&pool, new_config))
         .await
-        .map_err(|e| AppError::InternalServerError)?;
+        .map_err(|e| AppError::InternalServerError)?
+        .map_err(|e| e)?;
 
-    match config {
-        Ok(config) => Ok(HttpResponse::Created().json(config)),
-        Err(AppError::ProviderNotFound(provider_id)) => {
-            Ok(HttpResponse::BadRequest().json(serde_json::json!({
-                "error": format!("Provider with ID {} not found", provider_id)
-            })))
-        }
-        Err(e) => Err(e),
-    }
+    Ok(HttpResponse::Created().json(config))
 }
 
 pub async fn get_user_llm_config(

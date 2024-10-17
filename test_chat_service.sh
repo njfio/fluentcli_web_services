@@ -4,6 +4,7 @@ BASE_URL="http://localhost:8000"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 
+# ... (keep the existing make_request and print_result functions)
 # Function to make API requests
 make_request() {
     local method=$1
@@ -69,14 +70,12 @@ print_result() {
         echo -e "\e[31m✗ FAIL\e[0m $method $endpoint (Expected: $expected, Got: $actual)\n"
     fi
 }
-
-# Generate a unique email
 TIMESTAMP=$(date +%s)
-EMAIL="chatuser_${TIMESTAMP}@example.com"
+USERNAME="chatuser_${TIMESTAMP}"
 
 # Create a new user
 echo "Creating a new user"
-user_response=$(make_request POST "/users" '{"username": "chatuser_'"$TIMESTAMP"'", "email": "'"$EMAIL"'", "password": "chatpass"}' "" "201")
+user_response=$(make_request POST "/users" '{"username": "'"$USERNAME"'", "email": "'"$USERNAME@example.com"'", "password": "chatpass"}' "" "201")
 user_id=$(echo "$user_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "User ID: $user_id"
 
@@ -87,7 +86,7 @@ fi
 
 # Login with the new user
 echo "Logging in with the new user"
-login_response=$(make_request POST "/users/login" '{"username": "chatuser_'"$TIMESTAMP"'", "password": "chatpass"}' "" "200")
+login_response=$(make_request POST "/users/login" '{"username": "'"$USERNAME"'", "password": "chatpass"}' "" "200")
 token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Token: $token"
 
@@ -102,8 +101,47 @@ create_and_test_llm_provider() {
     local api_endpoint=$3
     local model=$4
 
+    # Get the API key from the environment variable
+    case $name in
+        "OpenAI")
+            api_key="$AMBER_FLUENT_OPENAI_API_KEY"
+            ;;
+        "Anthropic")
+            api_key="$AMBER_FLUENT_ANTHROPIC_KEY_01"
+            ;;
+        "Cohere")
+            api_key="$AMBER_FLUENT_COHERE_API_KEY_01"
+            ;;
+        *)
+            echo "Unknown provider $name. Skipping."
+            return
+            ;;
+    esac
+
+    echo "***API key for $name: $api_key"
+    if [ -z "$api_key" ]; then
+        echo "API key for $name is not set. Skipping tests."
+        return
+    fi
+
+    # Create a new API key entry in the system
+    echo "Creating a new API key entry for $name"
+    api_key_response=$(make_request POST "/api_keys" '{
+        "user_id": "'"$user_id"'",
+        "name": "'"$name"'APIKey",
+        "key_value": "'"$api_key"'"
+    }' "$token" "201")
+    api_key_id=$(echo "$api_key_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    echo "$name API Key ID (system identifier): $api_key_id"
+
+    if [ -z "$api_key_id" ]; then
+        echo "Failed to create API key entry for $name. Skipping tests."
+        return
+    fi
+
     echo "Creating $name LLM provider"
     provider_response=$(make_request POST "/llm/providers" '{
+        "user_id": "'"$user_id"'",
         "name": "'"$name"'",
         "provider_type": "'"$provider_type"'",
         "api_endpoint": "'"$api_endpoint"'",
@@ -125,33 +163,12 @@ create_and_test_llm_provider() {
     echo "Getting the created $name LLM provider"
     make_request GET "/llm/providers/$provider_id" "" "$token" "200"
 
-    # Create a user LLM config with the API key from environment variable
+    # Create a user LLM config
     echo "Creating a user LLM config for $name"
-    case $name in
-        "OpenAI")
-            api_key="$AMBER_FLUENT_OPENAI_API_KEY"
-            ;;
-        "Anthropic")
-            api_key="$AMBER_FLUENT_ANTHROPIC_KEY_01"
-            ;;
-        "Cohere")
-            api_key="$AMBER_FLUENT_COHERE_API_KEY_01"
-            ;;
-        *)
-            echo "Unknown provider $name. Skipping."
-            return
-            ;;
-    esac
-
-    if [ -z "$api_key" ]; then
-        echo "API key for $name is not set. Skipping tests."
-        return
-    fi
-
     llm_config_response=$(make_request POST "/chat/user-llm-configs" '{
         "user_id": "'"$user_id"'",
         "provider_id": "'"$provider_id"'",
-        "api_key": "'"$api_key"'"
+        "api_key_id": "'"$api_key_id"'"
     }' "$token" "201")
     llm_config_id=$(echo "$llm_config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
     echo "$name LLM Config ID: $llm_config_id"
@@ -163,7 +180,7 @@ create_and_test_llm_provider() {
 
     # Get the user LLM config
     echo "Getting the user LLM config for $name"
-    make_request GET "/chat/user-llm-configs?user_id=$user_id&provider_id=$provider_id" "" "$token" "200"
+    make_request GET "/chat/user-llm-configs/$llm_config_id" "" "$token" "200"
 
     # Create a new conversation for this LLM provider test
     echo "Creating a new conversation for $name LLM test"
@@ -191,7 +208,7 @@ create_and_test_llm_provider() {
     echo "Response status: $response_status"
     response_body=$(echo "$chat_response" )
 
-    if [ "$response_status" != "" ]; then
+    if [ "$response_status" = "200" ]; then
         echo -e "\n==== $name Assistant Response ===="
         echo "Assistant response: $response_body"
 
@@ -229,13 +246,13 @@ create_and_test_llm_provider() {
 }
 
 # Test OpenAI provider
-create_and_test_llm_provider "OpenAI" "gpt" "https://api.openai.com/v1/chat/completions" "gpt-4o-mini"
+create_and_test_llm_provider "OpenAI" "gpt" "https://api.openai.com/v1/chat/completions" "gpt-3.5-turbo"
 
 # Test Anthropic provider
-create_and_test_llm_provider "Anthropic" "claude" "https://api.anthropic.com/v1/complete" "claude-3-haiku-20240307"
+create_and_test_llm_provider "Anthropic" "claude" "https://api.anthropic.com/v1/complete" "claude-2"
 
 # Test Cohere provider
-create_and_test_llm_provider "Cohere" "command" "https://api.cohere.ai/v1/chat" "command-nightly"
+create_and_test_llm_provider "Cohere" "command" "https://api.cohere.ai/v1/chat" "command"
 
 # Print final test results
 echo -e "\n==== Test Results ===="

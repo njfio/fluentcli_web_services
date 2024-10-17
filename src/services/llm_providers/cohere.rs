@@ -40,6 +40,10 @@ impl LLMProviderTrait for CohereProvider {
         });
 
         debug!("Cohere request body: {:?}", request_body);
+        debug!(
+            "Cohere API key (first 10 chars): {}",
+            &api_key[..10.min(api_key.len())]
+        );
 
         Ok(client
             .post("https://api.cohere.ai/v1/chat")

@@ -7,6 +7,7 @@ use crate::services::llm_providers::{
     anthropic::AnthropicProvider, cohere::CohereProvider, openai::OpenAIProvider,
 };
 use futures::stream::{Stream, StreamExt};
+use log::{debug, error, warn};
 use reqwest::RequestBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -56,26 +57,46 @@ pub async fn chat(
     user_config: &UserLLMConfig,
     messages: Vec<LLMChatMessage>,
 ) -> Result<String, LLMServiceError> {
+    debug!(
+        "Starting chat function with provider: {:?}",
+        provider.provider_type
+    );
+
     let provider_trait: Box<dyn LLMProviderTrait + Send + Sync> =
         match provider.provider_type.as_str() {
             "gpt" => Box::new(OpenAIProvider),
             "claude" => Box::new(AnthropicProvider),
             "command" => Box::new(CohereProvider),
             _ => {
+                error!("Unsupported LLM provider: {}", provider.provider_type);
                 return Err(LLMServiceError(AppError::UnsupportedProviderError(
                     "Unsupported LLM provider".to_string(),
-                )))
+                )));
             }
         };
 
+    debug!("Retrieving API key for id: {:?}", user_config.api_key_id);
     let api_key = ApiKeyService::get_api_key_by_id(pool, user_config.api_key_id)
-        .map_err(LLMServiceError)?
-        .ok_or_else(|| LLMServiceError(AppError::NotFoundError("API key not found".to_string())))?;
+        .map_err(|e| {
+            error!("Failed to retrieve API key: {:?}", e);
+            LLMServiceError(e)
+        })?
+        .ok_or_else(|| {
+            error!("API key not found");
+            LLMServiceError(AppError::NotFoundError("API key not found".to_string()))
+        })?;
+
+    debug!(
+        "API key retrieved successfully. Key length: {}",
+        api_key.key_value.len()
+    );
 
     let request =
         provider_trait.prepare_request(&messages, &provider.configuration, &api_key.key_value)?;
 
+    debug!("Sending request to LLM provider");
     let response = request.send().await.map_err(|e| {
+        error!("Failed to send request: {:?}", e);
         LLMServiceError(AppError::ExternalServiceError(format!(
             "Failed to send request: {}",
             e
@@ -84,27 +105,34 @@ pub async fn chat(
 
     if !response.status().is_success() {
         let error_message = response.text().await.map_err(|e| {
+            error!("Failed to get error message: {:?}", e);
             LLMServiceError(AppError::ExternalServiceError(format!(
                 "Failed to get error message: {}",
                 e
             )))
         })?;
+        error!("LLM provider returned an error: {}", error_message);
         return Err(LLMServiceError(AppError::ExternalServiceError(format!(
             "LLM provider returned an error: {}",
             error_message
         ))));
     }
 
+    debug!("Streaming response from LLM provider");
     let mut stream = provider_trait.stream_response(response);
     let mut full_response = String::new();
 
     while let Some(chunk) = stream.next().await {
         match chunk {
             Ok(text) => full_response.push_str(&text),
-            Err(e) => return Err(e),
+            Err(e) => {
+                error!("Error while streaming response: {:?}", e);
+                return Err(e);
+            }
         }
     }
 
+    debug!("Chat function completed successfully");
     Ok(full_response)
 }
 
@@ -114,42 +142,62 @@ pub async fn llm_stream_chat(
     user_config: &UserLLMConfig,
     messages: Vec<LLMChatMessage>,
 ) -> Pin<Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send + 'static>> {
+    debug!(
+        "Starting llm_stream_chat function with provider: {:?}",
+        provider.provider_type
+    );
+
     let provider_trait: Box<dyn LLMProviderTrait + Send + Sync> =
         match provider.provider_type.as_str() {
             "gpt" => Box::new(OpenAIProvider),
             "claude" => Box::new(AnthropicProvider),
             "command" => Box::new(CohereProvider),
             _ => {
+                error!("Unsupported LLM provider: {}", provider.provider_type);
                 return Box::pin(futures::stream::once(async {
                     Err(LLMServiceError(AppError::UnsupportedProviderError(
                         "Unsupported LLM provider".to_string(),
                     )))
-                }))
+                }));
             }
         };
 
+    debug!("Retrieving API key for id: {:?}", user_config.api_key_id);
     let api_key = match ApiKeyService::get_api_key_by_id(pool, user_config.api_key_id) {
-        Ok(Some(key)) => key.key_value,
+        Ok(Some(key)) => {
+            debug!(
+                "API key retrieved successfully. Key length: {}",
+                key.key_value.len()
+            );
+            key.key_value
+        }
         Ok(None) => {
+            error!("API key not found");
             return Box::pin(futures::stream::once(async {
                 Err(LLMServiceError(AppError::NotFoundError(
                     "API key not found".to_string(),
                 )))
-            }))
+            }));
         }
         Err(e) => {
+            error!("Failed to retrieve API key: {:?}", e);
             return Box::pin(futures::stream::once(
                 async move { Err(LLMServiceError(e)) },
-            ))
+            ));
         }
     };
 
+    debug!("Preparing request for LLM provider");
     let request = match provider_trait.prepare_request(&messages, &provider.configuration, &api_key)
     {
         Ok(req) => req,
-        Err(e) => return Box::pin(futures::stream::once(async move { Err(e) })),
+        Err(e) => {
+            error!("Failed to prepare request: {:?}", e);
+            return Box::pin(futures::stream::once(async move { Err(e) }));
+        }
     };
 
+    debug!("Sending request to LLM provider");
     Box::pin(
         futures::stream::once(async move { request.send().await })
             .map(move |result| match result {
@@ -160,6 +208,7 @@ pub async fn llm_stream_chat(
                             response.status().as_u16(),
                             response.status().as_str()
                         )));
+                        error!("LLM API error: {:?}", error);
                         Box::pin(futures::stream::once(async move { Err(error) }))
                             as Pin<
                                 Box<
@@ -169,18 +218,24 @@ pub async fn llm_stream_chat(
                                 >,
                             >
                     } else {
+                        debug!("Streaming response from LLM provider");
                         provider_trait.stream_response(response)
                     }
                 }
-                Err(e) => Box::pin(futures::stream::once(async move {
-                    Err(LLMServiceError(AppError::ExternalServiceError(format!(
-                        "Request error: {}",
-                        e
-                    ))))
-                }))
-                    as Pin<
-                        Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send + 'static>,
-                    >,
+                Err(e) => {
+                    error!("Request error: {:?}", e);
+                    Box::pin(futures::stream::once(async move {
+                        Err(LLMServiceError(AppError::ExternalServiceError(format!(
+                            "Request error: {}",
+                            e
+                        ))))
+                    }))
+                        as Pin<
+                            Box<
+                                dyn Stream<Item = Result<String, LLMServiceError>> + Send + 'static,
+                            >,
+                        >
+                }
             })
             .flatten(),
     )

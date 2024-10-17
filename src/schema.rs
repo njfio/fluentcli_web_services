@@ -211,14 +211,12 @@ diesel::table! {
 diesel::joinable!(active_workers -> users (user_id));
 diesel::joinable!(amber_store -> users (user_id));
 diesel::joinable!(api_keys -> users (user_id));
-diesel::joinable!(attachments -> messages (message_id));
 diesel::joinable!(configurations -> users (user_id));
 diesel::joinable!(conversations -> users (user_id));
 diesel::joinable!(docker_files -> users (user_id));
 diesel::joinable!(jobs -> amber_store (amber_id));
 diesel::joinable!(jobs -> configurations (config));
 diesel::joinable!(jobs -> docker_files (worker_type));
-diesel::joinable!(jobs -> pipelines (pipeline_id));
 diesel::joinable!(jobs -> users (user_id));
 diesel::joinable!(llm_providers -> users (user_id));
 diesel::joinable!(messages -> conversations (conversation_id));

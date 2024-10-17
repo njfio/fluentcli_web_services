@@ -7,7 +7,6 @@ use diesel::prelude::*;
 use uuid::Uuid;
 
 pub struct LLMProviderService;
-
 impl LLMProviderService {
     pub fn create_llm_provider(
         pool: &DbPool,
@@ -39,12 +38,21 @@ impl LLMProviderService {
             .get_result(conn)
             .map_err(AppError::DatabaseError)
     }
-
     pub fn delete_llm_provider(pool: &DbPool, provider_id: Uuid) -> Result<usize, AppError> {
         let conn = &mut pool.get().unwrap();
-        diesel::delete(llm_providers::table.find(provider_id))
+        conn.transaction(|conn| {
+            // First, delete associated user_llm_configs
+            diesel::delete(
+                user_llm_configs::table.filter(user_llm_configs::provider_id.eq(provider_id)),
+            )
             .execute(conn)
-            .map_err(AppError::DatabaseError)
+            .map_err(AppError::DatabaseError)?;
+
+            // Then, delete the LLM provider
+            diesel::delete(llm_providers::table.find(provider_id))
+                .execute(conn)
+                .map_err(AppError::DatabaseError)
+        })
     }
 
     pub fn create_user_llm_config(
@@ -52,26 +60,10 @@ impl LLMProviderService {
         new_config: NewUserLLMConfig,
     ) -> Result<UserLLMConfig, AppError> {
         let conn = &mut pool.get().unwrap();
-        conn.transaction(|conn| {
-            // Check if the provider exists
-            match llm_providers::table
-                .find(new_config.provider_id)
-                .first::<LLMProvider>(conn)
-                .optional()
-            {
-                Ok(Some(_)) => {
-                    // If the provider exists, create the user LLM config
-                    diesel::insert_into(user_llm_configs::table)
-                        .values(&new_config)
-                        .get_result(conn)
-                        .map_err(AppError::DatabaseError)
-                }
-                Ok(None) => Err(AppError::ProviderNotFound(
-                    new_config.provider_id.to_string(),
-                )),
-                Err(e) => Err(AppError::DatabaseError(e)),
-            }
-        })
+        diesel::insert_into(user_llm_configs::table)
+            .values(&new_config)
+            .get_result(conn)
+            .map_err(AppError::DatabaseError)
     }
 
     pub fn get_user_llm_config(

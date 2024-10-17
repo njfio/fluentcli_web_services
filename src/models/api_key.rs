@@ -4,7 +4,9 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Serialize, Deserialize)]
+#[derive(
+    Queryable, Identifiable, Insertable, AsChangeset, Debug, Serialize, Deserialize, Clone,
+)]
 #[diesel(table_name = api_keys)]
 pub struct ApiKey {
     pub id: Uuid,
