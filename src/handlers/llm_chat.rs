@@ -17,6 +17,7 @@ pub struct LLMChatRequest {
 
 #[derive(Serialize)]
 pub struct LLMChatResponse {
+    status: String,
     response: String,
 }
 
@@ -26,52 +27,23 @@ pub async fn llm_chat_handler(
     user: AuthenticatedUser,
 ) -> Result<HttpResponse, AppError> {
     let req = req.into_inner();
-    let provider = web::block({
-        let pool = pool.clone();
-        let provider_id = req.provider_id;
-        move || ChatService::get_llm_provider(&pool, provider_id)
-    })
-    .await
-    .map_err(|e| AppError::GenericError(Box::new(e)))??;
-
-    let user_config = web::block({
-        let pool = pool.clone();
-        let provider_id = req.provider_id;
-        let user_id = user.0;
-        move || ChatService::get_user_llm_config(&pool, user_id, provider_id)
-    })
-    .await
-    .map_err(|e| AppError::GenericError(Box::new(e)))??;
+    let provider = ChatService::get_llm_provider(&pool, req.provider_id)?;
+    let user_config = ChatService::get_user_llm_config(&pool, user.0, req.provider_id)?;
 
     let response = llm_chat(&pool, &provider, &user_config, req.messages.clone())
         .await
         .map_err(|e: LLMServiceError| AppError::ExternalServiceError(e.to_string()))?;
 
     // Save the LLM response to the database
-    let new_message = web::block({
-        let pool = pool.clone();
-        let conversation_id = req.conversation_id;
-        let response_clone = response.clone();
-        move || {
-            ChatService::create_message(
-                &pool,
-                conversation_id,
-                "assistant".to_string(),
-                Value::String(response_clone),
-            )
-        }
-    })
-    .await
-    .map_err(|e| AppError::GenericError(Box::new(e)))??;
+    ChatService::create_message(
+        &pool,
+        req.conversation_id,
+        "assistant".to_string(),
+        Value::String(response.clone()),
+    )?;
 
-    Ok(HttpResponse::Ok().json(LLMChatResponse { response }))
-}
-
-pub async fn llm_stream_chat_handler(
-    pool: web::Data<DbPool>,
-    req: web::Json<LLMChatRequest>,
-    user: AuthenticatedUser,
-) -> Result<HttpResponse, AppError> {
-    // Implement streaming chat logic here
-    unimplemented!("Streaming chat not implemented yet")
+    Ok(HttpResponse::Ok().json(LLMChatResponse {
+        status: "success".to_string(),
+        response,
+    }))
 }

@@ -31,7 +31,7 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
-    key_value VARCHAR(255) NOT NULL,
+    key_value TEXT NOT NULL,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -211,3 +211,4 @@ SELECT diesel_manage_updated_at('pipelines');
 SELECT diesel_manage_updated_at('secure_vault');
 SELECT diesel_manage_updated_at('secure_vaults');
 SELECT diesel_manage_updated_at('workers');
+

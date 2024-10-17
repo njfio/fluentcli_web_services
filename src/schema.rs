@@ -30,8 +30,7 @@ diesel::table! {
     api_keys (id) {
         id -> Uuid,
         user_id -> Uuid,
-        #[max_length = 255]
-        key_value -> Varchar,
+        key_value -> Text,
         description -> Nullable<Text>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,

@@ -98,8 +98,11 @@ fi
 
 # Function to create and test an API key
 create_and_test_api_key() {
-    local name=$1
+
+ local name=$1
     local api_key
+    local description="Test $name API Key"
+    local updated_description="Updated $name Test API Key"
     
     case $name in
         "OpenAI")
@@ -125,12 +128,14 @@ create_and_test_api_key() {
     echo "Creating a new API key for $name"
     api_key_response=$(make_request POST "/api_keys" '{
         "key_value": "'"$api_key"'",
-        "description": "Test '"$name"' API Key"
+        "description": "'"$description"'"
     }' "$token" "201")
     api_key_id=$(echo "$api_key_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
     returned_key_value=$(echo "$api_key_response" | grep -o '"key_value":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    returned_description=$(echo "$api_key_response" | grep -o '"description":"[^"]*' | cut -d'"' -f4 | head -n 1)
     echo "$name API Key ID: $api_key_id"
     echo "$name API Key Value: $returned_key_value"
+    echo "$name API Key Description: $returned_description"
 
     if [ -z "$api_key_id" ]; then
         echo "Failed to create $name API key. Skipping further tests."
@@ -146,10 +151,20 @@ create_and_test_api_key() {
     fi
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
+    # Validate that the description is correct in the creation response
+    if [ "$returned_description" = "$description" ]; then
+        echo -e "\e[32m✓ PASS\e[0m $name API key description is correct in the creation response"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\e[31m✗ FAIL\e[0m $name API key description is incorrect in the creation response"
+    fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
     # Get the created API key
     echo "Getting the created $name API key"
     get_key_response=$(make_request GET "/api_keys/$api_key_id" "" "$token" "200")
     retrieved_key_value=$(echo "$get_key_response" | grep -o '"key_value":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    retrieved_description=$(echo "$get_key_response" | grep -o '"description":"[^"]*' | cut -d'"' -f4 | head -n 1)
 
     # Validate that the retrieved API key is not encrypted
     if [ "$retrieved_key_value" = "$api_key" ]; then
@@ -160,16 +175,25 @@ create_and_test_api_key() {
     fi
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-    # Update the API key
+    # Validate that the retrieved description is correct (verifying it's saved in the database)    if [ "$retrieved_description" = "$description" ]; then
+        echo -e "\e[32m✓ PASS\e[0m Retrieved $name API key description is correct (verified in database)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\e[31m✗ FAIL\e[0m Retrieved $name API key description is incorrect (not saved correctly in database)"
+    fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+# Update the API key
     echo "Updating the $name API key"
-    make_request PUT "/api_keys/$api_key_id" '{
-        "description": "Updated '"$name"' Test API Key"
-    }' "$token" "200"
+    update_response=$(make_request PUT "/api_keys/$api_key_id" '{
+        "description": "'"$updated_description"'"
+    }' "$token" "200")
 
     # Get the updated API key
     echo "Getting the updated $name API key"
     updated_key_response=$(make_request GET "/api_keys/$api_key_id" "" "$token" "200")
     updated_key_value=$(echo "$updated_key_response" | grep -o '"key_value":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    updated_description_response=$(echo "$updated_key_response" | grep -o '"description":"[^"]*' | cut -d'"' -f4 | head -n 1)
 
     # Validate that the updated API key is not encrypted
     if [ "$updated_key_value" = "$api_key" ]; then
@@ -178,9 +202,15 @@ create_and_test_api_key() {
     else
         echo -e "\e[31m✗ FAIL\e[0m Updated $name API key appears to be encrypted"
     fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))    if [ "$updated_description_response" = "$updated_description" ]; then
+        echo -e "\e[32m✓ PASS\e[0m Updated $name API key description is correct (verified in database)"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "\e[31m✗ FAIL\e[0m Updated $name API key description is incorrect (not saved correctly in database)"
+    fi
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-    # Delete the API key
+ # Delete the API key
     echo "Deleting the $name API key"
     make_request DELETE "/api_keys/$api_key_id" "" "$token" "204"
 
@@ -189,7 +219,7 @@ create_and_test_api_key() {
     make_request GET "/api_keys/$api_key_id" "" "$token" "404"
 }
 
-# Create and test API keys for each provider
+ Create and test API keys for each provider
 create_and_test_api_key "OpenAI"
 create_and_test_api_key "Anthropic"
 create_and_test_api_key "Cohere"

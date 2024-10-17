@@ -12,11 +12,12 @@ import DockerFiles from '../views/studio/DockerFiles.vue';
 import AmberStores from '../views/studio/AmberStores.vue';
 import Jobs from '../views/studio/Jobs.vue';
 import CreateJob from '../views/studio/CreateJob.vue';
-import JobDetail from '@/views/studio/JobDetail.vue'
-import JobData from '@/views/studio/JobData.vue'
-import JobLogs from '@/views/studio/JobLogs.vue'
-import StateFiles from '@/views/studio/StateFiles.vue'
-import Chat from '@/views/studio/Chat.vue'
+import JobDetail from '@/views/studio/JobDetail.vue';
+import JobData from '@/views/studio/JobData.vue';
+import JobLogs from '@/views/studio/JobLogs.vue';
+import StateFiles from '@/views/studio/StateFiles.vue';
+import Chat from '@/views/studio/Chat.vue';
+import ApiKeysView from '@/views/studio/ApiKeysView.vue';
 
 const routes: Array<RouteRecordRaw> = [
   { path: '/', redirect: '/studio/dashboard' },
@@ -81,6 +82,7 @@ const routes: Array<RouteRecordRaw> = [
       },
       { path: 'statefiles', name: 'StateFiles', component: StateFiles },
       { path: 'chat', name: 'Chat', component: Chat },
+      { path: 'apikeys', name: 'ApiKeys', component: ApiKeysView },
     ],
   }
 ];

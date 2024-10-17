@@ -4,7 +4,6 @@ BASE_URL="http://localhost:8000"
 TOTAL_TESTS=0
 PASSED_TESTS=0
 
-# ... (keep the existing make_request and print_result functions)
 # Function to make API requests
 make_request() {
     local method=$1
@@ -70,6 +69,7 @@ print_result() {
         echo -e "\e[31m✗ FAIL\e[0m $method $endpoint (Expected: $expected, Got: $actual)\n"
     fi
 }
+
 TIMESTAMP=$(date +%s)
 USERNAME="chatuser_${TIMESTAMP}"
 
@@ -204,23 +204,32 @@ create_and_test_llm_provider() {
     }' "$token" "200")
 
     # Parse the chat response
-    response_status=$(echo "$chat_response" | tail -n 1)
+echo "--------"
+    echo "Chat response: $chat_response"
+    echo "------"
+    response_body=$(echo "$chat_response" | tail -n 1)
+    response_status=$(echo "$chat_response" | sed '$d')
+
     echo "Response status: $response_status"
-    response_body=$(echo "$chat_response" )
+    echo "Response body: $response_body"
 
-    if [ "$response_status" = "200" ]; then
+    if [ "$response_status" != "200" ]; then
+        # Parse the JSON response
+        status=$(echo "$response_body" | jq -r '.status')
+        response=$(echo "$response_body" | jq -r '.response')
+
         echo -e "\n==== $name Assistant Response ===="
-        echo "Assistant response: $response_body"
+        echo "Status: $status"
+        echo "Response: $response"
 
-        if [[ $response_body == *"Paris"* ]]; then
+        if [ "$status" = "success" ] && [[ $response == *"Paris"* ]]; then
             echo "$name LLM Service test passed: Response contains 'Paris'"
             PASSED_TESTS=$((PASSED_TESTS + 1))
         else
-            echo "$name LLM Service test failed: Response does not contain 'Paris'"
+            echo "$name LLM Service test failed: Unexpected response"
         fi
     else
         echo "$name LLM Service test failed: Unexpected status code $response_status"
-        echo "Response body: $response_body"
     fi
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
@@ -246,10 +255,10 @@ create_and_test_llm_provider() {
 }
 
 # Test OpenAI provider
-create_and_test_llm_provider "OpenAI" "gpt" "https://api.openai.com/v1/chat/completions" "gpt-3.5-turbo"
+create_and_test_llm_provider "OpenAI" "gpt" "https://api.openai.com/v1/chat/completions" "gpt-4o-mini"
 
 # Test Anthropic provider
-create_and_test_llm_provider "Anthropic" "claude" "https://api.anthropic.com/v1/complete" "claude-2"
+create_and_test_llm_provider "Anthropic" "claude" "https://api.anthropic.com/v1/complete" "claude-3-haiku-20240307"
 
 # Test Cohere provider
 create_and_test_llm_provider "Cohere" "command" "https://api.cohere.ai/v1/chat" "command"

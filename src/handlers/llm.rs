@@ -1,6 +1,7 @@
 use crate::db::db::DbPool;
 use crate::error::AppError;
 use crate::handlers::llm_chat::{llm_chat_handler, LLMChatRequest};
+use crate::handlers::stream_chat::{stream_chat, StreamChatQuery};
 use crate::utils::extractors::AuthenticatedUser;
 use actix_web::{web, HttpResponse};
 
@@ -14,11 +15,10 @@ pub async fn llm_chat(
 
 pub async fn llm_stream_chat(
     pool: web::Data<DbPool>,
-    req: web::Json<LLMChatRequest>,
+    query: web::Query<StreamChatQuery>,
     user: AuthenticatedUser,
 ) -> Result<HttpResponse, AppError> {
-    // Implement streaming chat logic here
-    unimplemented!("Streaming chat not implemented yet")
+    stream_chat(pool, query, user).await
 }
 
 // Re-export functions from llm_provider
