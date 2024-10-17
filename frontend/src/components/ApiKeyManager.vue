@@ -6,30 +6,37 @@
         </div>
         <div v-else>
             <div class="api-key-form mb-6">
-                <input v-model="newApiKey.name" placeholder="API Key Name" class="mr-2 p-2 border rounded" />
-                <input v-model="newApiKey.key_value" placeholder="API Key Value" class="mr-2 p-2 border rounded" />
-                <input v-model="newApiKey.description" placeholder="Description" class="mr-2 p-2 border rounded" />
-                <button @click="createApiKey"
-                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    Add API Key
+                <input v-model="newApiKey.key_value" placeholder="API Key Value"
+                    class="mr-2 p-2 border rounded dark:bg-gray-700 dark:text-white" />
+                <input v-model="newApiKey.description" placeholder="Description"
+                    class="mr-2 p-2 border rounded dark:bg-gray-700 dark:text-white" />
+                <button @click="createOrUpdateApiKey"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded dark:bg-blue-600 dark:hover:bg-blue-800">
+                    {{ editingApiKey ? 'Update' : 'Add' }} API Key
                 </button>
             </div>
             <ul v-if="apiKeys.length" class="api-key-list">
                 <li v-for="apiKey in apiKeys" :key="apiKey.id"
-                    class="api-key-item mb-2 p-2 border rounded flex justify-between items-center">
-                    <div>
-                        <span>{{ apiKey.name }}: {{ maskApiKey(apiKey.key_value) }}</span>
-                        <p class="text-sm text-gray-600">{{ apiKey.description }}</p>
+                    class="api-key-item mb-2 p-2 border rounded flex justify-between items-center dark:bg-gray-800 dark:text-white">
+                    <div class="flex-grow">
+                        <p>{{ apiKey.description }}</p>
                     </div>
-                    <button @click="confirmDelete(apiKey.id)"
-                        class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">
-                        Delete
-                    </button>
+                    <div class="flex">
+                        <button @click="editApiKey(apiKey)"
+                            class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mr-2 dark:bg-green-600 dark:hover:bg-green-800">
+                            Edit
+                        </button>
+                        <button @click="confirmDelete(apiKey.id)"
+                            class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded dark:bg-red-600 dark:hover:bg-red-800">
+                            Delete
+                        </button>
+                    </div>
                 </li>
             </ul>
-            <p v-else>No API keys found.</p>
+            <p v-else class="dark:text-white">No API keys found.</p>
         </div>
-        <div v-if="error" class="error-message mt-4 p-2 bg-red-100 text-red-700 rounded">
+        <div v-if="error"
+            class="error-message mt-4 p-2 bg-red-100 text-red-700 rounded dark:bg-red-900 dark:text-red-300">
             {{ error }}
         </div>
     </div>
@@ -37,19 +44,19 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import apiClient from '@/services/apiClient';
+import apiClient from '../services/apiClient';
 
 interface ApiKey {
     id: string;
-    name: string;
     key_value: string;
     description: string;
 }
 
 const apiKeys = ref<ApiKey[]>([]);
-const newApiKey = ref<{ name: string; key_value: string; description: string }>({ name: '', key_value: '', description: '' });
+const newApiKey = ref<{ key_value: string; description: string }>({ key_value: '', description: '' });
 const loading = ref(false);
 const error = ref('');
+const editingApiKey = ref<ApiKey | null>(null);
 
 const fetchApiKeys = async () => {
     loading.value = true;
@@ -65,19 +72,38 @@ const fetchApiKeys = async () => {
     }
 };
 
-const createApiKey = async () => {
+const createOrUpdateApiKey = async () => {
     loading.value = true;
     error.value = '';
     try {
-        await apiClient.createApiKey(newApiKey.value.name, newApiKey.value.key_value, newApiKey.value.description);
-        newApiKey.value = { name: '', key_value: '', description: '' };
+        if (editingApiKey.value) {
+            await apiClient.updateApiKey(
+                editingApiKey.value.id,
+                editingApiKey.value.key_value,
+                newApiKey.value.key_value,
+                newApiKey.value.description
+            );
+            editingApiKey.value = null;
+        } else {
+            await apiClient.createApiKey(
+                newApiKey.value.key_value,
+                newApiKey.value.key_value,
+                newApiKey.value.description
+            );
+        }
+        newApiKey.value = { key_value: '', description: '' };
         await fetchApiKeys();
     } catch (err) {
-        console.error('Error creating API key:', err);
-        error.value = 'Failed to create API key. Please try again.';
+        console.error('Error creating/updating API key:', err);
+        error.value = `Failed to ${editingApiKey.value ? 'update' : 'create'} API key. Please try again.`;
     } finally {
         loading.value = false;
     }
+};
+
+const editApiKey = (apiKey: ApiKey) => {
+    editingApiKey.value = { ...apiKey };
+    newApiKey.value = { key_value: apiKey.key_value, description: apiKey.description };
 };
 
 const confirmDelete = (id: string) => {
@@ -98,12 +124,6 @@ const deleteApiKey = async (id: string) => {
     } finally {
         loading.value = false;
     }
-};
-
-const maskApiKey = (key: string) => {
-    if (!key) return 'N/A';
-    if (key.length <= 8) return '*'.repeat(key.length);
-    return key.substring(0, 4) + '*'.repeat(key.length - 8) + key.substring(key.length - 4);
 };
 
 onMounted(fetchApiKeys);
