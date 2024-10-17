@@ -218,9 +218,13 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createLLMProvider({ commit }, { name, apiEndpoint }: { name: string; apiEndpoint: string }) {
+        async createLLMProvider({ commit, rootState }, { name, apiEndpoint }: { name: string; apiEndpoint: string }) {
             try {
-                const response = await apiClient.createLLMProvider(name, apiEndpoint);
+                const userId = rootState.auth.user?.user_id;
+                if (!userId) {
+                    throw new Error('User ID not found');
+                }
+                const response = await apiClient.createLLMProvider(name, apiEndpoint, userId);
                 const provider = response.data;
                 commit('addLLMProvider', provider);
                 return provider;

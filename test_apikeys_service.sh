@@ -175,7 +175,8 @@ create_and_test_api_key() {
     fi
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-    # Validate that the retrieved description is correct (verifying it's saved in the database)    if [ "$retrieved_description" = "$description" ]; then
+    # Validate that the retrieved description is correct (verifying it's saved in the database)    
+    if [ "$retrieved_description" = "$description" ]; then
         echo -e "\e[32m✓ PASS\e[0m Retrieved $name API key description is correct (verified in database)"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
@@ -202,7 +203,9 @@ create_and_test_api_key() {
     else
         echo -e "\e[31m✗ FAIL\e[0m Updated $name API key appears to be encrypted"
     fi
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))    if [ "$updated_description_response" = "$updated_description" ]; then
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))    
+    
+    if [ "$updated_description_response" = "$updated_description" ]; then
         echo -e "\e[32m✓ PASS\e[0m Updated $name API key description is correct (verified in database)"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
