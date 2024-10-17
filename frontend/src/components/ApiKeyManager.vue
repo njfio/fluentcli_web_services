@@ -79,14 +79,12 @@ const createOrUpdateApiKey = async () => {
         if (editingApiKey.value) {
             await apiClient.updateApiKey(
                 editingApiKey.value.id,
-                editingApiKey.value.key_value,
                 newApiKey.value.key_value,
                 newApiKey.value.description
             );
             editingApiKey.value = null;
         } else {
             await apiClient.createApiKey(
-                newApiKey.value.key_value,
                 newApiKey.value.key_value,
                 newApiKey.value.description
             );

@@ -116,20 +116,21 @@ interface ApiClient {
   getAttachments: (messageId: string) => Promise<AxiosResponse<any>>;
 
   // LLM routes
-  createLLMProvider: (name: string, apiEndpoint: string, userId: string) => Promise<AxiosResponse<any>>;
+  createLLMProvider: (name: string, apiEndpoint: string) => Promise<AxiosResponse<any>>;
   listLLMProviders: () => Promise<AxiosResponse<any>>;
   getLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
   deleteLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
-  createUserLLMConfig: (providerId: string, apiKey: string) => Promise<AxiosResponse<any>>;
-  getUserLLMConfig: (userId: string, providerId: string) => Promise<AxiosResponse<any>>;
+  createUserLLMConfig: (providerId: string, apiKeyId: string) => Promise<AxiosResponse<any>>;
+  getUserLLMConfig: (id: string) => Promise<AxiosResponse<any>>;
+  deleteUserLLMConfig: (id: string) => Promise<AxiosResponse<any>>;
   llmChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
   streamChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
 
   // API Key routes
-  createApiKey: (name: string, key_value: string, description: string) => Promise<AxiosResponse<any>>;
+  createApiKey: (key_value: string, description: string) => Promise<AxiosResponse<any>>;
   listApiKeys: () => Promise<AxiosResponse<any>>;
   getApiKey: (id: string) => Promise<AxiosResponse<any>>;
-  updateApiKey: (id: string, name: string, key_value: string, description: string) => Promise<AxiosResponse<any>>;
+  updateApiKey: (id: string, key_value: string, description: string) => Promise<AxiosResponse<any>>;
   deleteApiKey: (id: string) => Promise<AxiosResponse<any>>;
 }
 
@@ -200,20 +201,21 @@ const apiClient: ApiClient = {
   getAttachments: (messageId) => axiosInstance.get(`/chat/messages/${messageId}/attachments`),
 
   // LLM routes
-  createLLMProvider: (name, apiEndpoint, userId) => axiosInstance.post('/llm/providers', { name, api_endpoint: apiEndpoint, user_id: userId }),
+  createLLMProvider: (name, apiEndpoint) => axiosInstance.post('/chat/llm-providers', { name, api_endpoint: apiEndpoint }),
   listLLMProviders: () => axiosInstance.get('/llm/providers'),
-  getLLMProvider: (id) => axiosInstance.get(`/llm/providers/${id}`),
+  getLLMProvider: (id) => axiosInstance.get(`/chat/llm-providers/${id}`),
   deleteLLMProvider: (id) => axiosInstance.delete(`/llm/providers/${id}`),
-  createUserLLMConfig: (providerId, apiKey) => axiosInstance.post('/llm/user-configs', { provider_id: providerId, api_key: apiKey }),
-  getUserLLMConfig: (userId, providerId) => axiosInstance.get(`/llm/user-configs/${userId}/${providerId}`),
+  createUserLLMConfig: (providerId, apiKeyId) => axiosInstance.post('/chat/user-llm-configs', { provider_id: providerId, api_key_id: apiKeyId }),
+  getUserLLMConfig: (id) => axiosInstance.get(`/chat/user-llm-configs/${id}`),
+  deleteUserLLMConfig: (id) => axiosInstance.delete(`/chat/user-llm-configs/${id}`),
   llmChat: (providerId, messages) => axiosInstance.post('/llm/chat', { provider_id: providerId, messages }),
-  streamChat: (providerId, messages) => axiosInstance.get('/llm/stream_chat', { params: { provider_id: providerId, messages: JSON.stringify(messages) } }),
+  streamChat: (providerId, messages) => axiosInstance.get('/chat/stream', { params: { provider_id: providerId, messages: JSON.stringify(messages) } }),
 
   // API Key routes
-  createApiKey: (name, key_value, description) => axiosInstance.post('/api_keys', { name, key_value, description }),
+  createApiKey: (key_value, description) => axiosInstance.post('/api_keys', { key_value, description }),
   listApiKeys: () => axiosInstance.get('/api_keys'),
   getApiKey: (id) => axiosInstance.get(`/api_keys/${id}`),
-  updateApiKey: (id, name, key_value, description) => axiosInstance.put(`/api_keys/${id}`, { name, key_value, description }),
+  updateApiKey: (id, key_value, description) => axiosInstance.put(`/api_keys/${id}`, { key_value, description }),
   deleteApiKey: (id) => axiosInstance.delete(`/api_keys/${id}`),
 };
 

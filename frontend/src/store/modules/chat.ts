@@ -218,13 +218,9 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createLLMProvider({ commit, rootState }, { name, apiEndpoint }: { name: string; apiEndpoint: string }) {
+        async createLLMProvider({ commit }, { name, apiEndpoint }: { name: string; apiEndpoint: string }) {
             try {
-                const userId = rootState.auth.user?.user_id;
-                if (!userId) {
-                    throw new Error('User ID not found');
-                }
-                const response = await apiClient.createLLMProvider(name, apiEndpoint, userId);
+                const response = await apiClient.createLLMProvider(name, apiEndpoint);
                 const provider = response.data;
                 commit('addLLMProvider', provider);
                 return provider;
@@ -244,9 +240,9 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createUserLLMConfig({ commit }, { providerId, apiKey }: { providerId: string; apiKey: string }) {
+        async createUserLLMConfig({ commit }, { providerId, apiKeyId }: { providerId: string; apiKeyId: string }) {
             try {
-                const response = await apiClient.createUserLLMConfig(providerId, apiKey);
+                const response = await apiClient.createUserLLMConfig(providerId, apiKeyId);
                 const config = response.data;
                 commit('setUserLLMConfig', config);
                 return config;
@@ -255,9 +251,9 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async getUserLLMConfig({ commit }, { userId, providerId }: { userId: string; providerId: string }) {
+        async getUserLLMConfig({ commit }, id: string) {
             try {
-                const response = await apiClient.getUserLLMConfig(userId, providerId);
+                const response = await apiClient.getUserLLMConfig(id);
                 const config = response.data;
                 commit('setUserLLMConfig', config);
                 return config;
