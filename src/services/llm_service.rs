@@ -5,7 +5,7 @@ use crate::models::user_llm_config::UserLLMConfig;
 use crate::services::api_key_service::ApiKeyService;
 use crate::services::llm_providers::{
     anthropic::AnthropicProvider, cohere::CohereProvider, dalle::DalleProvider,
-    openai::OpenAIProvider,
+    openai::OpenAIProvider, perplexity::PerplexityProvider,
 };
 use futures::stream::{Stream, StreamExt};
 use log::{debug, error, warn};
@@ -16,6 +16,7 @@ use std::fmt;
 use std::pin::Pin;
 
 #[derive(Debug)]
+
 pub struct LLMServiceError(pub AppError);
 
 impl fmt::Display for LLMServiceError {
@@ -136,6 +137,7 @@ pub async fn chat(
     debug!("Chat function completed successfully");
     Ok(full_response)
 }
+
 pub async fn llm_stream_chat(
     pool: &DbPool,
     provider: &LLMProvider,
@@ -153,6 +155,7 @@ pub async fn llm_stream_chat(
             "claude" => Box::new(AnthropicProvider),
             "command" => Box::new(CohereProvider),
             "dalle" => Box::new(DalleProvider),
+            "perplexity" => Box::new(PerplexityProvider),
             _ => {
                 error!("Unsupported LLM provider: {}", provider.provider_type);
                 return Box::pin(futures::stream::once(async {

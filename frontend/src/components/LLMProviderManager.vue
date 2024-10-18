@@ -8,8 +8,15 @@
             <div class="llm-provider-form mb-6">
                 <input v-model="newProvider.name" placeholder="Provider Name"
                     class="mr-2 p-2 border rounded dark:bg-gray-700 dark:text-white" />
-                <input v-model="newProvider.providerType" placeholder="Provider Type"
-                    class="mr-2 p-2 border rounded dark:bg-gray-700 dark:text-white" />
+                <select v-model="newProvider.providerType" @change="updateProviderDefaults"
+                    class="mr-2 p-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <option value="">Select Provider Type</option>
+                    <option value="gpt">GPT</option>
+                    <option value="claude">Claude</option>
+                    <option value="command">Command</option>
+                    <option value="dalle">DALL-E</option>
+                    <option value="perplexity">Perplexity</option>
+                </select>
                 <input v-model="newProvider.apiEndpoint" placeholder="API Endpoint"
                     class="mr-2 p-2 border rounded dark:bg-gray-700 dark:text-white" />
                 <input v-model="newProvider.supportedModalities" placeholder="Supported Modalities (comma-separated)"
@@ -169,6 +176,18 @@ const deleteLLMProvider = async (id: string) => {
         error.value = 'Failed to delete LLM provider. Please try again.';
     } finally {
         loading.value = false;
+    }
+};
+
+const updateProviderDefaults = () => {
+    if (newProvider.value.providerType === 'perplexity') {
+        newProvider.value.apiEndpoint = 'https://api.perplexity.ai/chat/completions';
+        newProvider.value.supportedModalities = 'text';
+        newProvider.value.configuration = JSON.stringify({
+            model: 'mixtral-8x7b-instruct',
+            max_tokens: 1024,
+            temperature: 0.7
+        }, null, 2);
     }
 };
 
