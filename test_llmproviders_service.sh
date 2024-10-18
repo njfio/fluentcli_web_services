@@ -86,6 +86,65 @@ print_result() {
     fi
 }
 
+# Function to validate LLM provider fields
+validate_llm_provider() {
+    local provider_data=$1
+    local name=$2
+    local provider_type=$3
+    local api_endpoint=$4
+    local model=$5
+
+    echo "Validating LLM provider fields:"
+    
+    if [[ $provider_data == *"\"name\":\"$name\""* ]]; then
+        echo "✓ Name is correct"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "✗ Name is incorrect"
+    fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+    if [[ $provider_data == *"\"provider_type\":\"$provider_type\""* ]]; then
+        echo "✓ Provider type is correct"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "✗ Provider type is incorrect"
+    fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+    if [[ $provider_data == *"\"api_endpoint\":\"$api_endpoint\""* ]]; then
+        echo "✓ API endpoint is correct"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "✗ API endpoint is incorrect"
+    fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+    if [[ $provider_data == *"\"supported_modalities\":[\"text\"]"* ]]; then
+        echo "✓ Supported modalities are correct"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "✗ Supported modalities are incorrect"
+    fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+    if [[ $provider_data == *"\"model\":\"$model\""* ]]; then
+        echo "✓ Model is correct"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "✗ Model is incorrect"
+    fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+    if [[ $provider_data == *"\"max_tokens\":150"* ]]; then
+        echo "✓ Max tokens is correct"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "✗ Max tokens is incorrect"
+    fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+}
+
 # Generate a unique username
 TIMESTAMP=$(date +%s)
 USERNAME="llmuser_${TIMESTAMP}"
@@ -182,9 +241,15 @@ test_provider() {
         return
     fi
 
+    # Validate the created LLM provider
+    validate_llm_provider "$provider_response" "Test${name}Provider" "$provider_type" "https://api.${provider_type}.com/v1" "$model"
+
     # Get the created LLM provider
     echo "Getting the created $name LLM provider"
-    make_request GET "/llm/providers/$provider_id" "" "$token" "200"
+    get_provider_response=$(make_request GET "/llm/providers/$provider_id" "" "$token" "200")
+
+    # Validate the retrieved LLM provider
+    validate_llm_provider "$get_provider_response" "Test${name}Provider" "$provider_type" "https://api.${provider_type}.com/v1" "$model"
 
     # Test LLM chat
     echo "Testing $name LLM chat"
@@ -242,7 +307,7 @@ test_provider() {
         echo "Response: $delete_response"
         echo "API Key ID: $api_key_id"
         echo "Attempting to retrieve the API key to check its status..."
-        make_request GET "/api_keys/$api_key_id" "" "$token" "200"
+        make_request GET "/api_keys/$api_key_id" "" "$token" "404"
     else
         # Verify the API key was deleted
         echo "Verifying the $name API key was deleted"

@@ -49,6 +49,21 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+interface LLMProviderData {
+  name: string;
+  provider_type: string;
+  api_endpoint: string;
+  supported_modalities: string[];
+  configuration: any;
+}
+
+interface UserLLMConfigData {
+  user_id: string;
+  provider_id: string;
+  api_key_id: string;
+}
+
 interface ApiClient {
   // User routes
   validateToken: () => Promise<AxiosResponse<any>>;
@@ -115,14 +130,21 @@ interface ApiClient {
   createAttachment: (messageId: string, fileType: string, filePath: string) => Promise<AxiosResponse<any>>;
   getAttachments: (messageId: string) => Promise<AxiosResponse<any>>;
 
-  // LLM routes
-  createLLMProvider: (name: string, apiEndpoint: string) => Promise<AxiosResponse<any>>;
+  // LLM Provider routes
+  createLLMProvider: (providerData: LLMProviderData) => Promise<AxiosResponse<any>>;
+  updateLLMProvider: (id: string, providerData: LLMProviderData) => Promise<AxiosResponse<any>>;
   listLLMProviders: () => Promise<AxiosResponse<any>>;
   getLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
   deleteLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
-  createUserLLMConfig: (providerId: string, apiKeyId: string) => Promise<AxiosResponse<any>>;
+
+  // User LLM Config routes
+  createUserLLMConfig: (configData: UserLLMConfigData) => Promise<AxiosResponse<any>>;
+  updateUserLLMConfig: (id: string, configData: UserLLMConfigData) => Promise<AxiosResponse<any>>;
+  listUserLLMConfigs: () => Promise<AxiosResponse<any>>;
   getUserLLMConfig: (id: string) => Promise<AxiosResponse<any>>;
   deleteUserLLMConfig: (id: string) => Promise<AxiosResponse<any>>;
+
+  // LLM Chat routes
   llmChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
   streamChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
 
@@ -200,14 +222,21 @@ const apiClient: ApiClient = {
   createAttachment: (messageId, fileType, filePath) => axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),
   getAttachments: (messageId) => axiosInstance.get(`/chat/messages/${messageId}/attachments`),
 
-  // LLM routes
-  createLLMProvider: (name, apiEndpoint) => axiosInstance.post('/chat/llm-providers', { name, api_endpoint: apiEndpoint }),
+  // LLM Provider routes
+  createLLMProvider: (providerData) => axiosInstance.post('/llm/providers', providerData),
+  updateLLMProvider: (id, providerData) => axiosInstance.put(`/llm/providers/${id}`, providerData),
   listLLMProviders: () => axiosInstance.get('/llm/providers'),
-  getLLMProvider: (id) => axiosInstance.get(`/chat/llm-providers/${id}`),
+  getLLMProvider: (id) => axiosInstance.get(`/llm/providers/${id}`),
   deleteLLMProvider: (id) => axiosInstance.delete(`/llm/providers/${id}`),
-  createUserLLMConfig: (providerId, apiKeyId) => axiosInstance.post('/chat/user-llm-configs', { provider_id: providerId, api_key_id: apiKeyId }),
-  getUserLLMConfig: (id) => axiosInstance.get(`/chat/user-llm-configs/${id}`),
-  deleteUserLLMConfig: (id) => axiosInstance.delete(`/chat/user-llm-configs/${id}`),
+
+  // User LLM Config routes
+  createUserLLMConfig: (configData) => axiosInstance.post('/llm/user-configs', configData),
+  updateUserLLMConfig: (id, configData) => axiosInstance.put(`/llm/user-configs/${id}`, configData),
+  listUserLLMConfigs: () => axiosInstance.get('/llm/user-configs'),
+  getUserLLMConfig: (id) => axiosInstance.get(`/llm/user-configs/${id}`),
+  deleteUserLLMConfig: (id) => axiosInstance.delete(`/llm/user-configs/${id}`),
+
+  // LLM Chat routes
   llmChat: (providerId, messages) => axiosInstance.post('/llm/chat', { provider_id: providerId, messages }),
   streamChat: (providerId, messages) => axiosInstance.get('/chat/stream', { params: { provider_id: providerId, messages: JSON.stringify(messages) } }),
 

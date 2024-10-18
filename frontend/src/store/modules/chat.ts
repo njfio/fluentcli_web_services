@@ -3,7 +3,6 @@ import { RootState } from '../types';
 import apiClient from '../../services/apiClient';
 import { AxiosError } from 'axios';
 
-
 export interface Conversation {
     id: string;
     title: string;
@@ -31,7 +30,10 @@ export interface Attachment {
 export interface LLMProvider {
     id: string;
     name: string;
+    providerType: string;
     apiEndpoint: string;
+    supportedModalities: string[];
+    configuration: any;
 }
 
 export interface UserLLMConfig {
@@ -49,6 +51,7 @@ export interface ChatState {
     llmProviders: LLMProvider[];
     userLLMConfig: UserLLMConfig | null;
 }
+
 const chatModule: Module<ChatState, RootState> = {
     namespaced: true,
     state: {
@@ -157,7 +160,6 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-
         async getConversation({ commit }, id: string) {
             try {
                 const response = await apiClient.getConversation(id);
@@ -218,9 +220,16 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createLLMProvider({ commit }, { name, apiEndpoint }: { name: string; apiEndpoint: string }) {
+        async createLLMProvider({ commit }, { name, providerType, apiEndpoint, supportedModalities, configuration }: { name: string; providerType: string; apiEndpoint: string; supportedModalities: string[]; configuration: any }) {
             try {
-                const response = await apiClient.createLLMProvider(name, apiEndpoint);
+                const providerData = {
+                    name,
+                    provider_type: providerType,
+                    api_endpoint: apiEndpoint,
+                    supported_modalities: supportedModalities,
+                    configuration,
+                };
+                const response = await apiClient.createLLMProvider(providerData);
                 const provider = response.data;
                 commit('addLLMProvider', provider);
                 return provider;
@@ -240,9 +249,14 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createUserLLMConfig({ commit }, { providerId, apiKeyId }: { providerId: string; apiKeyId: string }) {
+        async createUserLLMConfig({ commit, rootState }, { providerId, apiKeyId }: { providerId: string; apiKeyId: string }) {
             try {
-                const response = await apiClient.createUserLLMConfig(providerId, apiKeyId);
+                const userId = rootState.auth.user?.user_id;
+                if (!userId) {
+                    throw new Error('User ID not found');
+                }
+                const configData = { user_id: userId, provider_id: providerId, api_key_id: apiKeyId };
+                const response = await apiClient.createUserLLMConfig(configData);
                 const config = response.data;
                 commit('setUserLLMConfig', config);
                 return config;
@@ -263,7 +277,6 @@ const chatModule: Module<ChatState, RootState> = {
             }
         },
     },
-
     getters: {
         getConversationById: (state) => (id: string) => {
             return state.conversations.find(conversation => conversation.id === id);

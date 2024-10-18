@@ -1,10 +1,11 @@
 use crate::handlers::chat::{
-    create_attachment, create_conversation, create_llm_provider as chat_create_llm_provider,
-    create_message, delete_conversation, get_attachments, get_conversation,
-    get_llm_provider as chat_get_llm_provider, get_messages, list_conversations,
+    create_attachment, create_conversation, create_message, delete_conversation, get_attachments,
+    get_conversation, get_messages, list_conversations,
 };
 use crate::handlers::llm_provider::{
-    create_user_llm_config, delete_llm_provider, delete_user_llm_config, get_user_llm_config,
+    create_llm_provider, create_user_llm_config, delete_llm_provider, delete_user_llm_config,
+    get_llm_provider, get_user_llm_config, list_user_llm_configs, update_llm_provider,
+    update_user_llm_config,
 };
 use crate::handlers::{
     amber_store, api_key, configuration, docker_file, fluentcli, job, llm, pipeline, secure_vault,
@@ -128,24 +129,25 @@ pub fn configure_routes() -> Scope {
                 .route("/conversations/{id}/messages", web::get().to(get_messages))
                 .route("/attachments", web::post().to(create_attachment))
                 .route("/messages/{id}/attachments", web::get().to(get_attachments))
-                .route("/llm-providers", web::post().to(chat_create_llm_provider))
-                .route("/llm-providers/{id}", web::get().to(chat_get_llm_provider))
-                .route("/user-llm-configs", web::post().to(create_user_llm_config))
-                .route("/user-llm-configs/{id}", web::get().to(get_user_llm_config))
-                .route(
-                    "/user-llm-configs/{id}",
-                    web::delete().to(delete_user_llm_config),
-                )
                 .route("/stream", web::get().to(stream_chat::stream_chat)),
         )
         .service(
             web::scope("/llm")
                 .wrap(Auth)
-                .route("/providers", web::post().to(llm::create_llm_provider))
+                .route("/providers", web::post().to(create_llm_provider))
                 .route("/providers", web::get().to(llm::get_llm_providers))
-                .route("/providers/{id}", web::get().to(llm::get_llm_provider))
+                .route("/providers/{id}", web::get().to(get_llm_provider))
+                .route("/providers/{id}", web::put().to(update_llm_provider))
                 .route("/providers/{id}", web::delete().to(delete_llm_provider))
                 .route("/chat", web::post().to(llm::llm_chat))
-                .route("/stream_chat", web::get().to(llm::llm_stream_chat)),
+                .route("/stream_chat", web::get().to(llm::llm_stream_chat))
+                .route("/user-configs", web::post().to(create_user_llm_config))
+                .route("/user-configs", web::get().to(list_user_llm_configs))
+                .route("/user-configs/{id}", web::get().to(get_user_llm_config))
+                .route("/user-configs/{id}", web::put().to(update_user_llm_config))
+                .route(
+                    "/user-configs/{id}",
+                    web::delete().to(delete_user_llm_config),
+                ),
         )
 }

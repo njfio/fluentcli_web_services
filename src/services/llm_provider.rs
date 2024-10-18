@@ -38,6 +38,7 @@ impl LLMProviderService {
             .get_result(conn)
             .map_err(AppError::DatabaseError)
     }
+
     pub fn delete_llm_provider(pool: &DbPool, provider_id: Uuid) -> Result<usize, AppError> {
         let conn = &mut pool.get().unwrap();
         conn.transaction(|conn| {
@@ -75,6 +76,17 @@ impl LLMProviderService {
             .find(config_id)
             .first(conn)
             .optional()
+            .map_err(AppError::DatabaseError)
+    }
+
+    pub fn list_user_llm_configs(
+        pool: &DbPool,
+        user_id: Uuid,
+    ) -> Result<Vec<UserLLMConfig>, AppError> {
+        let conn = &mut pool.get().unwrap();
+        user_llm_configs::table
+            .filter(user_llm_configs::user_id.eq(user_id))
+            .load::<UserLLMConfig>(conn)
             .map_err(AppError::DatabaseError)
     }
 

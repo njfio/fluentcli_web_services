@@ -156,6 +156,19 @@ pub async fn get_user_llm_config(
     }
 }
 
+pub async fn list_user_llm_configs(
+    pool: web::Data<DbPool>,
+    user_id: web::ReqData<Uuid>,
+) -> Result<impl Responder, AppError> {
+    let user_id = *user_id;
+    let configs = web::block(move || LLMProviderService::list_user_llm_configs(&pool, user_id))
+        .await
+        .map_err(|e| AppError::InternalServerError)?
+        .map_err(|e| e)?;
+
+    Ok(HttpResponse::Ok().json(configs))
+}
+
 pub async fn update_user_llm_config(
     pool: web::Data<DbPool>,
     config_id: web::Path<Uuid>,
