@@ -110,61 +110,90 @@ export default defineComponent({
 });
 </script>
 
-<style scoped>
+<style>
 .markdown-body {
-    @apply text-sm;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
-.markdown-body :deep(h1) {
-    @apply text-2xl font-bold mb-2;
+.markdown-body h1 {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
 }
 
-.markdown-body :deep(h2) {
-    @apply text-xl font-bold mb-2;
+.markdown-body h2 {
+    font-size: 1.25rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
 }
 
-.markdown-body :deep(h3) {
-    @apply text-lg font-bold mb-1;
+.markdown-body h3 {
+    font-size: 1.125rem;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
 }
 
-.markdown-body :deep(ul) {
-    @apply list-disc list-inside mb-2;
+.markdown-body ul {
+    list-style-type: disc;
+    list-style-position: inside;
+    margin-bottom: 0.5rem;
 }
 
-.markdown-body :deep(ol) {
-    @apply list-decimal list-inside mb-2;
+.markdown-body ol {
+    list-style-type: decimal;
+    list-style-position: inside;
+    margin-bottom: 0.5rem;
 }
 
-.markdown-body :deep(pre) {
-    @apply bg-gray-100 dark:bg-gray-700 p-2 rounded mb-2 overflow-x-auto;
+.markdown-body pre {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    overflow-x: auto;
 }
 
-.markdown-body :deep(code) {
-    @apply font-mono text-sm bg-gray-100 dark:bg-gray-700 p-1 rounded;
+.markdown-body code {
+    font-family: monospace;
+    font-size: 0.875rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
 }
 
-.markdown-body :deep(p) {
-    @apply mb-2;
+.markdown-body p {
+    margin-bottom: 0.5rem;
 }
 
-.markdown-body :deep(a) {
-    @apply text-blue-600 dark:text-blue-400 underline;
+.markdown-body a {
+    color: #3b82f6;
+    text-decoration: underline;
 }
 
-.markdown-body :deep(blockquote) {
-    @apply border-l-4 border-gray-300 dark:border-gray-600 pl-2 italic my-2;
+.markdown-body blockquote {
+    border-left-width: 4px;
+    border-color: #4b5563;
+    padding-left: 0.5rem;
+    font-style: italic;
+    margin: 0.5rem 0;
 }
 
-.markdown-body :deep(table) {
-    @apply border-collapse border border-gray-300 dark:border-gray-600 my-2;
+.markdown-body table {
+    border-collapse: collapse;
+    border: 1px solid #4b5563;
+    margin: 0.5rem 0;
 }
 
-.markdown-body :deep(th),
-.markdown-body :deep(td) {
-    @apply border border-gray-300 dark:border-gray-600 p-1;
+.markdown-body th,
+.markdown-body td {
+    border: 1px solid #4b5563;
+    padding: 0.25rem;
 }
 
-.markdown-body :deep(img) {
-    @apply max-w-full h-auto my-2;
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
+    margin: 0.5rem 0;
 }
 </style>
