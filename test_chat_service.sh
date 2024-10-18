@@ -39,7 +39,7 @@ make_request() {
     echo "$response"
     
     status_code=$(echo "$response" | tail -n 1)
-    body=$(echo "$response" | sed '$d' | sed -n '/^{/,/^}/p' | tr -d '\n')
+    body=$(echo "$response" | sed '$d')
     
     echo -e "\n==== Parsed Response ===="
     echo "Status code: $status_code"
@@ -70,13 +70,12 @@ print_result() {
     fi
 }
 
-# Generate a unique email
 TIMESTAMP=$(date +%s)
-EMAIL="chatuser_${TIMESTAMP}@example.com"
+USERNAME="chatuser_${TIMESTAMP}"
 
 # Create a new user
 echo "Creating a new user"
-user_response=$(make_request POST "/users" '{"username": "chatuser_'"$TIMESTAMP"'", "email": "'"$EMAIL"'", "password": "chatpass"}' "" "201")
+user_response=$(make_request POST "/users" '{"username": "'"$USERNAME"'", "email": "'"$USERNAME@example.com"'", "password": "chatpass"}' "" "201")
 user_id=$(echo "$user_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "User ID: $user_id"
 
@@ -87,7 +86,7 @@ fi
 
 # Login with the new user
 echo "Logging in with the new user"
-login_response=$(make_request POST "/users/login" '{"username": "chatuser_'"$TIMESTAMP"'", "password": "chatpass"}' "" "200")
+login_response=$(make_request POST "/users/login" '{"username": "'"$USERNAME"'", "password": "chatpass"}' "" "200")
 token=$(echo "$login_response" | grep -o '"token":"[^"]*' | cut -d'"' -f4 | head -n 1)
 echo "Token: $token"
 
@@ -96,130 +95,158 @@ if [ -z "$token" ]; then
     exit 1
 fi
 
-# Create a new conversation
-echo "Creating a new conversation"
-conversation_response=$(make_request POST "/chat/conversations" '{"title": "Test Conversation"}' "$token" "201")
-conversation_id=$(echo "$conversation_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
-echo "Conversation ID: $conversation_id"
+create_and_test_llm_provider() {
+    local name=$1
+    local provider_type=$2
+    local api_endpoint=$3
+    local model=$4
 
-if [ -z "$conversation_id" ]; then
-    echo "Failed to create conversation. Exiting."
-    exit 1
-fi
+    # Get the API key from the environment variable
+    case $name in
+        "OpenAI")
+            api_key="$AMBER_FLUENT_OPENAI_API_KEY"
+            ;;
+        "Anthropic")
+            api_key="$AMBER_FLUENT_ANTHROPIC_KEY_01"
+            ;;
+        "Cohere")
+            api_key="$AMBER_FLUENT_COHERE_API_KEY_01"
+            ;;
+        *)
+            echo "Unknown provider $name. Skipping."
+            return
+            ;;
+    esac
 
-# Get the created conversation
-echo "Getting the created conversation"
-make_request GET "/chat/conversations/$conversation_id" "" "$token" "200"
+    echo "***API key for $name: $api_key"
+    if [ -z "$api_key" ]; then
+        echo "API key for $name is not set. Skipping tests."
+        return
+    fi
 
-# Create a new message in the conversation
-echo "Creating a new message"
-message_response=$(make_request POST "/chat/messages" '{"conversation_id": "'"$conversation_id"'", "role": "user", "content": "Hello, this is a test message"}' "$token" "201")
-message_id=$(echo "$message_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
-echo "Message ID: $message_id"
-
-if [ -z "$message_id" ]; then
-    echo "Failed to create message. Exiting."
-    exit 1
-fi
-
-# Get messages for the conversation
-echo "Getting messages for the conversation"
-make_request GET "/chat/conversations/$conversation_id/messages" "" "$token" "200"
-
-# Create an attachment for the message
-echo "Creating an attachment"
-make_request POST "/chat/attachments" '{"message_id": "'"$message_id"'", "file_type": "text", "file_path": "/path/to/test/file.txt"}' "$token" "201"
-
-# Get attachments for the message
-echo "Getting attachments for the message"
-make_request GET "/chat/messages/$message_id/attachments" "" "$token" "200"
-
-# Create an LLM provider
-echo "Creating an LLM provider"
-provider_response=$(make_request POST "/chat/llm-providers" '{"name": "OpenAI", "api_endpoint": "https://api.openai.com/v1/chat/completions"}' "$token" "201")
-provider_id=$(echo "$provider_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
-echo "Provider ID: $provider_id"
-
-if [ -z "$provider_id" ]; then
-    echo "Failed to create LLM provider. Exiting."
-    exit 1
-fi
-
-# Get the created LLM provider
-echo "Getting the created LLM provider"
-make_request GET "/chat/llm-providers/$provider_id" "" "$token" "200"
-
-# Create a user LLM config
-echo "Creating a user LLM config"
-llm_config_response=$(make_request POST "/chat/user-llm-configs" '{"provider_id": "'"$provider_id"'", "api_key": "test_api_key"}' "$token" "201")
-llm_config_id=$(echo "$llm_config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
-echo "LLM Config ID: $llm_config_id"
-
-if [ -z "$llm_config_id" ]; then
-    echo "Failed to create user LLM config. Exiting."
-    exit 1
-fi
-
-# Get the user LLM config
-echo "Getting the user LLM config"
-echo "Debug: user_id=$user_id, provider_id=$provider_id, llm_config_id=$llm_config_id"
-make_request GET "/chat/user-llm-configs/$user_id/$provider_id" "" "$token" "200"
-
-
-test_llm_service_openai() {
-    echo "Testing LLM Service with OpenAI provider..."
-
-    echo "OpenAI Provider ID: $provider_id"
-
-    # Test chat endpoint with OpenAI
-    chat_response=$(make_request POST "/chat/messages" '{
-        "conversation_id": "'"$conversation_id"'",
-        "role": "user",
-        "content": "What is the capital of France?",
-        "provider_id": "'"$provider_id"'"
+    # Create a new API key entry in the system
+    echo "Creating a new API key entry for $name"
+    api_key_response=$(make_request POST "/api_keys" '{
+        "key_value": "'"$api_key"'",
+        "description": "Test '"$name"' API Key"
     }' "$token" "201")
+    api_key_id=$(echo "$api_key_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    echo "$name API Key ID (system identifier): $api_key_id"
 
-    # Wait for 5 seconds to allow time for processing
-    sleep 5
+    if [ -z "$api_key_id" ]; then
+        echo "Failed to create API key entry for $name. Skipping tests."
+        return
+    fi
 
-    # Get the latest message in the conversation
-    latest_message_response=$(make_request GET "/chat/conversations/$conversation_id/messages" "" "$token" "200")
-    assistant_message=$(echo "$latest_message_response" | grep -o '"content":"[^"]*' | cut -d'"' -f4 | tail -n 1)
-    echo -e "\n==== Assistant Response ===="
-    echo "Latest message response: $latest_message_response"
-    echo "Assistant response: $assistant_message"
+    echo "Creating $name LLM provider"
+    provider_response=$(make_request POST "/llm/providers" '{
+        "user_id": "'"$user_id"'",
+        "name": "'"$name"'",
+        "provider_type": "'"$provider_type"'",
+        "api_endpoint": "'"$api_endpoint"'",
+        "supported_modalities": ["text"],
+        "configuration": {
+            "model": "'"$model"'",
+            "max_tokens": 150
+        }
+    }' "$token" "201")
+    echo "Provider creation response: $provider_response"
+    provider_id=$(echo "$provider_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    echo "$name Provider ID: $provider_id"
 
-    if [[ $assistant_message == *"Paris"* ]]; then
-        echo "LLM Service test passed: Response contains 'Paris'"
+    if [ -z "$provider_id" ]; then
+        echo "Failed to create $name LLM provider. Skipping tests."
+        return
+    fi
+
+    # Get the created LLM provider
+    echo "Getting the created $name LLM provider"
+    make_request GET "/llm/providers/$provider_id" "" "$token" "200"
+
+    # Create a user LLM config
+    echo "Creating a user LLM config for $name"
+    llm_config_response=$(make_request POST "/llm/user-configs" '{
+        "user_id": "'"$user_id"'",
+        "provider_id": "'"$provider_id"'",
+        "api_key_id": "'"$api_key_id"'"
+    }' "$token" "201")
+    echo "User LLM Config creation response: $llm_config_response"
+    llm_config_id=$(echo "$llm_config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    echo "$name LLM Config ID: $llm_config_id"
+
+    if [ -z "$llm_config_id" ]; then
+        echo "Failed to create user LLM config for $name. Skipping tests."
+        return
+    fi
+
+    # Create a new conversation for this LLM provider test
+    echo "Creating a new conversation for $name LLM test"
+    conversation_response=$(make_request POST "/chat/conversations" '{"title": "Test Conversation for '"$name"'"}' "$token" "201")
+    conversation_id=$(echo "$conversation_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
+    echo "$name Test Conversation ID: $conversation_id"
+
+    if [ -z "$conversation_id" ]; then
+        echo "Failed to create conversation for $name. Skipping test."
+        return
+    fi
+
+    # Test LLM chat
+    echo "Testing $name LLM chat"
+    chat_response=$(curl -s -N -X POST "$BASE_URL/llm/chat" \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "user_llm_config_id": "'"$llm_config_id"'",
+            "conversation_id": "'"$conversation_id"'",
+            "messages": [
+                {"role": "user", "content": "What is the capital of France?"}
+            ]
+        }')
+
+    echo "Chat response:"
+    echo "$chat_response"
+
+    # Check if the response contains "Paris"
+    if echo "$chat_response" | grep -q "Paris"; then
+        echo "$name LLM Service test passed: Response contains 'Paris'"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
-        echo "LLM Service test failed: Response does not contain 'Paris'"
-        echo "Response: $assistant_message"
+        echo "$name LLM Service test failed: Response does not contain 'Paris'"
     fi
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-    echo "LLM Service test completed"
+    # Add a small delay to ensure the message is saved
+    sleep 2
+
+    # Check if the LLM response was saved to the database
+    echo "Checking if $name LLM response was saved to the database"
+    messages_response=$(make_request GET "/chat/conversations/$conversation_id/messages" "" "$token" "200")
+    echo "Messages in the conversation:"
+    echo "$messages_response"
+
+    # Parse the messages response and check for the assistant message
+    if echo "$messages_response" | grep -q '"role":"assistant"' && echo "$messages_response" | grep -q '"content":".*Paris.*"'; then
+        echo "$name Database write test passed: LLM response found in the conversation messages"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "$name Database write test failed: LLM response not found in the conversation messages"
+    fi
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
 }
 
-# Call the new function
-test_llm_service_openai
+# Test OpenAI provider
+create_and_test_llm_provider "OpenAI" "gpt" "https://api.openai.com/v1/chat/completions" "gpt-4o-mini"
 
-# Print test summary
-echo "Total tests: $TOTAL_TESTS"
-echo "Passed tests: $PASSED_TESTS"
-echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"
+# Test Anthropic provider
+create_and_test_llm_provider "Anthropic" "claude" "https://api.anthropic.com/v1/complete" "claude-3-haiku-20240307"
 
-if [ $PASSED_TESTS -eq $TOTAL_TESTS ]; then
-    echo -e "\e[32mAll tests passed!\e[0m"
-    exit 0
-else
-    echo -e "\e[31mSome tests failed.\e[0m"
-    exit 1
-fi
+# Test Cohere provider
+create_and_test_llm_provider "Cohere" "command" "https://api.cohere.ai/v1/chat" "command"
 
-
-# Print test summary
+# Print final test results
+echo -e "\n==== Test Results ===="
 echo "Total tests: $TOTAL_TESTS"
 echo "Passed tests: $PASSED_TESTS"
 echo "Failed tests: $((TOTAL_TESTS - PASSED_TESTS))"

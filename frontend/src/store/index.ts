@@ -2,33 +2,57 @@ import { createStore } from 'vuex';
 import studioModule from './modules/studio';
 import themeModule from './modules/theme';
 import chatModule from './modules/chat';
+import { RootState, User } from './types';
 
-export default createStore({
+export default createStore<RootState>({
   state: {
-    isLoggedIn: false,
-    user: null,
+    auth: {
+      user: null,
+      isAuthenticated: false,
+    },
+    chat: {
+      isExpanded: false,
+      isSidebarOpen: true,
+    },
   },
   mutations: {
-    setLoggedIn(state, value: boolean) {
-      state.isLoggedIn = value;
+    setUser(state, user: User | null) {
+      console.log('setUser mutation called with user:', user);
+      state.auth.user = user;
+      state.auth.isAuthenticated = !!user;
+      console.log('New auth state:', state.auth);
     },
-    setUser(state, user: any) {
-      state.user = user;
+    setLoggedIn(state, value: boolean) {
+      console.log('setLoggedIn mutation called with value:', value);
+      state.auth.isAuthenticated = value;
+      console.log('New auth state:', state.auth);
     },
   },
   actions: {
-    login({ commit }, { user }) {
-      commit('setLoggedIn', true);
+    login({ commit }, { user }: { user: User }) {
+      console.log('login action called with user:', user);
       commit('setUser', user);
+      commit('setLoggedIn', true);
     },
     logout({ commit }) {
-      commit('setLoggedIn', false);
+      console.log('logout action called');
       commit('setUser', null);
+      commit('setLoggedIn', false);
     },
   },
   getters: {
-    isLoggedIn: (state) => state.isLoggedIn,
-    user: (state) => state.user,
+    isAuthenticated: (state) => {
+      console.log('isAuthenticated getter called, returning:', state.auth.isAuthenticated);
+      return state.auth.isAuthenticated;
+    },
+    user: (state) => {
+      console.log('user getter called, returning:', state.auth.user);
+      return state.auth.user;
+    },
+    userId: (state) => {
+      console.log('userId getter called, returning:', state.auth.user?.user_id);
+      return state.auth.user?.user_id;
+    },
   },
   modules: {
     studio: studioModule,

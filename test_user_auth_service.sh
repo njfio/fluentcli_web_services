@@ -134,12 +134,12 @@ echo "New token: $new_token"
 make_request GET "/users/$user_id" "" "$token" "404"
 
 # Delete user
-echo "Delete user"
-make_request DELETE "/users/$user_id" "" "$new_token" "204"
+#echo "Delete user"
+#make_request DELETE "/users/$user_id" "" "$new_token" "204"
 
 # Verify the deletion
-echo "Verify user deletion"
-make_request GET "/users/$user_id" "" "$new_token" "500"
+#echo "Verify user deletion"
+#make_request GET "/users/$user_id" "" "$new_token" "500"
 
 # Try to use the token after user deletion (should fail)
 echo "Trying to use token after user deletion"

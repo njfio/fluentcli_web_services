@@ -6,53 +6,73 @@ export interface LLMProvider {
     apiEndpoint: string;
 }
 
+export interface UserLLMConfig {
+    id: string;
+    name?: string;
+    user_id: string;
+    provider_id: string;
+    api_key_id: string;
+}
+
 export interface LLMMessage {
     role: 'system' | 'user' | 'assistant';
     content: string;
 }
 
 class LLMService {
-    async getProviders(): Promise<LLMProvider[]> {
-        const response = await axiosInstance.get('/llm/providers');
+    async getUserLLMConfigs(): Promise<UserLLMConfig[]> {
+        const response = await axiosInstance.get('/llm/user-configs');
         return response.data;
     }
 
-    async chat(providerId: string, messages: LLMMessage[]): Promise<string> {
+    async getUserLLMConfig(configId: string): Promise<UserLLMConfig> {
+        const response = await axiosInstance.get(`/llm/user-configs/${configId}`);
+        return response.data;
+    }
+
+    async chat(userLLMConfigId: string, messages: LLMMessage[]): Promise<string> {
         const response = await axiosInstance.post('/llm/chat', {
-            provider_id: providerId,
+            user_llm_config_id: userLLMConfigId,
             messages,
         });
         return response.data.message;
     }
 
-    async streamChat(providerId: string, messages: LLMMessage[]): Promise<ReadableStream<Uint8Array>> {
-        const url = new URL('/llm/stream-chat', axiosInstance.defaults.baseURL);
+    async streamChat(userLLMConfigId: string, conversationId: string, messages: LLMMessage[]): Promise<ReadableStream<Uint8Array>> {
+        const userLLMConfig = await this.getUserLLMConfig(userLLMConfigId);
+        console.log('User LLM Config:', JSON.stringify(userLLMConfig, null, 2));
+
+        if (!userLLMConfig.provider_id) {
+            console.error('Provider ID is missing from the user LLM config');
+            throw new Error('Provider ID is missing from the user LLM config');
+        }
+
+        const url = new URL('/llm/stream_chat', axiosInstance.defaults.baseURL);
 
         // Filter out invalid messages
         const validMessages = messages.filter(msg => msg && msg.role && msg.content);
 
-        const requestBody = {
-            provider_id: providerId,
-            messages: validMessages,
-        };
+        // Add query parameters
+        url.searchParams.append('user_llm_config_id', userLLMConfigId);
+        url.searchParams.append('provider_id', userLLMConfig.provider_id);
+        url.searchParams.append('conversation_id', conversationId);
+        url.searchParams.append('messages', JSON.stringify(validMessages));
 
-        console.log('Request body:', JSON.stringify(requestBody, null, 2));
-        console.log('Valid Messages:', JSON.stringify(validMessages, null, 2));
+        console.log('LLMService streamChat - Request URL:', url.toString());
+        console.log('LLMService streamChat - Valid Messages:', JSON.stringify(validMessages, null, 2));
 
         const response = await fetch(url.toString(), {
-            method: 'POST',
+            method: 'GET',
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
             },
-            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Error response:', errorText);
-            console.error('Response status:', response.status);
-            console.error('Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+            console.error('LLMService streamChat - Error response:', errorText);
+            console.error('LLMService streamChat - Response status:', response.status);
+            console.error('LLMService streamChat - Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
             throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
 
@@ -60,36 +80,11 @@ class LLMService {
             throw new Error('No response body');
         }
 
-        // Create a TransformStream to handle the response and remove duplicates
+        // Create a TransformStream to handle the response
         const transformStream = new TransformStream({
             transform: (chunk, controller) => {
                 const text = new TextDecoder().decode(chunk);
-                const lines = text.split('\n');
-                let buffer = '';
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const jsonStr = line.slice(6).trim();
-                        if (jsonStr === '[DONE]') {
-                            controller.enqueue(new TextEncoder().encode(line + '\n'));
-                            continue;
-                        }
-                        buffer += jsonStr;
-                        try {
-                            const parsedChunk = JSON.parse(buffer);
-                            console.log('Parsed chunk:', parsedChunk);
-                            if (parsedChunk.choices && parsedChunk.choices[0].delta.content) {
-                                controller.enqueue(new TextEncoder().encode(line + '\n'));
-                            }
-                            buffer = '';
-                        } catch (e) {
-                            // If parsing fails, it might be an incomplete chunk. We'll keep it in the buffer.
-                            console.log('Incomplete chunk, buffering:', buffer);
-                        }
-                    } else {
-                        controller.enqueue(new TextEncoder().encode(line + '\n'));
-                    }
-                }
+                controller.enqueue(new TextEncoder().encode(text));
             }
         });
 

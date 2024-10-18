@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 diesel = { version = "2.1.0", features = ["postgres", "r2d2", "uuid", "chrono", "serde_json"] }
+diesel-async = { version = "0.4.1", features = ["postgres"] }
 diesel_migrations = { version = "2.1.0", features = ["postgres"] }
 dotenv = "0.15.0"
 uuid = { version = "1.4.1", features = ["serde", "v4"] }

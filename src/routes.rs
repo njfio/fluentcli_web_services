@@ -1,13 +1,21 @@
+use crate::handlers::chat::{
+    create_attachment, create_conversation, create_message, delete_conversation, get_attachments,
+    get_conversation, get_messages, list_conversations,
+};
+use crate::handlers::llm_provider::{
+    create_llm_provider, create_user_llm_config, delete_llm_provider, delete_user_llm_config,
+    get_llm_provider, get_user_llm_config, list_user_llm_configs, update_llm_provider,
+    update_user_llm_config,
+};
 use crate::handlers::{
-    amber_store, api_key, chat, configuration, docker_file, fluentcli, job, llm, pipeline,
-    secure_vault, stream_chat, user, worker,
+    amber_store, api_key, configuration, docker_file, fluentcli, job, llm, pipeline, secure_vault,
+    stream_chat, user, worker,
 };
 use crate::utils::auth::Auth;
-use actix_web::{web, HttpResponse, Scope};
+use actix_web::{web, Scope};
 
 pub fn configure_routes() -> Scope {
     web::scope("")
-        // User routes
         .service(
             web::scope("/users")
                 .route("/validate-token", web::get().to(user::validate_token))
@@ -19,14 +27,15 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}", web::delete().to(user::delete_user))
                 .route("/login", web::post().to(user::login)),
         )
-        // API Key routes
         .service(
             web::scope("/api_keys")
+                .wrap(Auth)
                 .route("", web::post().to(api_key::create_api_key))
                 .route("", web::get().to(api_key::list_api_keys))
+                .route("/{id}", web::get().to(api_key::get_api_key))
+                .route("/{id}", web::put().to(api_key::update_api_key))
                 .route("/{id}", web::delete().to(api_key::delete_api_key)),
         )
-        // Job routes
         .service(
             web::scope("/jobs")
                 .wrap(Auth)
@@ -42,7 +51,6 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}/output", web::get().to(job::get_job_output))
                 .route("/{id}/logs", web::get().to(job::get_job_logs)),
         )
-        // Amber Store routes
         .service(
             web::scope("/amber_stores")
                 .wrap(Auth)
@@ -52,7 +60,6 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}", web::put().to(amber_store::update_amber_store))
                 .route("/{id}", web::delete().to(amber_store::delete_amber_store)),
         )
-        // Vault Store routes
         .service(
             web::scope("/secure_vaults")
                 .wrap(Auth)
@@ -62,7 +69,6 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}", web::put().to(secure_vault::update_secure_vault))
                 .route("/{id}", web::delete().to(secure_vault::delete_secure_vault)),
         )
-        // Configuration routes
         .service(
             web::scope("/configurations")
                 .wrap(Auth)
@@ -75,7 +81,6 @@ pub fn configure_routes() -> Scope {
                     web::delete().to(configuration::delete_configuration),
                 ),
         )
-        // Pipeline routes
         .service(
             web::scope("/pipelines")
                 .wrap(Auth)
@@ -85,7 +90,6 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}", web::put().to(pipeline::update_pipeline))
                 .route("/{id}", web::delete().to(pipeline::delete_pipeline)),
         )
-        // Docker File routes
         .service(
             web::scope("/docker_files")
                 .wrap(Auth)
@@ -95,7 +99,6 @@ pub fn configure_routes() -> Scope {
                 .route("/{id}", web::put().to(docker_file::update_docker_file))
                 .route("/{id}", web::delete().to(docker_file::delete_docker_file)),
         )
-        // Worker routes
         .service(
             web::scope("/workers")
                 .wrap(Auth)
@@ -115,42 +118,36 @@ pub fn configure_routes() -> Scope {
                 .wrap(Auth)
                 .route("/execute", web::post().to(fluentcli::execute_command)),
         )
-        // Chat routes
         .service(
             web::scope("/chat")
                 .wrap(Auth)
-                .route("/conversations", web::post().to(chat::create_conversation))
-                .route("/conversations", web::get().to(chat::list_conversations))
-                .route("/conversations/{id}", web::get().to(chat::get_conversation))
-                .route("/messages", web::post().to(chat::create_message))
-                .route(
-                    "/conversations/{id}/messages",
-                    web::get().to(chat::get_messages),
-                )
-                .route("/attachments", web::post().to(chat::create_attachment))
-                .route(
-                    "/messages/{id}/attachments",
-                    web::get().to(chat::get_attachments),
-                )
-                .route("/llm-providers", web::post().to(chat::create_llm_provider))
-                .route("/llm-providers/{id}", web::get().to(chat::get_llm_provider))
-                .route(
-                    "/user-llm-configs",
-                    web::post().to(chat::create_user_llm_config),
-                )
-                .route(
-                    "/user-llm-configs/{user_id}/{provider_id}",
-                    web::get().to(chat::get_user_llm_config),
-                )
+                .route("/conversations", web::post().to(create_conversation))
+                .route("/conversations", web::get().to(list_conversations))
+                .route("/conversations/{id}", web::get().to(get_conversation))
+                .route("/conversations/{id}", web::delete().to(delete_conversation))
+                .route("/messages", web::post().to(create_message))
+                .route("/conversations/{id}/messages", web::get().to(get_messages))
+                .route("/attachments", web::post().to(create_attachment))
+                .route("/messages/{id}/attachments", web::get().to(get_attachments))
                 .route("/stream", web::get().to(stream_chat::stream_chat)),
         )
-        // LLM routes
         .service(
             web::scope("/llm")
                 .wrap(Auth)
-                .route("/providers", web::post().to(llm::create_llm_provider))
+                .route("/providers", web::post().to(create_llm_provider))
                 .route("/providers", web::get().to(llm::get_llm_providers))
-                .route("/chat", web::post().to(llm::chat))
-                .route("/stream-chat", web::post().to(llm::stream_chat)),
+                .route("/providers/{id}", web::get().to(get_llm_provider))
+                .route("/providers/{id}", web::put().to(update_llm_provider))
+                .route("/providers/{id}", web::delete().to(delete_llm_provider))
+                .route("/chat", web::post().to(llm::llm_chat))
+                .route("/stream_chat", web::get().to(llm::llm_stream_chat))
+                .route("/user-configs", web::post().to(create_user_llm_config))
+                .route("/user-configs", web::get().to(list_user_llm_configs))
+                .route("/user-configs/{id}", web::get().to(get_user_llm_config))
+                .route("/user-configs/{id}", web::put().to(update_user_llm_config))
+                .route(
+                    "/user-configs/{id}",
+                    web::delete().to(delete_user_llm_config),
+                ),
         )
 }

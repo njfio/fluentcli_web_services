@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import { useStore } from 'vuex';
-import AuthService from '@/services/AuthService';
+import AuthService from '../services/AuthService';
 
 import Login from '../views/Login.vue';
 import Admin from '../views/Admin.vue';
@@ -12,11 +12,14 @@ import DockerFiles from '../views/studio/DockerFiles.vue';
 import AmberStores from '../views/studio/AmberStores.vue';
 import Jobs from '../views/studio/Jobs.vue';
 import CreateJob from '../views/studio/CreateJob.vue';
-import JobDetail from '@/views/studio/JobDetail.vue'
-import JobData from '@/views/studio/JobData.vue'
-import JobLogs from '@/views/studio/JobLogs.vue'
-import StateFiles from '@/views/studio/StateFiles.vue'
-import Chat from '@/views/studio/Chat.vue'
+import JobDetail from '../views/studio/JobDetail.vue';
+import JobData from '../views/studio/JobData.vue';
+import JobLogs from '../views/studio/JobLogs.vue';
+import StateFiles from '../views/studio/StateFiles.vue';
+import Chat from '../views/studio/Chat.vue';
+import ApiKeysView from '../views/studio/ApiKeysView.vue';
+import LLMProvidersView from '../views/studio/LLMProvidersView.vue';
+import UserLLMConfigsView from '../views/studio/UserLLMConfigsView.vue';
 
 const routes: Array<RouteRecordRaw> = [
   { path: '/', redirect: '/studio/dashboard' },
@@ -39,7 +42,7 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: 'pipelines/:id',
         name: 'PipelineEditor',
-        component: () => import('@/components/studio/editors/PipelineEditor.vue'),
+        component: () => import('../components/studio/editors/PipelineEditor.vue'),
         props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
       },
       { path: 'settings', name: 'Settings', component: Settings },
@@ -47,40 +50,43 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: 'dockerfiles/new',
         name: 'NewDockerFile',
-        component: () => import('@/components/studio/editors/DockerFileEditor.vue'),
+        component: () => import('../components/studio/editors/DockerFileEditor.vue'),
       },
       {
         path: 'dockerfiles/:id',
         name: 'DockerFileEditor',
-        component: () => import('@/components/studio/editors/DockerFileEditor.vue'),
+        component: () => import('../components/studio/editors/DockerFileEditor.vue'),
         props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
       },
       {
         path: 'configurations',
         name: 'Configurations',
-        component: () => import('@/views/studio/Configurations.vue'),
+        component: () => import('../views/studio/Configurations.vue'),
       },
       {
         path: 'configurations/new',
         name: 'NewConfiguration',
-        component: () => import('@/components/studio/editors/ConfigurationEditor.vue'),
+        component: () => import('../components/studio/editors/ConfigurationEditor.vue'),
         props: { id: null },
       },
       {
         path: 'configurations/:id',
         name: 'ConfigurationEditor',
-        component: () => import('@/components/studio/editors/ConfigurationEditor.vue'),
+        component: () => import('../components/studio/editors/ConfigurationEditor.vue'),
         props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
       },
       { path: 'amberstores', name: 'AmberStores', component: AmberStores },
       {
         path: 'amberstore/:id?',
         name: 'AmberStoreEditor',
-        component: () => import('@/components/studio/editors/AmberStoreEditor.vue'),
+        component: () => import('../components/studio/editors/AmberStoreEditor.vue'),
         props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
       },
       { path: 'statefiles', name: 'StateFiles', component: StateFiles },
       { path: 'chat', name: 'Chat', component: Chat },
+      { path: 'apikeys', name: 'ApiKeys', component: ApiKeysView },
+      { path: 'llmproviders', name: 'LLMProviders', component: LLMProvidersView },
+      { path: 'userllmconfigs', name: 'UserLLMConfigs', component: UserLLMConfigsView },
     ],
   }
 ];

@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
-import LLMService, { LLMProvider, LLMMessage } from '../../services/LLMService';
+import LLMService, { LLMMessage } from '../../services/LLMService';
 import { Message } from '../../store/modules/chat';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
@@ -36,8 +36,8 @@ export function useChatLogic() {
     const messages = computed(() => store.state.chat.messages);
     const currentMessages = ref<Message[]>([]);
 
-    const llmProviders = ref<LLMProvider[]>([]);
-    const selectedProviderId = ref<string>('');
+    const userLLMConfigs = computed(() => store.state.chat.userLLMConfigs);
+    const selectedConfigId = ref<string>('');
 
     watch(currentMessages, () => {
         console.log('Current Messages updated:', JSON.stringify(currentMessages.value, null, 2));
@@ -63,13 +63,30 @@ export function useChatLogic() {
     async function createNewConversation() {
         const title = prompt('Enter conversation title:');
         if (title) {
-            const newConversation = await store.dispatch('chat/createConversation', title);
-            await selectConversation(newConversation.id);
+            try {
+                const newConversation = await store.dispatch('chat/createConversation', title);
+                await selectConversation(newConversation.id);
+            } catch (err) {
+                console.error('Error creating new conversation:', err);
+                error.value = 'Failed to create a new conversation. Please try again.';
+            }
+        }
+    }
+
+    async function deleteConversation(conversationId: string) {
+        try {
+            await store.dispatch('chat/deleteConversation', conversationId);
+            if (currentConversation.value && currentConversation.value.id === conversationId) {
+                currentMessages.value = [];
+            }
+        } catch (err) {
+            console.error('Error deleting conversation:', err);
+            error.value = 'Failed to delete conversation. Please try again.';
         }
     }
 
     async function sendMessage() {
-        if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value || !selectedProviderId.value) return;
+        if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value || !selectedConfigId.value) return;
         await processMessage(userInput.value);
     }
 
@@ -85,8 +102,8 @@ export function useChatLogic() {
 
     async function processMessage(message: string, retry = false) {
         console.log('Processing message:', message);
-        if (!message || !selectedProviderId.value) {
-            error.value = message ? 'Please select an LLM provider before sending a message.' : 'Cannot process empty message.';
+        if (!message || !selectedConfigId.value || !currentConversation.value) {
+            error.value = message ? 'Please select a User LLM Config and ensure a conversation is active before sending a message.' : 'Cannot process empty message.';
             return;
         }
 
@@ -116,8 +133,6 @@ export function useChatLogic() {
                 }
             }
 
-            console.log('Current Messages before filtering:', JSON.stringify(currentMessages.value, null, 2));
-
             const llmMessages: LLMMessage[] = currentMessages.value
                 .filter(m => m && typeof m === 'object' && 'role' in m && 'content' in m)
                 .map(m => ({
@@ -125,16 +140,12 @@ export function useChatLogic() {
                     content: m.content,
                 }));
 
-            console.log('Current Messages:', JSON.stringify(currentMessages.value, null, 2));
-            console.log('LLM Messages:', JSON.stringify(llmMessages, null, 2));
-            console.log('Selected Provider ID:', selectedProviderId.value);
-
             if (llmMessages.length === 0) {
                 throw new Error('No valid messages to send to LLM');
             }
 
             console.log('Sending request to LLM service...');
-            const stream = await LLMService.streamChat(selectedProviderId.value, llmMessages);
+            const stream = await LLMService.streamChat(selectedConfigId.value, currentConversation.value.id, llmMessages);
             console.log('Received stream from LLM service');
             const reader = stream.getReader();
             const decoder = new TextDecoder();
@@ -151,52 +162,32 @@ export function useChatLogic() {
 
                 const chunk = decoder.decode(value);
                 console.log('Received chunk:', chunk);
-                const lines = chunk.split('\n');
+                fullContent += chunk;
 
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const jsonStr = line.slice(6).trim();
-                        if (jsonStr === '[DONE]') {
-                            console.log('Stream completed');
-                            continue;
-                        }
-                        try {
-                            const parsedChunk = JSON.parse(jsonStr);
-                            console.log('Parsed chunk:', parsedChunk);
-                            if (parsedChunk.choices && parsedChunk.choices[0].delta.content) {
-                                const newContent = parsedChunk.choices[0].delta.content;
-                                fullContent += newContent;
-
-                                if (!assistantMessage) {
-                                    assistantMessage = {
-                                        id: '', // This will be set when we create the message on the backend
-                                        conversationId: currentConversation.value!.id,
-                                        role: 'assistant',
-                                        content: fullContent,
-                                        createdAt: new Date().toISOString(),
-                                        renderedContent: await renderMarkdown(fullContent)
-                                    };
-                                    currentMessages.value.push(assistantMessage);
-                                } else {
-                                    assistantMessage.content = fullContent;
-                                    assistantMessage.renderedContent = await renderMarkdown(fullContent);
-                                }
-
-                                // Update the last message in the array
-                                const lastIndex = currentMessages.value.length - 1;
-                                if (lastIndex >= 0) {
-                                    currentMessages.value = [
-                                        ...currentMessages.value.slice(0, lastIndex),
-                                        { ...assistantMessage }
-                                    ];
-                                }
-                                console.log('Updated assistant message:', JSON.stringify(assistantMessage, null, 2));
-                            }
-                        } catch (e) {
-                            console.error('Error parsing chunk:', e, 'Raw data:', jsonStr);
-                        }
-                    }
+                if (!assistantMessage) {
+                    assistantMessage = {
+                        id: '', // This will be set when we create the message on the backend
+                        conversationId: currentConversation.value!.id,
+                        role: 'assistant',
+                        content: fullContent,
+                        createdAt: new Date().toISOString(),
+                        renderedContent: await renderMarkdown(fullContent)
+                    };
+                    currentMessages.value.push(assistantMessage);
+                } else {
+                    assistantMessage.content = fullContent;
+                    assistantMessage.renderedContent = await renderMarkdown(fullContent);
                 }
+
+                // Update the last message in the array
+                const lastIndex = currentMessages.value.length - 1;
+                if (lastIndex >= 0) {
+                    currentMessages.value = [
+                        ...currentMessages.value.slice(0, lastIndex),
+                        { ...assistantMessage }
+                    ];
+                }
+                console.log('Updated assistant message:', JSON.stringify(assistantMessage, null, 2));
             }
 
             // Create the final assistant message on the backend
@@ -285,6 +276,15 @@ export function useChatLogic() {
         </div>`;
     }
 
+    async function loadUserLLMConfigs() {
+        try {
+            await store.dispatch('chat/getUserLLMConfigs');
+        } catch (err) {
+            console.error('Error loading User LLM Configs:', err);
+            error.value = 'Failed to load User LLM Configs. Please try again.';
+        }
+    }
+
     return {
         userInput,
         chatMessages,
@@ -293,15 +293,17 @@ export function useChatLogic() {
         conversations,
         currentConversation,
         currentMessages,
-        llmProviders,
-        selectedProviderId,
+        userLLMConfigs,
+        selectedConfigId,
         loadMessages,
         selectConversation,
         createNewConversation,
+        deleteConversation,
         sendMessage,
         retryLastMessage,
         newline,
         scrollToBottom,
         renderMarkdown,
+        loadUserLLMConfigs,
     };
 }

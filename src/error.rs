@@ -1,6 +1,5 @@
-// src/error.rs
-
 use actix_web;
+use actix_web::error::BlockingError;
 use actix_web::http::StatusCode;
 use actix_web::ResponseError;
 use diesel::r2d2;
@@ -30,11 +29,17 @@ pub enum AppError {
     #[error("Internal server error")]
     InternalServerError,
 
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
     #[error("Generic error: {0}")]
     GenericError(Box<dyn StdError + Send + Sync>),
 
     #[error("Migration error: {0}")]
-    MigrationError(#[from] diesel_migrations::MigrationError),
+    MigrationError(Box<dyn StdError + Send + Sync>),
 
     #[error("Authentication error")]
     AuthenticationError,
@@ -80,11 +85,26 @@ pub enum AppError {
 
     #[error("Config error: {0}")]
     ConfigError(String),
+
+    #[error("Unsupported LLM provider: {0}")]
+    UnsupportedProviderError(String),
+
+    #[error("Authentication error: {0}")]
+    AuthError(String),
+
+    #[error("Not found: {0}")]
+    NotFoundError(String),
+
+    #[error("Bad request: {0}")]
+    BadRequestError(String),
+
+    #[error("Provider not found: {0}")]
+    ProviderNotFound(String),
 }
 
-impl From<Box<dyn StdError + Send + Sync>> for AppError {
-    fn from(error: Box<dyn StdError + Send + Sync>) -> Self {
-        AppError::GenericError(error)
+impl From<BlockingError> for AppError {
+    fn from(error: BlockingError) -> Self {
+        AppError::GenericError(Box::new(error))
     }
 }
 
@@ -96,6 +116,8 @@ impl ResponseError for AppError {
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::AuthenticationError => StatusCode::UNAUTHORIZED,
             AppError::ExternalServiceError(_) => StatusCode::BAD_GATEWAY,
+            AppError::UnsupportedProviderError(_) => StatusCode::BAD_REQUEST,
+            AppError::ProviderNotFound(_) => StatusCode::NOT_FOUND,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

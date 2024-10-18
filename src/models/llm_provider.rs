@@ -1,22 +1,30 @@
 use crate::schema::llm_providers;
-use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
-#[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize, Queryable, Identifiable, Selectable, AsChangeset)]
 #[diesel(table_name = llm_providers)]
 pub struct LLMProvider {
     pub id: Uuid,
+    pub user_id: Uuid,
     pub name: String,
+    pub provider_type: String,
     pub api_endpoint: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub supported_modalities: Value,
+    pub configuration: Value,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Debug, Insertable, AsChangeset)]
 #[diesel(table_name = llm_providers)]
 pub struct NewLLMProvider {
+    pub user_id: Uuid,
     pub name: String,
+    pub provider_type: String,
     pub api_endpoint: String,
+    pub supported_modalities: Value,
+    pub configuration: Value,
 }

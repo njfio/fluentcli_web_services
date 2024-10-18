@@ -1,6 +1,3 @@
--- Create users tablediesel migration run
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE OR REPLACE FUNCTION diesel_manage_updated_at(_tbl regclass) RETURNS VOID AS $$
@@ -22,27 +19,56 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
--- Create api_keys table
+
 CREATE TABLE api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
-    key_value VARCHAR(255) NOT NULL,
+    key_value TEXT NOT NULL,
     description TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ
 );
 
--- Create amber_store table
+CREATE TABLE llm_providers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    name VARCHAR(255) NOT NULL,
+    provider_type VARCHAR(255) NOT NULL,
+    api_endpoint VARCHAR(255) NOT NULL,
+    supported_modalities JSONB NOT NULL,
+    configuration JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE user_llm_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    provider_id UUID NOT NULL REFERENCES llm_providers(id) ON DELETE CASCADE,
+    api_key_id UUID NOT NULL REFERENCES api_keys(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create other tables
+CREATE TABLE active_workers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    worker_type VARCHAR(255) NOT NULL,
+    is_active BOOLEAN NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE amber_store (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
@@ -53,56 +79,40 @@ CREATE TABLE amber_store (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create secure_vault table
-CREATE TABLE secure_vault (
+CREATE TABLE attachments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id),
-    data JSONB NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
+    message_id UUID NOT NULL,
+    file_type VARCHAR(255) NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create configurations table
 CREATE TABLE configurations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
     name VARCHAR(255) NOT NULL,
     data JSONB NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create pipelines table
-CREATE TABLE pipelines (
+CREATE TABLE conversations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
-    name VARCHAR(255) NOT NULL,
-    data TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
+    title VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create docker_files table
 CREATE TABLE docker_files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
     name VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create active_workers table
-CREATE TABLE active_workers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id),
-    worker_type VARCHAR(255) NOT NULL,
-    is_active BOOLEAN NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
-);
-
--- Create jobs table
 CREATE TABLE jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
@@ -116,14 +126,46 @@ CREATE TABLE jobs (
     timers JSONB,
     status VARCHAR(255) NOT NULL,
     results JSONB,
-    pipeline_id UUID NOT NULL REFERENCES pipelines(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),  
+    pipeline_id UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ
 );
 
+CREATE TABLE messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    conversation_id UUID NOT NULL REFERENCES conversations(id),
+    role VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
+CREATE TABLE pipelines (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    name VARCHAR(255) NOT NULL,
+    data TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE secure_vault (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    data JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE secure_vaults (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    name VARCHAR(255) NOT NULL,
+    encrypted_data VARCHAR NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE workers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -135,63 +177,7 @@ CREATE TABLE workers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create secure_vaults table
-CREATE TABLE secure_vaults (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id),
-    name VARCHAR(255) NOT NULL,
-    encrypted_data VARCHAR NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create conversations table
-CREATE TABLE conversations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id),
-    title VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create messages table
-CREATE TABLE messages (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    conversation_id UUID NOT NULL REFERENCES conversations(id),
-    role VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create attachments table
-CREATE TABLE attachments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    message_id UUID NOT NULL REFERENCES messages(id),
-    file_type VARCHAR(255) NOT NULL,
-    file_path VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create llm_providers table
-CREATE TABLE llm_providers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    api_endpoint VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create user_llm_configs table
-CREATE TABLE user_llm_configs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id),
-    provider_id UUID NOT NULL REFERENCES llm_providers(id),
-    api_key VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create indexes for foreign keys
+-- Create indexes
 CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
 CREATE INDEX idx_amber_store_user_id ON amber_store(user_id);
 CREATE INDEX idx_secure_vault_user_id ON secure_vault(user_id);
@@ -207,16 +193,22 @@ CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX idx_attachments_message_id ON attachments(message_id);
 CREATE INDEX idx_user_llm_configs_user_id ON user_llm_configs(user_id);
 CREATE INDEX idx_user_llm_configs_provider_id ON user_llm_configs(provider_id);
+CREATE INDEX idx_user_llm_configs_api_key_id ON user_llm_configs(api_key_id);
+CREATE INDEX idx_llm_providers_user_id ON llm_providers(user_id);
 
 -- Set up triggers for automatic updated_at
 SELECT diesel_manage_updated_at('users');
-SELECT diesel_manage_updated_at('amber_store');
-SELECT diesel_manage_updated_at('secure_vault');
-SELECT diesel_manage_updated_at('configurations');
-SELECT diesel_manage_updated_at('pipelines');
-SELECT diesel_manage_updated_at('docker_files');
-SELECT diesel_manage_updated_at('active_workers');
-SELECT diesel_manage_updated_at('jobs');
-SELECT diesel_manage_updated_at('conversations');
+SELECT diesel_manage_updated_at('api_keys');
 SELECT diesel_manage_updated_at('llm_providers');
 SELECT diesel_manage_updated_at('user_llm_configs');
+SELECT diesel_manage_updated_at('active_workers');
+SELECT diesel_manage_updated_at('amber_store');
+SELECT diesel_manage_updated_at('configurations');
+SELECT diesel_manage_updated_at('conversations');
+SELECT diesel_manage_updated_at('docker_files');
+SELECT diesel_manage_updated_at('jobs');
+SELECT diesel_manage_updated_at('pipelines');
+SELECT diesel_manage_updated_at('secure_vault');
+SELECT diesel_manage_updated_at('secure_vaults');
+SELECT diesel_manage_updated_at('workers');
+

@@ -50,6 +50,9 @@ const initializeAuthState = async () => {
       store.commit('setUser', null);
       router.push('/login');
     }
+  } else {
+    store.commit('setLoggedIn', false);
+    store.commit('setUser', null);
   }
   isAuthInitialized.value = true;
 };
