@@ -12,6 +12,7 @@ pub struct CreateUserLLMConfigRequest {
     user_id: Uuid,
     provider_id: Uuid,
     api_key_id: Uuid,
+    description: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -26,7 +27,13 @@ pub async fn create_user_llm_config(
 ) -> Result<HttpResponse, AppError> {
     info!("Attempting to create user LLM config: {:?}", req);
     let config = web::block(move || {
-        ChatService::create_user_llm_config(&pool, req.user_id, req.provider_id, req.api_key_id)
+        ChatService::create_user_llm_config(
+            &pool,
+            req.user_id,
+            req.provider_id,
+            req.api_key_id,
+            req.description.clone(),
+        )
     })
     .await
     .map_err(|e| {

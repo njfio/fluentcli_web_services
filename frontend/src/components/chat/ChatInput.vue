@@ -18,7 +18,7 @@
             <select id="config-select" v-model="selectedConfigIdComputed"
                 class="w-full p-1 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-gray-100 mb-2">
                 <option v-for="config in userLLMConfigs" :key="config.id" :value="config.id">
-                    {{ config.name || `Config ${config.id}` }}
+                    {{ getConfigDescription(config) }}
                 </option>
             </select>
             <div class="flex-grow relative" :style="{ height: isExpanded ? '40rem' : '2rem' }">
@@ -46,6 +46,7 @@ interface UserLLMConfig {
     userId: string;
     providerId: string;
     apiKeyId: string;
+    description?: string;
 }
 
 interface Conversation {
@@ -114,6 +115,10 @@ export default defineComponent({
             emit('send-message');
         };
 
+        const getConfigDescription = (config: UserLLMConfig) => {
+            return config.description || config.name || `Config ${config.id.slice(0, 8)}`;
+        };
+
         const editorOptions = computed(() => ({
             minimap: { enabled: false },
             lineNumbers: 'off',
@@ -155,6 +160,7 @@ export default defineComponent({
             toggleExpand,
             handleSendMessage,
             editorOptions,
+            getConfigDescription,
         };
     },
 });

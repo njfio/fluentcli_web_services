@@ -176,6 +176,7 @@ diesel::table! {
         user_id -> Uuid,
         provider_id -> Uuid,
         api_key_id -> Uuid,
+        description -> Nullable<Text>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

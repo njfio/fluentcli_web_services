@@ -55,6 +55,7 @@ CREATE TABLE user_llm_configs (
     user_id UUID NOT NULL REFERENCES users(id),
     provider_id UUID NOT NULL REFERENCES llm_providers(id) ON DELETE CASCADE,
     api_key_id UUID NOT NULL REFERENCES api_keys(id),
+    description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -211,4 +212,3 @@ SELECT diesel_manage_updated_at('pipelines');
 SELECT diesel_manage_updated_at('secure_vault');
 SELECT diesel_manage_updated_at('secure_vaults');
 SELECT diesel_manage_updated_at('workers');
-
