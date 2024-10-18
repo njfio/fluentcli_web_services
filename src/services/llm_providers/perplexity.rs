@@ -26,7 +26,7 @@ impl LLMProviderTrait for PerplexityProvider {
         let mut formatted_messages: Vec<Value> = Vec::new();
         let mut last_role = String::new();
 
-        for msg in messages.iter() {
+        for msg in messages.iter().rev() {
             let role = match msg.role.as_str() {
                 "user" => "user",
                 "assistant" => "assistant",
@@ -34,28 +34,27 @@ impl LLMProviderTrait for PerplexityProvider {
                 _ => "user", // Default to user for unknown roles
             };
 
-            if role != last_role || role == "user" {
+            if role != last_role || formatted_messages.is_empty() {
                 formatted_messages.push(serde_json::json!({
                     "role": role,
                     "content": msg.content
                 }));
                 last_role = role.to_string();
-            } else {
-                // If the current message has the same role as the previous one (except for user),
-                // append its content to the last message
-                if let Some(last_msg) = formatted_messages.last_mut() {
-                    let current_content = last_msg["content"].as_str().unwrap_or("");
-                    last_msg["content"] =
-                        serde_json::Value::String(format!("{} {}", current_content, msg.content));
-                }
+            }
+
+            if formatted_messages.len() >= 3 {
+                break; // Limit to last 3 messages (1 user, 1 assistant, 1 user)
             }
         }
+
+        formatted_messages.reverse(); // Reverse to maintain chronological order
 
         let request_body = serde_json::json!({
             "model": model,
             "messages": formatted_messages,
             "max_tokens": config["max_tokens"].as_u64().unwrap_or(1024),
             "temperature": config["temperature"].as_f64().unwrap_or(0.7),
+            "top_p": config["top_p"].as_f64().unwrap_or(0.9),
             "stream": true,
         });
 
@@ -77,14 +76,15 @@ impl LLMProviderTrait for PerplexityProvider {
             )))
         })?;
 
-        response["choices"][0]["message"]["content"]
+        let content = response["choices"][0]["message"]["content"]
             .as_str()
-            .map(|content| content.to_string())
             .ok_or_else(|| {
                 LLMServiceError(AppError::ExternalServiceError(
                     "No content found in Perplexity response".to_string(),
                 ))
-            })
+            })?;
+
+        Ok(content.to_string())
     }
 
     fn stream_response(
@@ -99,6 +99,7 @@ impl LLMProviderTrait for PerplexityProvider {
                         debug!("Received chunk: {}", text);
                         let lines = text.split('\n');
                         let mut result = String::new();
+
                         for line in lines {
                             if line.starts_with("data: ") {
                                 let json_str = line.trim_start_matches("data: ");
