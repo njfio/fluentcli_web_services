@@ -4,7 +4,8 @@ use crate::models::llm_provider::LLMProvider;
 use crate::models::user_llm_config::UserLLMConfig;
 use crate::services::api_key_service::ApiKeyService;
 use crate::services::llm_providers::{
-    anthropic::AnthropicProvider, cohere::CohereProvider, openai::OpenAIProvider,
+    anthropic::AnthropicProvider, cohere::CohereProvider, dalle::DalleProvider,
+    openai::OpenAIProvider,
 };
 use futures::stream::{Stream, StreamExt};
 use log::{debug, error, warn};
@@ -151,6 +152,7 @@ pub async fn llm_stream_chat(
             "gpt" => Box::new(OpenAIProvider),
             "claude" => Box::new(AnthropicProvider),
             "command" => Box::new(CohereProvider),
+            "dalle" => Box::new(DalleProvider),
             _ => {
                 error!("Unsupported LLM provider: {}", provider.provider_type);
                 return Box::pin(futures::stream::once(async {
