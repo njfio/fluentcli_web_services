@@ -37,7 +37,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, PropType } from 'vue';
+import { defineComponent, computed, PropType } from 'vue';
 import MonacoEditor from '../studio/editors/MonacoEditor.vue';
 
 interface UserLLMConfig {

@@ -4,8 +4,9 @@ use crate::services::chat_service::ChatService;
 use crate::services::llm_service::{llm_stream_chat, LLMChatMessage};
 use crate::utils::extractors::AuthenticatedUser;
 use actix_web::{web, HttpResponse, Responder};
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -34,9 +35,26 @@ pub async fn stream_chat(
 
     let stream = llm_stream_chat(&pool, &provider, &user_config, llm_messages).await;
 
-    Ok(HttpResponse::Ok().streaming(stream.map(|result| {
-        result
-            .map(|content| web::Bytes::from(content))
-            .map_err(|e| actix_web::error::ErrorInternalServerError(e))
-    })))
+    // Collect the entire response
+    let full_response = stream
+        .try_fold(String::new(), |mut acc, chunk| async move {
+            acc.push_str(&chunk);
+            Ok(acc)
+        })
+        .await
+        .map_err(|e| AppError::ExternalServiceError(e.to_string()))?;
+
+    // Save the full response to the database
+    ChatService::create_message(
+        &pool,
+        query.conversation_id,
+        "assistant".to_string(),
+        Value::String(full_response.clone()),
+    )?;
+
+    // Create a new stream from the full response
+    let response_stream =
+        futures::stream::once(async move { Ok::<_, AppError>(web::Bytes::from(full_response)) });
+
+    Ok(HttpResponse::Ok().streaming::<_, AppError>(response_stream))
 }

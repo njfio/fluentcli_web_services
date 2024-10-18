@@ -259,6 +259,7 @@ impl ChatService {
                 AppError::DatabaseError(e)
             })
     }
+
     pub fn create_user_llm_config(
         pool: &DbPool,
         _user_id: Uuid,
@@ -305,6 +306,23 @@ impl ChatService {
             .first::<UserLLMConfig>(&mut pool.get()?)
             .map_err(|e| {
                 error!("Error fetching user LLM config: {:?}", e);
+                AppError::DatabaseError(e)
+            })
+    }
+
+    pub fn get_user_llm_config_by_id(
+        pool: &DbPool,
+        _config_id: Uuid,
+    ) -> Result<UserLLMConfig, AppError> {
+        use crate::schema::user_llm_configs::dsl::*;
+
+        info!("Fetching user LLM config by id: {:?}", _config_id);
+
+        user_llm_configs
+            .find(_config_id)
+            .first::<UserLLMConfig>(&mut pool.get()?)
+            .map_err(|e| {
+                error!("Error fetching user LLM config by id: {:?}", e);
                 AppError::DatabaseError(e)
             })
     }

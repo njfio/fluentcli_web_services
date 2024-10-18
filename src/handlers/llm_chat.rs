@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct LLMChatRequest {
-    pub provider_id: Uuid,
+    pub user_llm_config_id: Uuid,
     pub conversation_id: Uuid,
     pub messages: Vec<LLMChatMessage>,
 }
@@ -27,9 +27,14 @@ pub async fn llm_chat_handler(
     user: AuthenticatedUser,
 ) -> Result<HttpResponse, AppError> {
     let req = req.into_inner();
-    let provider = ChatService::get_llm_provider(&pool, req.provider_id)?;
-    let user_config = ChatService::get_user_llm_config(&pool, user.0, req.provider_id)?;
 
+    // Get the user LLM config
+    let user_config = ChatService::get_user_llm_config_by_id(&pool, req.user_llm_config_id)?;
+
+    // Get the LLM provider
+    let provider = ChatService::get_llm_provider(&pool, user_config.provider_id)?;
+
+    // Call the LLM service
     let response = llm_chat(&pool, &provider, &user_config, req.messages.clone())
         .await
         .map_err(|e: LLMServiceError| AppError::ExternalServiceError(e.to_string()))?;
