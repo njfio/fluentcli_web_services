@@ -20,6 +20,7 @@
                             <div v-html="message.renderedContent || message.content"></div>
                         </template>
                     </div>
+                    <ResponseToolbar v-if="message.role === 'assistant'" />
                 </div>
             </div>
             <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
@@ -47,6 +48,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType, ref, watch, nextTick, onMounted } from 'vue';
+import ResponseToolbar from './ResponseToolbar.vue';
 
 interface Message {
     role: string;
@@ -61,6 +63,9 @@ interface Conversation {
 
 export default defineComponent({
     name: 'ChatArea',
+    components: {
+        ResponseToolbar,
+    },
     props: {
         isSidebarOpen: {
             type: Boolean,
