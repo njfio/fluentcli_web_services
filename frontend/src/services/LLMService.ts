@@ -6,32 +6,41 @@ export interface LLMProvider {
     apiEndpoint: string;
 }
 
+export interface UserLLMConfig {
+    id: string;
+    name?: string;
+    userId: string;
+    providerId: string;
+    apiKeyId: string;
+}
+
 export interface LLMMessage {
     role: 'system' | 'user' | 'assistant';
     content: string;
 }
 
 class LLMService {
-    async getProviders(): Promise<LLMProvider[]> {
-        const response = await axiosInstance.get('/llm/providers');
+    async getUserLLMConfigs(): Promise<UserLLMConfig[]> {
+        const response = await axiosInstance.get('/llm/user-configs');
         return response.data;
     }
 
-    async chat(providerId: string, messages: LLMMessage[]): Promise<string> {
+    async chat(userLLMConfigId: string, messages: LLMMessage[]): Promise<string> {
         const response = await axiosInstance.post('/llm/chat', {
-            provider_id: providerId,
+            user_llm_config_id: userLLMConfigId,
             messages,
         });
         return response.data.message;
     }
-    async streamChat(providerId: string, messages: LLMMessage[]): Promise<ReadableStream<Uint8Array>> {
+
+    async streamChat(userLLMConfigId: string, messages: LLMMessage[]): Promise<ReadableStream<Uint8Array>> {
         const url = new URL('/llm/stream_chat', axiosInstance.defaults.baseURL);
 
         // Filter out invalid messages
         const validMessages = messages.filter(msg => msg && msg.role && msg.content);
 
         // Add query parameters
-        url.searchParams.append('provider_id', providerId);
+        url.searchParams.append('user_llm_config_id', userLLMConfigId);
         url.searchParams.append('messages', JSON.stringify(validMessages));
 
         console.log('LLMService streamChat - Request URL:', url.toString());

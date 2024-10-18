@@ -1,10 +1,11 @@
 import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
-import LLMService, { LLMProvider, LLMMessage } from '../../services/LLMService';
+import LLMService, { LLMMessage } from '../../services/LLMService';
 import { Message } from '../../store/modules/chat';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
+
 // Configure marked options for GitHub Flavored Markdown
 (marked as any).setOptions({
     gfm: true,
@@ -19,6 +20,7 @@ import hljs from 'highlight.js';
         return hljs.highlightAuto(code).value;
     }
 });
+
 export function useChatLogic() {
     const store = useStore();
     const userInput = ref('');
@@ -34,8 +36,8 @@ export function useChatLogic() {
     const messages = computed(() => store.state.chat.messages);
     const currentMessages = ref<Message[]>([]);
 
-    const llmProviders = ref<LLMProvider[]>([]);
-    const selectedProviderId = ref<string>('');
+    const userLLMConfigs = computed(() => store.state.chat.userLLMConfigs);
+    const selectedConfigId = ref<string>('');
 
     watch(currentMessages, () => {
         console.log('Current Messages updated:', JSON.stringify(currentMessages.value, null, 2));
@@ -57,6 +59,7 @@ export function useChatLogic() {
         await store.dispatch('chat/getConversation', conversationId);
         await loadMessages(conversationId);
     }
+
     async function createNewConversation() {
         const title = prompt('Enter conversation title:');
         if (title) {
@@ -73,12 +76,9 @@ export function useChatLogic() {
     async function deleteConversation(conversationId: string) {
         try {
             await store.dispatch('chat/deleteConversation', conversationId);
-            // If the deleted conversation was the current one, clear the current messages
             if (currentConversation.value && currentConversation.value.id === conversationId) {
                 currentMessages.value = [];
             }
-            // Optionally, you can select another conversation or clear the current conversation
-            // depending on your app's requirements
         } catch (err) {
             console.error('Error deleting conversation:', err);
             error.value = 'Failed to delete conversation. Please try again.';
@@ -86,7 +86,7 @@ export function useChatLogic() {
     }
 
     async function sendMessage() {
-        if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value || !selectedProviderId.value) return;
+        if (userInput.value.trim() === '' || isLoading.value || !currentConversation.value || !selectedConfigId.value) return;
         await processMessage(userInput.value);
     }
 
@@ -102,8 +102,8 @@ export function useChatLogic() {
 
     async function processMessage(message: string, retry = false) {
         console.log('Processing message:', message);
-        if (!message || !selectedProviderId.value) {
-            error.value = message ? 'Please select an LLM provider before sending a message.' : 'Cannot process empty message.';
+        if (!message || !selectedConfigId.value) {
+            error.value = message ? 'Please select a User LLM Config before sending a message.' : 'Cannot process empty message.';
             return;
         }
 
@@ -144,14 +144,14 @@ export function useChatLogic() {
 
             console.log('Current Messages:', JSON.stringify(currentMessages.value, null, 2));
             console.log('LLM Messages:', JSON.stringify(llmMessages, null, 2));
-            console.log('Selected Provider ID:', selectedProviderId.value);
+            console.log('Selected Config ID:', selectedConfigId.value);
 
             if (llmMessages.length === 0) {
                 throw new Error('No valid messages to send to LLM');
             }
 
             console.log('Sending request to LLM service...');
-            const stream = await LLMService.streamChat(selectedProviderId.value, llmMessages);
+            const stream = await LLMService.streamChat(selectedConfigId.value, llmMessages);
             console.log('Received stream from LLM service');
             const reader = stream.getReader();
             const decoder = new TextDecoder();
@@ -301,6 +301,16 @@ export function useChatLogic() {
             ${sanitizedMarkup}
         </div>`;
     }
+
+    async function loadUserLLMConfigs() {
+        try {
+            await store.dispatch('chat/getUserLLMConfigs');
+        } catch (err) {
+            console.error('Error loading User LLM Configs:', err);
+            error.value = 'Failed to load User LLM Configs. Please try again.';
+        }
+    }
+
     return {
         userInput,
         chatMessages,
@@ -309,8 +319,8 @@ export function useChatLogic() {
         conversations,
         currentConversation,
         currentMessages,
-        llmProviders,
-        selectedProviderId,
+        userLLMConfigs,
+        selectedConfigId,
         loadMessages,
         selectConversation,
         createNewConversation,
@@ -320,5 +330,6 @@ export function useChatLogic() {
         newline,
         scrollToBottom,
         renderMarkdown,
+        loadUserLLMConfigs,
     };
 }

@@ -6,17 +6,15 @@
             @delete-conversation="deleteConversation" />
         <ChatArea :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded" :currentConversation="currentConversation"
             :messages="currentMessages" :isLoading="isLoading" />
-        <ChatInput :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded" :llmProviders="llmProviders"
-            :selectedProviderId="selectedProviderId || ''" :currentConversation="currentConversation"
-            :isLoading="isLoading" @toggle-expand="toggleExpand" @update:selectedProviderId="updateSelectedProvider"
-            @send-message="sendMessage" />
+        <ChatInput :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded" :userLLMConfigs="userLLMConfigs"
+            v-model:selectedConfigId="selectedConfigId" :currentConversation="currentConversation"
+            :isLoading="isLoading" @toggle-expand="toggleExpand" @send-message="sendMessage" />
     </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, onMounted, watch, computed, ref } from 'vue';
 import { useChatLogic } from '../../components/chat/ChatLogic';
-import LLMService from '../../services/LLMService';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { RootState } from '../../store/types';
@@ -40,16 +38,17 @@ export default defineComponent({
             conversations,
             currentConversation,
             currentMessages,
-            llmProviders,
+            userLLMConfigs,
+            selectedConfigId,
             loadMessages,
             selectConversation,
             createNewConversation,
             sendMessage,
             retryLastMessage,
             deleteConversation,
+            loadUserLLMConfigs,
         } = useChatLogic();
 
-        const selectedProviderId = ref<string>('');
         const isSidebarOpen = ref(true);
         const isExpanded = ref(false);
 
@@ -62,24 +61,6 @@ export default defineComponent({
 
         const toggleSidebar = () => {
             isSidebarOpen.value = !isSidebarOpen.value;
-        };
-
-        const updateSelectedProvider = (providerId: string) => {
-            selectedProviderId.value = providerId;
-        };
-
-        const fetchLLMProviders = async () => {
-            try {
-                llmProviders.value = await LLMService.getProviders();
-                if (llmProviders.value.length > 0) {
-                    selectedProviderId.value = llmProviders.value[0].id;
-                } else {
-                    error.value = 'No LLM providers available. Please contact the administrator.';
-                }
-            } catch (err) {
-                console.error('Error fetching LLM providers:', err);
-                error.value = 'Failed to fetch LLM providers. Please try again later.';
-            }
         };
 
         onMounted(async () => {
@@ -100,10 +81,17 @@ export default defineComponent({
                 await store.dispatch('chat/getConversations');
                 console.log('Conversations fetched:', conversations.value);
 
-                await fetchLLMProviders();
+                await loadUserLLMConfigs();
+                console.log('User LLM Configs loaded:', userLLMConfigs.value);
+
+                if (userLLMConfigs.value.length > 0) {
+                    selectedConfigId.value = userLLMConfigs.value[0].id;
+                } else {
+                    error.value = 'No User LLM Configs available. Please create one in the settings.';
+                }
             } catch (err) {
                 console.error('Error in onMounted:', err);
-                error.value = 'Failed to fetch conversations. Please try again later.';
+                error.value = 'Failed to fetch conversations or User LLM Configs. Please try again later.';
             }
         });
 
@@ -119,8 +107,8 @@ export default defineComponent({
             conversations,
             currentConversation,
             currentMessages,
-            llmProviders,
-            selectedProviderId,
+            userLLMConfigs,
+            selectedConfigId,
             isExpanded,
             isSidebarOpen,
             selectConversation,
@@ -130,7 +118,6 @@ export default defineComponent({
             deleteConversation,
             toggleExpand,
             toggleSidebar,
-            updateSelectedProvider,
         };
     },
 });

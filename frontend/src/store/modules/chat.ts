@@ -40,7 +40,7 @@ export interface UserLLMConfig {
     id: string;
     userId: string;
     providerId: string;
-    apiKey: string;
+    apiKeyId: string;
 }
 
 export interface ChatState {
@@ -49,7 +49,7 @@ export interface ChatState {
     messages: Message[];
     attachments: { [messageId: string]: Attachment[] };
     llmProviders: LLMProvider[];
-    userLLMConfig: UserLLMConfig | null;
+    userLLMConfigs: UserLLMConfig[];
 }
 
 const chatModule: Module<ChatState, RootState> = {
@@ -60,7 +60,7 @@ const chatModule: Module<ChatState, RootState> = {
         messages: [],
         attachments: {},
         llmProviders: [],
-        userLLMConfig: null,
+        userLLMConfigs: [],
     },
     mutations: {
         setConversations(state, conversations: Conversation[]) {
@@ -107,8 +107,20 @@ const chatModule: Module<ChatState, RootState> = {
                 state.llmProviders.push(provider);
             }
         },
-        setUserLLMConfig(state, config: UserLLMConfig) {
-            state.userLLMConfig = config;
+        setUserLLMConfigs(state, configs: UserLLMConfig[]) {
+            state.userLLMConfigs = configs;
+        },
+        addUserLLMConfig(state, config: UserLLMConfig) {
+            state.userLLMConfigs.push(config);
+        },
+        updateUserLLMConfig(state, updatedConfig: UserLLMConfig) {
+            const index = state.userLLMConfigs.findIndex(config => config.id === updatedConfig.id);
+            if (index !== -1) {
+                state.userLLMConfigs[index] = updatedConfig;
+            }
+        },
+        removeUserLLMConfig(state, configId: string) {
+            state.userLLMConfigs = state.userLLMConfigs.filter(config => config.id !== configId);
         },
         removeConversation(state, conversationId: string) {
             state.conversations = state.conversations.filter(conv => conv.id !== conversationId);
@@ -249,6 +261,17 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
+        async getUserLLMConfigs({ commit }) {
+            try {
+                const response = await apiClient.listUserLLMConfigs();
+                const configs = response.data;
+                commit('setUserLLMConfigs', configs);
+                return configs;
+            } catch (error) {
+                console.error('Error fetching user LLM configs:', error);
+                throw error;
+            }
+        },
         async createUserLLMConfig({ commit, rootState }, { providerId, apiKeyId }: { providerId: string; apiKeyId: string }) {
             try {
                 const userId = rootState.auth.user?.user_id;
@@ -258,21 +281,35 @@ const chatModule: Module<ChatState, RootState> = {
                 const configData = { user_id: userId, provider_id: providerId, api_key_id: apiKeyId };
                 const response = await apiClient.createUserLLMConfig(configData);
                 const config = response.data;
-                commit('setUserLLMConfig', config);
+                commit('addUserLLMConfig', config);
                 return config;
             } catch (error) {
                 console.error('Error creating user LLM config:', error);
                 throw error;
             }
         },
-        async getUserLLMConfig({ commit }, id: string) {
+        async updateUserLLMConfig({ commit, rootState }, { id, providerId, apiKeyId }: { id: string; providerId: string; apiKeyId: string }) {
             try {
-                const response = await apiClient.getUserLLMConfig(id);
-                const config = response.data;
-                commit('setUserLLMConfig', config);
-                return config;
+                const userId = rootState.auth.user?.user_id;
+                if (!userId) {
+                    throw new Error('User ID not found');
+                }
+                const configData = { user_id: userId, provider_id: providerId, api_key_id: apiKeyId };
+                const response = await apiClient.updateUserLLMConfig(id, configData);
+                const updatedConfig = response.data;
+                commit('updateUserLLMConfig', updatedConfig);
+                return updatedConfig;
             } catch (error) {
-                console.error('Error fetching user LLM config:', error);
+                console.error('Error updating user LLM config:', error);
+                throw error;
+            }
+        },
+        async deleteUserLLMConfig({ commit }, id: string) {
+            try {
+                await apiClient.deleteUserLLMConfig(id);
+                commit('removeUserLLMConfig', id);
+            } catch (error) {
+                console.error('Error deleting user LLM config:', error);
                 throw error;
             }
         },
@@ -286,6 +323,9 @@ const chatModule: Module<ChatState, RootState> = {
         },
         getAttachmentsByMessageId: (state) => (messageId: string) => {
             return state.attachments[messageId] || [];
+        },
+        getUserLLMConfigById: (state) => (id: string) => {
+            return state.userLLMConfigs.find(config => config.id === id);
         },
     },
 };

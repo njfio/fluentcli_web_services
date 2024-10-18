@@ -9,16 +9,16 @@
         }">
         <div class="p-3 flex flex-col h-full">
             <div class="mb-2 flex justify-between items-center">
-                <label for="provider-select" class="block text-xs font-medium text-gray-300">Select LLM
-                    Provider:</label>
+                <label for="config-select" class="block text-xs font-medium text-gray-300">Select User LLM
+                    Config:</label>
                 <button @click="toggleExpand" class="text-blue-400 text-sm">
                     {{ isExpanded ? 'Collapse' : 'Expand' }}
                 </button>
             </div>
-            <select id="provider-select" v-model="selectedProviderId"
+            <select id="config-select" v-model="selectedConfigIdComputed"
                 class="w-full p-1 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-gray-100 mb-2">
-                <option v-for="provider in llmProviders" :key="provider.id" :value="provider.id">
-                    {{ provider.name }}
+                <option v-for="config in userLLMConfigs" :key="config.id" :value="config.id">
+                    {{ config.name || `Config ${config.id}` }}
                 </option>
             </select>
             <div class="flex-grow relative" :style="{ height: isExpanded ? '40rem' : '2rem' }">
@@ -27,7 +27,7 @@
             </div>
             <div class="mt-2 flex justify-end">
                 <button @click="sendMessage"
-                    :disabled="isLoading || userInput.trim() === '' || !selectedProviderId || !currentConversation"
+                    :disabled="isLoading || userInput.trim() === '' || !selectedConfigIdComputed || !currentConversation"
                     class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
                     Send
                 </button>
@@ -40,9 +40,12 @@
 import { defineComponent, ref, computed, PropType } from 'vue';
 import MonacoEditor from '../studio/editors/MonacoEditor.vue';
 
-interface LLMProvider {
+interface UserLLMConfig {
     id: string;
-    name: string;
+    name?: string;
+    userId: string;
+    providerId: string;
+    apiKeyId: string;
 }
 
 interface Conversation {
@@ -64,11 +67,11 @@ export default defineComponent({
             type: Boolean,
             required: true,
         },
-        llmProviders: {
-            type: Array as PropType<LLMProvider[]>,
+        userLLMConfigs: {
+            type: Array as PropType<UserLLMConfig[]>,
             required: true,
         },
-        selectedProviderId: {
+        selectedConfigId: {
             type: String,
             required: true,
         },
@@ -84,11 +87,16 @@ export default defineComponent({
     },
     emits: {
         'toggle-expand': () => true,
-        'update:selectedProviderId': (providerId: string) => typeof providerId === 'string',
+        'update:selectedConfigId': (configId: string) => typeof configId === 'string',
         'send-message': (message: string) => typeof message === 'string',
     },
     setup(props, { emit }) {
         const userInput = ref('');
+
+        const selectedConfigIdComputed = computed({
+            get: () => props.selectedConfigId,
+            set: (value: string) => emit('update:selectedConfigId', value)
+        });
 
         const toggleExpand = () => {
             emit('toggle-expand');
@@ -138,6 +146,7 @@ export default defineComponent({
 
         return {
             userInput,
+            selectedConfigIdComputed,
             toggleExpand,
             sendMessage,
             editorOptions,
