@@ -24,26 +24,35 @@ impl LLMProviderTrait for CohereProvider {
 
         let chat_history: Vec<Value> = messages
             .iter()
+            .filter(|msg| !msg.content.trim().is_empty()) // Filter out empty messages
             .map(|msg| {
+                let role = match msg.role.as_str() {
+                    "user" => "User",
+                    "assistant" => "Chatbot",
+                    "system" => "System",
+                    _ => "User", // Default to User for unknown roles
+                };
                 serde_json::json!({
-                    "role": msg.role,
-                    "message": msg.content
+                    "role": role,
+                    "message": msg.content.trim()
                 })
             })
             .collect();
 
+        let last_message = messages
+            .last()
+            .filter(|msg| !msg.content.trim().is_empty())
+            .map(|msg| msg.content.trim().to_string())
+            .unwrap_or_default();
+
         let request_body = serde_json::json!({
             "model": model,
             "chat_history": chat_history,
-            "message": messages.last().map(|msg| msg.content.clone()).unwrap_or_default(),
+            "message": last_message,
             "stream": true
         });
 
         debug!("Cohere request body: {:?}", request_body);
-        debug!(
-            "Cohere API key (first 10 chars): {}",
-            &api_key[..10.min(api_key.len())]
-        );
 
         Ok(client
             .post("https://api.cohere.ai/v1/chat")
@@ -74,6 +83,15 @@ impl LLMProviderTrait for CohereProvider {
                             if let Ok(json) = serde_json::from_str::<Value>(line) {
                                 if let Some(text) = json["text"].as_str() {
                                     result.push_str(text);
+                                } else if let Some(error) = json["error"].as_object() {
+                                    let error_message =
+                                        error["message"].as_str().unwrap_or("Unknown error");
+                                    return Some((
+                                        Err(LLMServiceError(AppError::ExternalServiceError(
+                                            format!("Cohere API error: {}", error_message),
+                                        ))),
+                                        response,
+                                    ));
                                 }
                             }
                         }

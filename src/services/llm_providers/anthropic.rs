@@ -22,19 +22,20 @@ impl LLMProviderTrait for AnthropicProvider {
             ))
         })?;
 
-        let messages: Vec<Value> = messages
+        let filtered_messages: Vec<Value> = messages
             .iter()
+            .filter(|msg| !msg.content.trim().is_empty())
             .map(|msg| {
                 serde_json::json!({
-                    "role": msg.role,
-                    "content": msg.content
+                    "role": if msg.role == "user" { "user" } else { "assistant" },
+                    "content": msg.content.trim()
                 })
             })
             .collect();
 
         let request_body = serde_json::json!({
             "model": model,
-            "messages": messages,
+            "messages": filtered_messages,
             "max_tokens": 300,
             "stream": true
         });
@@ -75,6 +76,15 @@ impl LLMProviderTrait for AnthropicProvider {
                                 if let Ok(json) = serde_json::from_str::<Value>(json_str) {
                                     if let Some(content) = json["delta"]["text"].as_str() {
                                         result.push_str(content);
+                                    } else if let Some(error) = json["error"].as_object() {
+                                        let error_message =
+                                            error["message"].as_str().unwrap_or("Unknown error");
+                                        return Some((
+                                            Err(LLMServiceError(AppError::ExternalServiceError(
+                                                format!("Anthropic API error: {}", error_message),
+                                            ))),
+                                            response,
+                                        ));
                                     }
                                 }
                             }

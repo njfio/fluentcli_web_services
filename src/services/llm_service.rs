@@ -135,7 +135,6 @@ pub async fn chat(
     debug!("Chat function completed successfully");
     Ok(full_response)
 }
-
 pub async fn llm_stream_chat(
     pool: &DbPool,
     provider: &LLMProvider,
@@ -203,13 +202,26 @@ pub async fn llm_stream_chat(
             .map(move |result| match result {
                 Ok(response) => {
                     if !response.status().is_success() {
-                        let error = LLMServiceError(AppError::ExternalServiceError(format!(
-                            "LLM API error: Status {} {}",
-                            response.status().as_u16(),
-                            response.status().as_str()
-                        )));
-                        error!("LLM API error: {:?}", error);
-                        Box::pin(futures::stream::once(async move { Err(error) }))
+                        let status = response.status();
+                        let error_future = async move {
+                            let error_body = response
+                                .text()
+                                .await
+                                .unwrap_or_else(|e| format!("Failed to get error body: {}", e));
+                            error!(
+                                "LLM API error: Status {} {}, Body: {}",
+                                status.as_u16(),
+                                status.as_str(),
+                                error_body
+                            );
+                            Err(LLMServiceError(AppError::ExternalServiceError(format!(
+                                "LLM API error: Status {} {}, Body: {}",
+                                status.as_u16(),
+                                status.as_str(),
+                                error_body
+                            ))))
+                        };
+                        Box::pin(futures::stream::once(error_future))
                             as Pin<
                                 Box<
                                     dyn Stream<Item = Result<String, LLMServiceError>>
