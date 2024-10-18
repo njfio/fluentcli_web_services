@@ -41,7 +41,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType, ref, watch, nextTick } from 'vue';
+import { defineComponent, PropType, ref, watch, nextTick, onMounted } from 'vue';
 
 interface Message {
     role: string;
@@ -97,6 +97,10 @@ export default defineComponent({
             nextTick(() => {
                 scrollToBottom();
             });
+        });
+
+        onMounted(() => {
+            scrollToBottom();
         });
 
         return {

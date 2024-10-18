@@ -1,12 +1,13 @@
 use crate::db::db::DbPool;
 use crate::error::AppError;
 use crate::services::chat_service::ChatService;
-use crate::services::llm_service::{llm_stream_chat, LLMChatMessage};
+use crate::services::llm_service::{llm_stream_chat, LLMChatMessage, LLMServiceError};
 use crate::utils::extractors::AuthenticatedUser;
 use actix_web::{web, HttpResponse, Responder};
 use futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -35,26 +36,37 @@ pub async fn stream_chat(
 
     let stream = llm_stream_chat(&pool, &provider, &user_config, llm_messages).await;
 
-    // Collect the entire response
-    let full_response = stream
-        .try_fold(String::new(), |mut acc, chunk| async move {
-            acc.push_str(&chunk);
-            Ok(acc)
-        })
-        .await
-        .map_err(|e| AppError::ExternalServiceError(e.to_string()))?;
+    let full_response = Arc::new(Mutex::new(String::new()));
+    let full_response_clone = Arc::clone(&full_response);
 
-    // Save the full response to the database
-    ChatService::create_message(
-        &pool,
-        query.conversation_id,
-        "assistant".to_string(),
-        Value::String(full_response.clone()),
-    )?;
+    let response_stream = stream.then(move |chunk_result| {
+        let full_response = Arc::clone(&full_response);
+        async move {
+            match chunk_result {
+                Ok(chunk) => {
+                    let mut full = full_response.lock().unwrap();
+                    full.push_str(&chunk);
+                    Ok(web::Bytes::from(chunk))
+                }
+                Err(e) => Err(AppError::ExternalServiceError(e.to_string())),
+            }
+        }
+    });
 
-    // Create a new stream from the full response
-    let response_stream =
-        futures::stream::once(async move { Ok::<_, AppError>(web::Bytes::from(full_response)) });
+    // Use a separate task to save the full response to the database
+    let pool_clone = pool.clone();
+    let conversation_id = query.conversation_id;
+    actix_web::rt::spawn(async move {
+        let full_response = full_response_clone.lock().unwrap().clone();
+        if let Err(e) = ChatService::create_message(
+            &pool_clone,
+            conversation_id,
+            "assistant".to_string(),
+            Value::String(full_response),
+        ) {
+            eprintln!("Error saving message to database: {:?}", e);
+        }
+    });
 
-    Ok(HttpResponse::Ok().streaming::<_, AppError>(response_stream))
+    Ok(HttpResponse::Ok().streaming(response_stream))
 }

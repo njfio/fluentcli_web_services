@@ -51,7 +51,6 @@ export interface ChatState {
     llmProviders: LLMProvider[];
     userLLMConfigs: UserLLMConfig[];
 }
-
 const chatModule: Module<ChatState, RootState> = {
     namespaced: true,
     state: {
@@ -73,7 +72,7 @@ const chatModule: Module<ChatState, RootState> = {
             state.conversations.push(conversation);
         },
         setMessages(state, messages: Message[]) {
-            state.messages = messages;
+            state.messages = messages || [];
         },
         addMessage(state, message: Message) {
             state.messages.push(message);
@@ -127,6 +126,9 @@ const chatModule: Module<ChatState, RootState> = {
             if (state.currentConversation && state.currentConversation.id === conversationId) {
                 state.currentConversation = null;
             }
+        },
+        clearMessages(state) {
+            state.messages = [];
         },
     },
     actions: {
@@ -187,8 +189,13 @@ const chatModule: Module<ChatState, RootState> = {
             try {
                 const response = await apiClient.createMessage(conversationId, role, content);
                 const message = response.data;
-                commit('addMessage', message);
-                return message;
+                if (message && message.id) {
+                    commit('addMessage', message);
+                    return message;
+                } else {
+                    console.error('Invalid message response:', message);
+                    throw new Error('Invalid message response from server');
+                }
             } catch (error) {
                 console.error('Error creating message:', error);
                 throw error;
@@ -203,10 +210,26 @@ const chatModule: Module<ChatState, RootState> = {
             try {
                 const response = await apiClient.getMessages(conversationId);
                 const messages = response.data;
-                commit('setMessages', messages);
+                if (Array.isArray(messages)) {
+                    commit('setMessages', messages);
+                } else {
+                    console.error('Unexpected response format for messages:', messages);
+                    commit('setMessages', []);
+                }
                 return messages;
             } catch (error) {
                 console.error('Error fetching messages:', error);
+                commit('setMessages', []);
+                throw error;
+            }
+        },
+        async switchConversation({ commit, dispatch }, conversationId: string) {
+            try {
+                commit('clearMessages');
+                await dispatch('getConversation', conversationId);
+                await dispatch('getMessages', conversationId);
+            } catch (error) {
+                console.error('Error switching conversation:', error);
                 throw error;
             }
         },
@@ -327,7 +350,14 @@ const chatModule: Module<ChatState, RootState> = {
         getUserLLMConfigById: (state) => (id: string) => {
             return state.userLLMConfigs.find(config => config.id === id);
         },
+        getCurrentConversationMessages: (state) => {
+            const currentConversationId = state.currentConversation?.id;
+            return currentConversationId
+                ? state.messages.filter(message => message.conversationId === currentConversationId)
+                : [];
+        },
     },
+
 };
 
 export default chatModule;

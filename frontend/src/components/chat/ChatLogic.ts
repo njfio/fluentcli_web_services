@@ -133,19 +133,12 @@ export function useChatLogic() {
                 }
             }
 
-            console.log('Current Messages before filtering:', JSON.stringify(currentMessages.value, null, 2));
-
             const llmMessages: LLMMessage[] = currentMessages.value
                 .filter(m => m && typeof m === 'object' && 'role' in m && 'content' in m)
                 .map(m => ({
                     role: m.role as 'system' | 'user' | 'assistant',
                     content: m.content,
                 }));
-
-            console.log('Current Messages:', JSON.stringify(currentMessages.value, null, 2));
-            console.log('LLM Messages:', JSON.stringify(llmMessages, null, 2));
-            console.log('Selected Config ID:', selectedConfigId.value);
-            console.log('Current Conversation ID:', currentConversation.value.id);
 
             if (llmMessages.length === 0) {
                 throw new Error('No valid messages to send to LLM');
@@ -169,52 +162,32 @@ export function useChatLogic() {
 
                 const chunk = decoder.decode(value);
                 console.log('Received chunk:', chunk);
-                const lines = chunk.split('\n');
+                fullContent += chunk;
 
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const jsonStr = line.slice(6).trim();
-                        if (jsonStr === '[DONE]') {
-                            console.log('Stream completed');
-                            continue;
-                        }
-                        try {
-                            const parsedChunk = JSON.parse(jsonStr);
-                            console.log('Parsed chunk:', parsedChunk);
-                            if (parsedChunk.choices && parsedChunk.choices[0].delta.content) {
-                                const newContent = parsedChunk.choices[0].delta.content;
-                                fullContent += newContent;
-
-                                if (!assistantMessage) {
-                                    assistantMessage = {
-                                        id: '', // This will be set when we create the message on the backend
-                                        conversationId: currentConversation.value!.id,
-                                        role: 'assistant',
-                                        content: fullContent,
-                                        createdAt: new Date().toISOString(),
-                                        renderedContent: await renderMarkdown(fullContent)
-                                    };
-                                    currentMessages.value.push(assistantMessage);
-                                } else {
-                                    assistantMessage.content = fullContent;
-                                    assistantMessage.renderedContent = await renderMarkdown(fullContent);
-                                }
-
-                                // Update the last message in the array
-                                const lastIndex = currentMessages.value.length - 1;
-                                if (lastIndex >= 0) {
-                                    currentMessages.value = [
-                                        ...currentMessages.value.slice(0, lastIndex),
-                                        { ...assistantMessage }
-                                    ];
-                                }
-                                console.log('Updated assistant message:', JSON.stringify(assistantMessage, null, 2));
-                            }
-                        } catch (e) {
-                            console.error('Error parsing chunk:', e, 'Raw data:', jsonStr);
-                        }
-                    }
+                if (!assistantMessage) {
+                    assistantMessage = {
+                        id: '', // This will be set when we create the message on the backend
+                        conversationId: currentConversation.value!.id,
+                        role: 'assistant',
+                        content: fullContent,
+                        createdAt: new Date().toISOString(),
+                        renderedContent: await renderMarkdown(fullContent)
+                    };
+                    currentMessages.value.push(assistantMessage);
+                } else {
+                    assistantMessage.content = fullContent;
+                    assistantMessage.renderedContent = await renderMarkdown(fullContent);
                 }
+
+                // Update the last message in the array
+                const lastIndex = currentMessages.value.length - 1;
+                if (lastIndex >= 0) {
+                    currentMessages.value = [
+                        ...currentMessages.value.slice(0, lastIndex),
+                        { ...assistantMessage }
+                    ];
+                }
+                console.log('Updated assistant message:', JSON.stringify(assistantMessage, null, 2));
             }
 
             // Create the final assistant message on the backend

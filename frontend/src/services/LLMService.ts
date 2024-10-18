@@ -84,18 +84,7 @@ class LLMService {
         const transformStream = new TransformStream({
             transform: (chunk, controller) => {
                 const text = new TextDecoder().decode(chunk);
-                const lines = text.split('\n');
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const content = line.slice(6).trim();
-                        if (content === '[DONE]') {
-                            controller.enqueue(new TextEncoder().encode(content + '\n'));
-                        } else {
-                            controller.enqueue(new TextEncoder().encode(content + '\n'));
-                        }
-                    }
-                }
+                controller.enqueue(new TextEncoder().encode(text));
             }
         });
 
