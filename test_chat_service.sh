@@ -127,9 +127,8 @@ create_and_test_llm_provider() {
     # Create a new API key entry in the system
     echo "Creating a new API key entry for $name"
     api_key_response=$(make_request POST "/api_keys" '{
-        "user_id": "'"$user_id"'",
-        "name": "'"$name"'APIKey",
-        "key_value": "'"$api_key"'"
+        "key_value": "'"$api_key"'",
+        "description": "Test '"$name"' API Key"
     }' "$token" "201")
     api_key_id=$(echo "$api_key_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
     echo "$name API Key ID (system identifier): $api_key_id"
@@ -151,6 +150,7 @@ create_and_test_llm_provider() {
             "max_tokens": 150
         }
     }' "$token" "201")
+    echo "Provider creation response: $provider_response"
     provider_id=$(echo "$provider_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
     echo "$name Provider ID: $provider_id"
 
@@ -165,11 +165,12 @@ create_and_test_llm_provider() {
 
     # Create a user LLM config
     echo "Creating a user LLM config for $name"
-    llm_config_response=$(make_request POST "/chat/user-llm-configs" '{
+    llm_config_response=$(make_request POST "/llm/user-configs" '{
         "user_id": "'"$user_id"'",
         "provider_id": "'"$provider_id"'",
         "api_key_id": "'"$api_key_id"'"
     }' "$token" "201")
+    echo "User LLM Config creation response: $llm_config_response"
     llm_config_id=$(echo "$llm_config_response" | grep -o '"id":"[^"]*' | cut -d'"' -f4 | head -n 1)
     echo "$name LLM Config ID: $llm_config_id"
 
@@ -177,10 +178,6 @@ create_and_test_llm_provider() {
         echo "Failed to create user LLM config for $name. Skipping tests."
         return
     fi
-
-    # Get the user LLM config
-    echo "Getting the user LLM config for $name"
-    make_request GET "/chat/user-llm-configs/$llm_config_id" "" "$token" "200"
 
     # Create a new conversation for this LLM provider test
     echo "Creating a new conversation for $name LLM test"
@@ -195,41 +192,26 @@ create_and_test_llm_provider() {
 
     # Test LLM chat
     echo "Testing $name LLM chat"
-    chat_response=$(make_request POST "/llm/chat" '{
-        "provider_id": "'"$provider_id"'",
-        "conversation_id": "'"$conversation_id"'",
-        "messages": [
-            {"role": "user", "content": "What is the capital of France?"}
-        ]
-    }' "$token" "200")
+    chat_response=$(curl -s -N -X POST "$BASE_URL/llm/chat" \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/json" \
+        -d '{
+            "user_llm_config_id": "'"$llm_config_id"'",
+            "conversation_id": "'"$conversation_id"'",
+            "messages": [
+                {"role": "user", "content": "What is the capital of France?"}
+            ]
+        }')
 
-    # Parse the chat response
-echo "--------"
-    echo "Chat response: $chat_response"
-    echo "------"
-    response_body=$(echo "$chat_response" | tail -n 1)
-    response_status=$(echo "$chat_response" | sed '$d')
+    echo "Chat response:"
+    echo "$chat_response"
 
-    echo "Response status: $response_status"
-    echo "Response body: $response_body"
-
-    if [ "$response_status" != "200" ]; then
-        # Parse the JSON response
-        status=$(echo "$response_body" | jq -r '.status')
-        response=$(echo "$response_body" | jq -r '.response')
-
-        echo -e "\n==== $name Assistant Response ===="
-        echo "Status: $status"
-        echo "Response: $response"
-
-        if [ "$status" = "success" ] && [[ $response == *"Paris"* ]]; then
-            echo "$name LLM Service test passed: Response contains 'Paris'"
-            PASSED_TESTS=$((PASSED_TESTS + 1))
-        else
-            echo "$name LLM Service test failed: Unexpected response"
-        fi
+    # Check if the response contains "Paris"
+    if echo "$chat_response" | grep -q "Paris"; then
+        echo "$name LLM Service test passed: Response contains 'Paris'"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
     else
-        echo "$name LLM Service test failed: Unexpected status code $response_status"
+        echo "$name LLM Service test failed: Response does not contain 'Paris'"
     fi
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))

@@ -7,8 +7,9 @@
         <ChatArea :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded" :currentConversation="currentConversation"
             :messages="currentMessages" :isLoading="isLoading" />
         <ChatInput :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded" :userLLMConfigs="userLLMConfigs"
-            v-model:selectedConfigId="selectedConfigId" :currentConversation="currentConversation"
-            :isLoading="isLoading" @toggle-expand="toggleExpand" @send-message="sendMessage" />
+            v-model:selectedConfigId="selectedConfigId" v-model:userInput="userInput"
+            :currentConversation="currentConversation" :isLoading="isLoading" @toggle-expand="toggleExpand"
+            @send-message="sendMessage" />
     </div>
 </template>
 
@@ -40,6 +41,7 @@ export default defineComponent({
             currentMessages,
             userLLMConfigs,
             selectedConfigId,
+            userInput,
             loadMessages,
             selectConversation,
             createNewConversation,
@@ -109,6 +111,7 @@ export default defineComponent({
             currentMessages,
             userLLMConfigs,
             selectedConfigId,
+            userInput,
             isExpanded,
             isSidebarOpen,
             selectConversation,

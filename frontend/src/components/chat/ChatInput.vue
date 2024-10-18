@@ -22,12 +22,12 @@
                 </option>
             </select>
             <div class="flex-grow relative" :style="{ height: isExpanded ? '40rem' : '2rem' }">
-                <MonacoEditor v-model="userInput" :options="editorOptions" language="markdown" theme="vs-dark"
-                    @send-message="sendMessage" />
+                <MonacoEditor v-model="userInputComputed" :options="editorOptions" language="markdown"
+                    theme="vs-dark" />
             </div>
             <div class="mt-2 flex justify-end">
-                <button @click="sendMessage"
-                    :disabled="isLoading || userInput.trim() === '' || !selectedConfigIdComputed || !currentConversation"
+                <button @click="handleSendMessage"
+                    :disabled="isLoading || userInputComputed.trim() === '' || !selectedConfigIdComputed || !currentConversation"
                     class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out">
                     Send
                 </button>
@@ -84,29 +84,34 @@ export default defineComponent({
             type: Boolean,
             required: true,
         },
+        userInput: {
+            type: String,
+            required: true,
+        },
     },
     emits: {
         'toggle-expand': () => true,
         'update:selectedConfigId': (configId: string) => typeof configId === 'string',
-        'send-message': (message: string) => typeof message === 'string',
+        'update:userInput': (input: string) => typeof input === 'string',
+        'send-message': () => true,
     },
     setup(props, { emit }) {
-        const userInput = ref('');
-
         const selectedConfigIdComputed = computed({
             get: () => props.selectedConfigId,
             set: (value: string) => emit('update:selectedConfigId', value)
+        });
+
+        const userInputComputed = computed({
+            get: () => props.userInput,
+            set: (value: string) => emit('update:userInput', value)
         });
 
         const toggleExpand = () => {
             emit('toggle-expand');
         };
 
-        const sendMessage = () => {
-            if (userInput.value.trim() !== '' && props.currentConversation) {
-                emit('send-message', userInput.value);
-                userInput.value = '';
-            }
+        const handleSendMessage = () => {
+            emit('send-message');
         };
 
         const editorOptions = computed(() => ({
@@ -145,10 +150,10 @@ export default defineComponent({
         }));
 
         return {
-            userInput,
             selectedConfigIdComputed,
+            userInputComputed,
             toggleExpand,
-            sendMessage,
+            handleSendMessage,
             editorOptions,
         };
     },

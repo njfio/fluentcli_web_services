@@ -9,9 +9,9 @@ export interface LLMProvider {
 export interface UserLLMConfig {
     id: string;
     name?: string;
-    userId: string;
-    providerId: string;
-    apiKeyId: string;
+    user_id: string;
+    provider_id: string;
+    api_key_id: string;
 }
 
 export interface LLMMessage {
@@ -25,6 +25,11 @@ class LLMService {
         return response.data;
     }
 
+    async getUserLLMConfig(configId: string): Promise<UserLLMConfig> {
+        const response = await axiosInstance.get(`/llm/user-configs/${configId}`);
+        return response.data;
+    }
+
     async chat(userLLMConfigId: string, messages: LLMMessage[]): Promise<string> {
         const response = await axiosInstance.post('/llm/chat', {
             user_llm_config_id: userLLMConfigId,
@@ -33,7 +38,15 @@ class LLMService {
         return response.data.message;
     }
 
-    async streamChat(userLLMConfigId: string, messages: LLMMessage[]): Promise<ReadableStream<Uint8Array>> {
+    async streamChat(userLLMConfigId: string, conversationId: string, messages: LLMMessage[]): Promise<ReadableStream<Uint8Array>> {
+        const userLLMConfig = await this.getUserLLMConfig(userLLMConfigId);
+        console.log('User LLM Config:', JSON.stringify(userLLMConfig, null, 2));
+
+        if (!userLLMConfig.provider_id) {
+            console.error('Provider ID is missing from the user LLM config');
+            throw new Error('Provider ID is missing from the user LLM config');
+        }
+
         const url = new URL('/llm/stream_chat', axiosInstance.defaults.baseURL);
 
         // Filter out invalid messages
@@ -41,6 +54,8 @@ class LLMService {
 
         // Add query parameters
         url.searchParams.append('user_llm_config_id', userLLMConfigId);
+        url.searchParams.append('provider_id', userLLMConfig.provider_id);
+        url.searchParams.append('conversation_id', conversationId);
         url.searchParams.append('messages', JSON.stringify(validMessages));
 
         console.log('LLMService streamChat - Request URL:', url.toString());

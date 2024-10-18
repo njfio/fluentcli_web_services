@@ -102,8 +102,8 @@ export function useChatLogic() {
 
     async function processMessage(message: string, retry = false) {
         console.log('Processing message:', message);
-        if (!message || !selectedConfigId.value) {
-            error.value = message ? 'Please select a User LLM Config before sending a message.' : 'Cannot process empty message.';
+        if (!message || !selectedConfigId.value || !currentConversation.value) {
+            error.value = message ? 'Please select a User LLM Config and ensure a conversation is active before sending a message.' : 'Cannot process empty message.';
             return;
         }
 
@@ -145,13 +145,14 @@ export function useChatLogic() {
             console.log('Current Messages:', JSON.stringify(currentMessages.value, null, 2));
             console.log('LLM Messages:', JSON.stringify(llmMessages, null, 2));
             console.log('Selected Config ID:', selectedConfigId.value);
+            console.log('Current Conversation ID:', currentConversation.value.id);
 
             if (llmMessages.length === 0) {
                 throw new Error('No valid messages to send to LLM');
             }
 
             console.log('Sending request to LLM service...');
-            const stream = await LLMService.streamChat(selectedConfigId.value, llmMessages);
+            const stream = await LLMService.streamChat(selectedConfigId.value, currentConversation.value.id, llmMessages);
             console.log('Received stream from LLM service');
             const reader = stream.getReader();
             const decoder = new TextDecoder();
