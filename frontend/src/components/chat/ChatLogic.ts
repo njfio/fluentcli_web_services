@@ -118,6 +118,7 @@ export function useChatLogic() {
             abortController = new AbortController();
 
             let userMessage: Message | null = null;
+            let providerName = '';
             if (!retry && currentConversation.value) {
                 const selectedConfig = userLLMConfigs.value.find((config: UserLLMConfig) => config.id === selectedConfigId.value);
                 if (!selectedConfig) {
@@ -134,7 +135,7 @@ export function useChatLogic() {
                 // Fetch the LLM provider to get the provider name
                 const provider = await store.dispatch('chat/getLLMProvider', selectedConfig.provider_id);
                 console.log('Fetched provider:', provider);
-                const providerName = provider.name;
+                providerName = provider.name;
 
                 const result = await store.dispatch('chat/createMessage', {
                     conversationId: currentConversation.value.id,
@@ -191,7 +192,7 @@ export function useChatLogic() {
                         conversationId: currentConversation.value!.id,
                         role: 'assistant',
                         content: fullContent,
-                        providerModel: '',
+                        providerModel: providerName,
                         attachmentId: undefined,
                         rawOutput: undefined,
                         usageStats: undefined,
@@ -217,13 +218,6 @@ export function useChatLogic() {
 
             // Create the final assistant message on the backend
             if (assistantMessage && fullContent.trim() !== '') {
-                const selectedConfig = userLLMConfigs.value.find((config: UserLLMConfig) => config.id === selectedConfigId.value);
-                if (!selectedConfig) {
-                    throw new Error('Selected User LLM Config not found');
-                }
-                const provider = await store.dispatch('chat/getLLMProvider', selectedConfig.provider_id);
-                const providerName = provider.name;
-
                 try {
                     const newMessageResult = await store.dispatch('chat/createMessage', {
                         conversationId: currentConversation.value!.id,

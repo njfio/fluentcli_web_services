@@ -254,7 +254,12 @@ const chatModule: Module<ChatState, RootState> = {
                 const response = await apiClient.getMessages(conversationId);
                 const messages = response.data;
                 if (Array.isArray(messages)) {
-                    commit('setMessages', messages);
+                    // Ensure that providerModel is included in each message
+                    const processedMessages = messages.map(message => ({
+                        ...message,
+                        providerModel: message.providerModel || 'Unknown'
+                    }));
+                    commit('setMessages', processedMessages);
                 } else {
                     console.error('Unexpected response format for messages:', messages);
                     commit('setMessages', []);
