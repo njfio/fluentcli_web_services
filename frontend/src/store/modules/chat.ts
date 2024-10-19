@@ -17,6 +17,10 @@ export interface Message {
     content: string;
     createdAt: string;
     renderedContent?: string;
+    providerModel?: string;
+    attachmentId?: string;
+    rawOutput?: string;
+    usageStats?: any;
 }
 
 export interface Attachment {
@@ -51,6 +55,7 @@ export interface ChatState {
     llmProviders: LLMProvider[];
     userLLMConfigs: UserLLMConfig[];
 }
+
 const chatModule: Module<ChatState, RootState> = {
     namespaced: true,
     state: {
@@ -185,9 +190,43 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createMessage({ commit }, { conversationId, role, content }: { conversationId: string; role: string; content: string }) {
+        async createMessage({ commit }, {
+            conversationId,
+            role,
+            content,
+            providerModel,
+            attachmentId,
+            rawOutput,
+            usageStats
+        }: {
+            conversationId: string;
+            role: string;
+            content: string;
+            providerModel: string;
+            attachmentId?: string;
+            rawOutput?: string;
+            usageStats?: any;
+        }) {
             try {
-                const response = await apiClient.createMessage(conversationId, role, content);
+                console.log('Creating message with data:', {
+                    conversationId,
+                    role,
+                    content,
+                    providerModel,
+                    attachmentId,
+                    rawOutput,
+                    usageStats
+                });
+                const response = await apiClient.createMessage(
+                    conversationId,
+                    role,
+                    content,
+                    providerModel,
+                    attachmentId,
+                    rawOutput,
+                    usageStats
+                );
+                console.log('Response from createMessage:', response);
                 const message = response.data;
                 if (message && message.id) {
                     commit('addMessage', message);
@@ -196,8 +235,12 @@ const chatModule: Module<ChatState, RootState> = {
                     console.error('Invalid message response:', message);
                     throw new Error('Invalid message response from server');
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error('Error creating message:', error);
+                if (error instanceof AxiosError && error.response) {
+                    console.error('Error response:', error.response.data);
+                    console.error('Error status:', error.response.status);
+                }
                 throw error;
             }
         },
@@ -211,7 +254,12 @@ const chatModule: Module<ChatState, RootState> = {
                 const response = await apiClient.getMessages(conversationId);
                 const messages = response.data;
                 if (Array.isArray(messages)) {
-                    commit('setMessages', messages);
+                    // Ensure that providerModel is included in each message
+                    const processedMessages = messages.map(message => ({
+                        ...message,
+                        providerModel: message.providerModel || 'Unknown'
+                    }));
+                    commit('setMessages', processedMessages);
                 } else {
                     console.error('Unexpected response format for messages:', messages);
                     commit('setMessages', []);
@@ -357,7 +405,6 @@ const chatModule: Module<ChatState, RootState> = {
                 : [];
         },
     },
-
 };
 
 export default chatModule;

@@ -7,11 +7,12 @@ use log::{error, info};
 use serde::Deserialize;
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct CreateUserLLMConfigRequest {
     user_id: Uuid,
     provider_id: Uuid,
     api_key_id: Uuid,
+    description: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -25,17 +26,46 @@ pub async fn create_user_llm_config(
     req: web::Json<CreateUserLLMConfigRequest>,
 ) -> Result<HttpResponse, AppError> {
     info!("Attempting to create user LLM config: {:?}", req);
-    let config = web::block(move || {
-        ChatService::create_user_llm_config(&pool, req.user_id, req.provider_id, req.api_key_id)
+
+    let req_inner = req.into_inner();
+    let pool_clone = pool.clone();
+
+    // Check if the provider exists
+    let provider_result = web::block(move || {
+        LLMProviderService::get_llm_provider(&pool_clone, req_inner.provider_id)
     })
     .await
     .map_err(|e| {
-        error!("Error creating user LLM config: {:?}", e);
+        error!("Error checking provider existence: {:?}", e);
         AppError::GenericError(Box::new(e))
-    })??;
+    })?;
 
-    info!("User LLM config created successfully: {:?}", config);
-    Ok(HttpResponse::Created().json(config))
+    match provider_result {
+        Ok(_) => {
+            // Provider exists, proceed with creating the user LLM config
+            let config = web::block(move || {
+                ChatService::create_user_llm_config(
+                    &pool,
+                    req_inner.user_id,
+                    req_inner.provider_id,
+                    req_inner.api_key_id,
+                    req_inner.description,
+                )
+            })
+            .await
+            .map_err(|e| {
+                error!("Error creating user LLM config: {:?}", e);
+                AppError::GenericError(Box::new(e))
+            })??;
+
+            info!("User LLM config created successfully: {:?}", config);
+            Ok(HttpResponse::Created().json(config))
+        }
+        Err(_) => {
+            // Provider doesn't exist
+            Err(AppError::BadRequest("Invalid provider ID".to_string()))
+        }
+    }
 }
 
 pub async fn get_user_llm_config(

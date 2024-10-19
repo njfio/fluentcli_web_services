@@ -22,6 +22,7 @@ pub struct CreateUserLLMConfigRequest {
     pub user_id: Uuid,
     pub provider_id: Uuid,
     pub api_key_id: Uuid,
+    pub description: Option<String>,
 }
 
 pub async fn create_llm_provider(
@@ -130,6 +131,7 @@ pub async fn create_user_llm_config(
         user_id: req.user_id,
         provider_id: req.provider_id,
         api_key_id: req.api_key_id,
+        description: req.description.clone(),
     };
 
     let config = web::block(move || LLMProviderService::create_user_llm_config(&pool, new_config))
@@ -178,6 +180,7 @@ pub async fn update_user_llm_config(
         user_id: req.user_id,
         provider_id: req.provider_id,
         api_key_id: req.api_key_id,
+        description: req.description.clone(),
     };
 
     let config = web::block(move || {

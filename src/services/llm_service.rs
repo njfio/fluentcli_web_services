@@ -4,7 +4,8 @@ use crate::models::llm_provider::LLMProvider;
 use crate::models::user_llm_config::UserLLMConfig;
 use crate::services::api_key_service::ApiKeyService;
 use crate::services::llm_providers::{
-    anthropic::AnthropicProvider, cohere::CohereProvider, openai::OpenAIProvider,
+    anthropic::AnthropicProvider, cohere::CohereProvider, dalle::DalleProvider,
+    gemini::GeminiProvider, openai::OpenAIProvider, perplexity::PerplexityProvider,
 };
 use futures::stream::{Stream, StreamExt};
 use log::{debug, error, warn};
@@ -67,6 +68,7 @@ pub async fn chat(
             "gpt" => Box::new(OpenAIProvider),
             "claude" => Box::new(AnthropicProvider),
             "command" => Box::new(CohereProvider),
+            "gemini" => Box::new(GeminiProvider),
             _ => {
                 error!("Unsupported LLM provider: {}", provider.provider_type);
                 return Err(LLMServiceError(AppError::UnsupportedProviderError(
@@ -152,6 +154,9 @@ pub async fn llm_stream_chat(
             "gpt" => Box::new(OpenAIProvider),
             "claude" => Box::new(AnthropicProvider),
             "command" => Box::new(CohereProvider),
+            "dalle" => Box::new(DalleProvider),
+            "perplexity" => Box::new(PerplexityProvider),
+            "gemini" => Box::new(GeminiProvider),
             _ => {
                 error!("Unsupported LLM provider: {}", provider.provider_type);
                 return Box::pin(futures::stream::once(async {
@@ -203,13 +208,26 @@ pub async fn llm_stream_chat(
             .map(move |result| match result {
                 Ok(response) => {
                     if !response.status().is_success() {
-                        let error = LLMServiceError(AppError::ExternalServiceError(format!(
-                            "LLM API error: Status {} {}",
-                            response.status().as_u16(),
-                            response.status().as_str()
-                        )));
-                        error!("LLM API error: {:?}", error);
-                        Box::pin(futures::stream::once(async move { Err(error) }))
+                        let status = response.status();
+                        let error_future = async move {
+                            let error_body = response
+                                .text()
+                                .await
+                                .unwrap_or_else(|e| format!("Failed to get error body: {}", e));
+                            error!(
+                                "LLM API error: Status {} {}, Body: {}",
+                                status.as_u16(),
+                                status.as_str(),
+                                error_body
+                            );
+                            Err(LLMServiceError(AppError::ExternalServiceError(format!(
+                                "LLM API error: Status {} {}, Body: {}",
+                                status.as_u16(),
+                                status.as_str(),
+                                error_body
+                            ))))
+                        };
+                        Box::pin(futures::stream::once(error_future))
                             as Pin<
                                 Box<
                                     dyn Stream<Item = Result<String, LLMServiceError>>

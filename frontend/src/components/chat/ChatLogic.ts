@@ -1,7 +1,7 @@
 import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import LLMService, { LLMMessage } from '../../services/LLMService';
-import { Message } from '../../store/modules/chat';
+import { Message, UserLLMConfig } from '../../store/modules/chat';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
@@ -118,11 +118,33 @@ export function useChatLogic() {
             abortController = new AbortController();
 
             let userMessage: Message | null = null;
+            let providerName = '';
             if (!retry && currentConversation.value) {
+                const selectedConfig = userLLMConfigs.value.find((config: UserLLMConfig) => config.id === selectedConfigId.value);
+                if (!selectedConfig) {
+                    throw new Error('Selected User LLM Config not found');
+                }
+
+                console.log('Selected config:', JSON.stringify(selectedConfig, null, 2));
+                console.log('Provider ID:', selectedConfig.provider_id);
+
+                if (!selectedConfig.provider_id) {
+                    throw new Error('Provider ID is undefined');
+                }
+
+                // Fetch the LLM provider to get the provider name
+                const provider = await store.dispatch('chat/getLLMProvider', selectedConfig.provider_id);
+                console.log('Fetched provider:', provider);
+                providerName = provider.name;
+
                 const result = await store.dispatch('chat/createMessage', {
                     conversationId: currentConversation.value.id,
                     role: 'user',
                     content: message,
+                    providerModel: providerName,
+                    attachmentId: undefined,
+                    rawOutput: undefined,
+                    usageStats: undefined
                 });
                 console.log('User message created:', result);
                 userMessage = extractMessage(result);
@@ -164,24 +186,28 @@ export function useChatLogic() {
                 console.log('Received chunk:', chunk);
                 fullContent += chunk;
 
-                if (!assistantMessage) {
+                if (!assistantMessage && fullContent.trim() !== '') {
                     assistantMessage = {
-                        id: '', // This will be set when we create the message on the backend
+                        id: '',
                         conversationId: currentConversation.value!.id,
                         role: 'assistant',
                         content: fullContent,
+                        providerModel: providerName,
+                        attachmentId: undefined,
+                        rawOutput: undefined,
+                        usageStats: undefined,
                         createdAt: new Date().toISOString(),
                         renderedContent: await renderMarkdown(fullContent)
                     };
                     currentMessages.value.push(assistantMessage);
-                } else {
+                } else if (assistantMessage) {
                     assistantMessage.content = fullContent;
                     assistantMessage.renderedContent = await renderMarkdown(fullContent);
                 }
 
                 // Update the last message in the array
                 const lastIndex = currentMessages.value.length - 1;
-                if (lastIndex >= 0) {
+                if (lastIndex >= 0 && assistantMessage) {
                     currentMessages.value = [
                         ...currentMessages.value.slice(0, lastIndex),
                         { ...assistantMessage }
@@ -191,24 +217,33 @@ export function useChatLogic() {
             }
 
             // Create the final assistant message on the backend
-            if (assistantMessage) {
-                const newMessageResult = await store.dispatch('chat/createMessage', {
-                    conversationId: currentConversation.value!.id,
-                    role: 'assistant',
-                    content: fullContent,
-                });
-                console.log('Final assistant message created:', newMessageResult);
-                const createdMessage = extractMessage(newMessageResult);
-                if (createdMessage) {
-                    createdMessage.renderedContent = await renderMarkdown(createdMessage.content);
-                    // Update the message in currentMessages
-                    const lastIndex = currentMessages.value.length - 1;
-                    if (lastIndex >= 0) {
-                        currentMessages.value = [
-                            ...currentMessages.value.slice(0, lastIndex),
-                            createdMessage
-                        ];
+            if (assistantMessage && fullContent.trim() !== '') {
+                try {
+                    const newMessageResult = await store.dispatch('chat/createMessage', {
+                        conversationId: currentConversation.value!.id,
+                        role: 'assistant',
+                        content: fullContent,
+                        providerModel: providerName,
+                        attachmentId: undefined,
+                        rawOutput: fullContent,
+                        usageStats: undefined
+                    });
+                    console.log('Final assistant message created:', newMessageResult);
+                    const createdMessage = extractMessage(newMessageResult);
+                    if (createdMessage) {
+                        createdMessage.renderedContent = await renderMarkdown(createdMessage.content);
+                        // Update the message in currentMessages
+                        const lastIndex = currentMessages.value.length - 1;
+                        if (lastIndex >= 0) {
+                            currentMessages.value = [
+                                ...currentMessages.value.slice(0, lastIndex),
+                                createdMessage
+                            ];
+                        }
                     }
+                } catch (error) {
+                    console.error('Error creating assistant message:', error);
+                    throw error;
                 }
             }
 

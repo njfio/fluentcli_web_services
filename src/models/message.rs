@@ -12,6 +12,10 @@ pub struct Message {
     pub conversation_id: Uuid,
     pub role: String,
     pub content: String,
+    pub provider_model: String,
+    pub attachment_id: Option<Uuid>,
+    pub raw_output: Option<String>,
+    pub usage_stats: Option<Value>,
     pub created_at: NaiveDateTime,
 }
 
@@ -21,6 +25,10 @@ pub struct NewMessage {
     pub conversation_id: Uuid,
     pub role: String,
     pub content: String,
+    pub provider_model: String,
+    pub attachment_id: Option<Uuid>,
+    pub raw_output: Option<String>,
+    pub usage_stats: Option<Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -37,11 +45,23 @@ impl Message {
 }
 
 impl NewMessage {
-    pub fn new(conversation_id: Uuid, role: String, content: Value) -> Self {
+    pub fn new(
+        conversation_id: Uuid,
+        role: String,
+        content: Value,
+        provider_model: String,
+        attachment_id: Option<Uuid>,
+        raw_output: Option<String>,
+        usage_stats: Option<Value>,
+    ) -> Self {
         NewMessage {
             conversation_id,
             role,
             content: content.to_string(),
+            provider_model,
+            attachment_id,
+            raw_output,
+            usage_stats,
         }
     }
 }

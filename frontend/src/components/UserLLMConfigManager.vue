@@ -18,6 +18,8 @@
                         {{ apiKey.description }}
                     </option>
                 </select>
+                <input v-model="newConfig.description" placeholder="Description"
+                    class="mr-2 p-2 border rounded dark:bg-gray-700 dark:text-white" />
                 <button @click="createOrUpdateUserLLMConfig"
                     class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded dark:bg-blue-600 dark:hover:bg-blue-800">
                     {{ editingConfig ? 'Update' : 'Add' }} User LLM Config
@@ -31,7 +33,8 @@
                 <li v-for="config in userLLMConfigs" :key="config.id"
                     class="user-llm-config-item mb-2 p-2 border rounded flex justify-between items-center dark:bg-gray-800 dark:text-white">
                     <div>
-                        <p><strong>Provider: {{ getProviderName(config.provider_id) }}</strong></p>
+                        <p class="font-bold">{{ config.description || 'No description' }}</p>
+                        <p class="text-sm">Provider: {{ getProviderName(config.provider_id) }}</p>
                         <p class="text-sm">API Key: {{ getApiKeyDescription(config.api_key_id) }}</p>
                     </div>
                     <div>
@@ -65,6 +68,7 @@ interface UserLLMConfig {
     user_id: string;
     provider_id: string;
     api_key_id: string;
+    description?: string;
 }
 
 interface LLMProvider {
@@ -83,7 +87,7 @@ const userId = computed(() => store.state.auth.user?.user_id);
 const userLLMConfigs = ref<UserLLMConfig[]>([]);
 const llmProviders = ref<LLMProvider[]>([]);
 const apiKeys = ref<ApiKey[]>([]);
-const newConfig = ref<{ providerId: string; apiKeyId: string }>({ providerId: '', apiKeyId: '' });
+const newConfig = ref<{ providerId: string; apiKeyId: string; description: string }>({ providerId: '', apiKeyId: '', description: '' });
 const loading = ref(false);
 const error = ref('');
 const editingConfig = ref<UserLLMConfig | null>(null);
@@ -133,13 +137,14 @@ const createOrUpdateUserLLMConfig = async () => {
             user_id: userId.value,
             provider_id: newConfig.value.providerId,
             api_key_id: newConfig.value.apiKeyId,
+            description: newConfig.value.description,
         };
         if (editingConfig.value) {
             await apiClient.updateUserLLMConfig(editingConfig.value.id, configData);
         } else {
             await apiClient.createUserLLMConfig(configData);
         }
-        newConfig.value = { providerId: '', apiKeyId: '' };
+        newConfig.value = { providerId: '', apiKeyId: '', description: '' };
         editingConfig.value = null;
         await fetchUserLLMConfigs();
     } catch (err) {
@@ -155,12 +160,13 @@ const editUserLLMConfig = (config: UserLLMConfig) => {
     newConfig.value = {
         providerId: config.provider_id,
         apiKeyId: config.api_key_id,
+        description: config.description || '',
     };
 };
 
 const cancelEdit = () => {
     editingConfig.value = null;
-    newConfig.value = { providerId: '', apiKeyId: '' };
+    newConfig.value = { providerId: '', apiKeyId: '', description: '' };
 };
 
 const deleteUserLLMConfig = async (id: string) => {

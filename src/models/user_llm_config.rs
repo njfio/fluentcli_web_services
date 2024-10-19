@@ -11,6 +11,7 @@ pub struct UserLLMConfig {
     pub user_id: Uuid,
     pub provider_id: Uuid,
     pub api_key_id: Uuid,
+    pub description: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -21,4 +22,5 @@ pub struct NewUserLLMConfig {
     pub user_id: Uuid,
     pub provider_id: Uuid,
     pub api_key_id: Uuid,
+    pub description: Option<String>,
 }

@@ -10,11 +10,19 @@
             maxWidth: '100%'
         }" ref="chatMessages">
             <div v-if="currentConversation && messages.length > 0">
-                <div v-for="(message, index) in messages" :key="index" :class="['message mb-3 p-3 rounded-lg max-w-3xl',
+                <div v-for="(message, index) in messages" :key="index" :class="['message mb-3 rounded-lg max-w-3xl',
                     message.role === 'user' ? 'bg-blue-600 text-white ml-auto' : 'bg-gray-700 text-white mr-auto']">
-                    <div class="message-content text-sm markdown-body"
-                        v-html="message.renderedContent || message.content">
+                    <ResponseTopToolbar v-if="message.role === 'assistant'"
+                        :providerModel="message.provider_model || ''" />
+                    <div class="message-content text-sm markdown-body p-3">
+                        <template v-if="isImageUrl(message.content)">
+                            <img :src="message.content" alt="Generated image" class="max-w-full h-auto rounded-lg" />
+                        </template>
+                        <template v-else>
+                            <div v-html="message.renderedContent || message.content"></div>
+                        </template>
                     </div>
+                    <ResponseToolbar v-if="message.role === 'assistant'" />
                 </div>
             </div>
             <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
@@ -42,11 +50,14 @@
 
 <script lang="ts">
 import { defineComponent, PropType, ref, watch, nextTick, onMounted } from 'vue';
+import ResponseToolbar from './ResponseToolbar.vue';
+import ResponseTopToolbar from './ResponseTopToolbar.vue';
 
 interface Message {
     role: string;
     content: string;
     renderedContent?: string;
+    provider_model?: string;
 }
 
 interface Conversation {
@@ -56,6 +67,10 @@ interface Conversation {
 
 export default defineComponent({
     name: 'ChatArea',
+    components: {
+        ResponseToolbar,
+        ResponseTopToolbar,
+    },
     props: {
         isSidebarOpen: {
             type: Boolean,
@@ -103,8 +118,13 @@ export default defineComponent({
             scrollToBottom();
         });
 
+        const isImageUrl = (content: string): boolean => {
+            return content.startsWith('http') && content.match(/\.(jpeg|jpg|gif|png)/) !== null;
+        };
+
         return {
             chatMessages,
+            isImageUrl,
         };
     },
 });

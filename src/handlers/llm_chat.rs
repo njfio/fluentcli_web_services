@@ -45,6 +45,10 @@ pub async fn llm_chat_handler(
         req.conversation_id,
         "assistant".to_string(),
         Value::String(response.clone()),
+        provider.name.clone(),
+        None,                   // attachment_id
+        Some(response.clone()), // raw_output
+        None,                   // usage_stats
     )?;
 
     Ok(HttpResponse::Ok().json(LLMChatResponse {

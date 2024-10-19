@@ -125,7 +125,15 @@ interface ApiClient {
   listConversations: () => Promise<AxiosResponse<any>>;
   getConversation: (id: string) => Promise<AxiosResponse<any>>;
   deleteConversation: (id: string) => Promise<AxiosResponse<any>>;
-  createMessage: (conversationId: string, role: string, content: string) => Promise<AxiosResponse<any>>;
+  createMessage: (
+    conversationId: string,
+    role: string,
+    content: string,
+    providerModel: string,
+    attachmentId?: string,
+    rawOutput?: string,
+    usageStats?: any
+  ) => Promise<AxiosResponse<any>>;
   getMessages: (conversationId: string) => Promise<AxiosResponse<any>>;
   createAttachment: (messageId: string, fileType: string, filePath: string) => Promise<AxiosResponse<any>>;
   getAttachments: (messageId: string) => Promise<AxiosResponse<any>>;
@@ -217,7 +225,16 @@ const apiClient: ApiClient = {
   listConversations: () => axiosInstance.get('/chat/conversations'),
   getConversation: (id) => axiosInstance.get(`/chat/conversations/${id}`),
   deleteConversation: (id) => axiosInstance.delete(`/chat/conversations/${id}`),
-  createMessage: (conversationId, role, content) => axiosInstance.post('/chat/messages', { conversation_id: conversationId, role, content }),
+  createMessage: (conversationId, role, content, providerModel, attachmentId, rawOutput, usageStats) =>
+    axiosInstance.post('/chat/messages', {
+      conversation_id: conversationId,
+      role,
+      content,
+      provider_model: providerModel,
+      attachment_id: attachmentId,
+      raw_output: rawOutput,
+      usage_stats: usageStats,
+    }),
   getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
   createAttachment: (messageId, fileType, filePath) => axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),
   getAttachments: (messageId) => axiosInstance.get(`/chat/messages/${messageId}/attachments`),

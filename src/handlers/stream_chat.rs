@@ -8,6 +8,7 @@ use futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
+use tokio::sync::oneshot;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -39,6 +40,8 @@ pub async fn stream_chat(
     let full_response = Arc::new(Mutex::new(String::new()));
     let full_response_clone = Arc::clone(&full_response);
 
+    let (tx, rx) = oneshot::channel();
+
     let response_stream = stream.then(move |chunk_result| {
         let full_response = Arc::clone(&full_response);
         async move {
@@ -56,17 +59,37 @@ pub async fn stream_chat(
     // Use a separate task to save the full response to the database
     let pool_clone = pool.clone();
     let conversation_id = query.conversation_id;
+    let provider_model = provider.name.clone();
     actix_web::rt::spawn(async move {
         let full_response = full_response_clone.lock().unwrap().clone();
-        if let Err(e) = ChatService::create_message(
-            &pool_clone,
-            conversation_id,
-            "assistant".to_string(),
-            Value::String(full_response),
-        ) {
-            eprintln!("Error saving message to database: {:?}", e);
+        if !full_response.trim().is_empty() {
+            match ChatService::create_message(
+                &pool_clone,
+                conversation_id,
+                "assistant".to_string(),
+                Value::String(full_response.clone()),
+                provider_model,
+                None,                        // attachment_id
+                Some(full_response.clone()), // raw_output
+                None,                        // usage_stats
+            ) {
+                Ok(_) => {
+                    println!("Message saved to database successfully");
+                    let _ = tx.send(());
+                }
+                Err(e) => {
+                    eprintln!("Error saving message to database: {:?}", e);
+                    let _ = tx.send(());
+                }
+            }
+        } else {
+            let _ = tx.send(());
         }
     });
 
-    Ok(HttpResponse::Ok().streaming(response_stream))
+    // Wait for the database write to complete before sending the response
+    let response = HttpResponse::Ok().streaming(response_stream);
+    rx.await.expect("Failed to receive completion signal");
+
+    Ok(response)
 }
