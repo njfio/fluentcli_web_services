@@ -59,6 +59,7 @@ pub async fn stream_chat(
     // Use a separate task to save the full response to the database
     let pool_clone = pool.clone();
     let conversation_id = query.conversation_id;
+    let provider_model = provider.name.clone();
     actix_web::rt::spawn(async move {
         let full_response = full_response_clone.lock().unwrap().clone();
         if !full_response.trim().is_empty() {
@@ -66,7 +67,11 @@ pub async fn stream_chat(
                 &pool_clone,
                 conversation_id,
                 "assistant".to_string(),
-                Value::String(full_response),
+                Value::String(full_response.clone()),
+                provider_model,
+                None,                        // attachment_id
+                Some(full_response.clone()), // raw_output
+                None,                        // usage_stats
             ) {
                 Ok(_) => {
                     println!("Message saved to database successfully");

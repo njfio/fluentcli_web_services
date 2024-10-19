@@ -132,6 +132,11 @@ diesel::table! {
         #[max_length = 255]
         role -> Varchar,
         content -> Text,
+        #[max_length = 255]
+        provider_model -> Varchar,
+        attachment_id -> Nullable<Uuid>,
+        raw_output -> Nullable<Text>,
+        usage_stats -> Nullable<Jsonb>,
         created_at -> Timestamptz,
     }
 }
@@ -219,6 +224,7 @@ diesel::joinable!(jobs -> configurations (config));
 diesel::joinable!(jobs -> docker_files (worker_type));
 diesel::joinable!(jobs -> users (user_id));
 diesel::joinable!(llm_providers -> users (user_id));
+diesel::joinable!(messages -> attachments (attachment_id));
 diesel::joinable!(messages -> conversations (conversation_id));
 diesel::joinable!(pipelines -> users (user_id));
 diesel::joinable!(secure_vault -> users (user_id));

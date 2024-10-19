@@ -11,6 +11,10 @@ pub struct CreateMessageRequest {
     conversation_id: Uuid,
     role: String,
     content: Value,
+    provider_model: String,
+    attachment_id: Option<Uuid>,
+    raw_output: Option<String>,
+    usage_stats: Option<Value>,
 }
 
 pub async fn create_message(
@@ -23,6 +27,10 @@ pub async fn create_message(
             req.conversation_id,
             req.role.clone(),
             req.content.clone(),
+            req.provider_model.clone(),
+            req.attachment_id,
+            req.raw_output.clone(),
+            req.usage_stats.clone(),
         )
     })
     .await

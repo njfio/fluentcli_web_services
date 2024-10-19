@@ -73,17 +73,22 @@ impl ChatService {
                 AppError::DatabaseError(e)
             })
     }
+
     pub fn create_message(
         pool: &DbPool,
         _conversation_id: Uuid,
         _role: String,
         _content: Value,
+        _provider_model: String,
+        _attachment_id: Option<Uuid>,
+        _raw_output: Option<String>,
+        _usage_stats: Option<Value>,
     ) -> Result<Message, AppError> {
         use crate::schema::messages::dsl::*;
 
         info!(
-            "Creating new message - conversation_id: {:?}, role: {:?}, content: {:?}",
-            _conversation_id, _role, _content
+            "Creating new message - conversation_id: {:?}, role: {:?}, content: {:?}, provider_model: {:?}",
+            _conversation_id, _role, _content, _provider_model
         );
 
         let content_string = match _content {
@@ -97,6 +102,10 @@ impl ChatService {
             conversation_id: _conversation_id,
             role: _role,
             content: content_string,
+            provider_model: _provider_model,
+            attachment_id: _attachment_id,
+            raw_output: _raw_output,
+            usage_stats: _usage_stats,
         };
 
         let mut conn = pool.get()?;

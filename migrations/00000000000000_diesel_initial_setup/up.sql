@@ -139,6 +139,10 @@ CREATE TABLE messages (
     conversation_id UUID NOT NULL REFERENCES conversations(id),
     role VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
+    provider_model VARCHAR(255) NOT NULL,
+    attachment_id UUID REFERENCES attachments(id),
+    raw_output TEXT,
+    usage_stats JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -191,6 +195,8 @@ CREATE INDEX idx_jobs_amber_id ON jobs(amber_id);
 CREATE UNIQUE INDEX idx_jobs_uri ON jobs(uri);
 CREATE INDEX idx_conversations_user_id ON conversations(user_id);
 CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX idx_messages_provider_model ON messages(provider_model);
+CREATE INDEX idx_messages_attachment_id ON messages(attachment_id);
 CREATE INDEX idx_attachments_message_id ON attachments(message_id);
 CREATE INDEX idx_user_llm_configs_user_id ON user_llm_configs(user_id);
 CREATE INDEX idx_user_llm_configs_provider_id ON user_llm_configs(provider_id);
