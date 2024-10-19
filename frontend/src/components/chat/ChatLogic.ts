@@ -164,7 +164,7 @@ export function useChatLogic() {
                 console.log('Received chunk:', chunk);
                 fullContent += chunk;
 
-                if (!assistantMessage) {
+                if (!assistantMessage && fullContent.trim() !== '') {
                     assistantMessage = {
                         id: '', // This will be set when we create the message on the backend
                         conversationId: currentConversation.value!.id,
@@ -174,14 +174,14 @@ export function useChatLogic() {
                         renderedContent: await renderMarkdown(fullContent)
                     };
                     currentMessages.value.push(assistantMessage);
-                } else {
+                } else if (assistantMessage) {
                     assistantMessage.content = fullContent;
                     assistantMessage.renderedContent = await renderMarkdown(fullContent);
                 }
 
                 // Update the last message in the array
                 const lastIndex = currentMessages.value.length - 1;
-                if (lastIndex >= 0) {
+                if (lastIndex >= 0 && assistantMessage) {
                     currentMessages.value = [
                         ...currentMessages.value.slice(0, lastIndex),
                         { ...assistantMessage }
@@ -191,7 +191,7 @@ export function useChatLogic() {
             }
 
             // Create the final assistant message on the backend
-            if (assistantMessage) {
+            if (assistantMessage && fullContent.trim() !== '') {
                 const newMessageResult = await store.dispatch('chat/createMessage', {
                     conversationId: currentConversation.value!.id,
                     role: 'assistant',

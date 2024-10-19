@@ -271,8 +271,8 @@ impl ChatService {
         use crate::schema::user_llm_configs::dsl::*;
 
         info!(
-            "Creating new user LLM config - user_id: {:?}, provider_id: {:?}, description: {:?}",
-            _user_id, _provider_id, _description
+            "Creating new user LLM config - user_id: {:?}, provider_id: {:?}, api_key_id: {:?}, description: {:?}",
+            _user_id, _provider_id, _api_key_id, _description
         );
 
         let new_config = NewUserLLMConfig {
@@ -282,13 +282,21 @@ impl ChatService {
             description: _description,
         };
 
-        diesel::insert_into(user_llm_configs)
+        let result = diesel::insert_into(user_llm_configs)
             .values(&new_config)
-            .get_result::<UserLLMConfig>(&mut pool.get()?)
-            .map_err(|e| {
+            .get_result::<UserLLMConfig>(&mut pool.get()?);
+
+        match result {
+            Ok(config) => {
+                info!("Successfully created user LLM config: {:?}", config);
+                Ok(config)
+            }
+            Err(e) => {
                 error!("Error creating user LLM config: {:?}", e);
-                AppError::DatabaseError(e)
-            })
+                error!("Attempted to insert: {:?}", new_config);
+                Err(AppError::DatabaseError(e))
+            }
+        }
     }
 
     pub fn get_user_llm_config(
