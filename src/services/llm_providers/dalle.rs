@@ -21,6 +21,8 @@ impl LLMProviderTrait for DalleProvider {
                 "Model not specified for DALL-E provider".to_string(),
             ))
         })?;
+        let size = config["size"].as_str().unwrap_or("1024x1024");
+        let quality = config["quality"].as_str().unwrap_or("standard");
 
         // For DALL-E, we'll use the last non-empty message as the prompt
         let prompt = messages
@@ -38,7 +40,8 @@ impl LLMProviderTrait for DalleProvider {
             "model": model,
             "prompt": prompt,
             "n": 1,
-            "size": "1024x1024"
+            "size": size,
+            "quality": quality
         });
 
         debug!("DALL-E request body: {:?}", request_body);
