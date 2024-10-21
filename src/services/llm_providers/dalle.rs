@@ -62,14 +62,15 @@ impl LLMProviderTrait for DalleProvider {
             )))
         })?;
 
-        response["data"][0]["url"]
-            .as_str()
-            .map(|url| url.to_string())
-            .ok_or_else(|| {
-                LLMServiceError(AppError::ExternalServiceError(
-                    "No image URL found in DALL-E response".to_string(),
-                ))
-            })
+        let image_url = response["data"][0]["url"].as_str().ok_or_else(|| {
+            LLMServiceError(AppError::ExternalServiceError(
+                "No image URL found in DALL-E response".to_string(),
+            ))
+        })?;
+
+        debug!("DALL-E image URL: {}", image_url);
+        // Return the full image URL
+        Ok(format!("IMAGE_URL:{}", image_url))
     }
 
     fn stream_response(

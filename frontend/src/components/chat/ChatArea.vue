@@ -15,8 +15,9 @@
                     <ResponseTopToolbar v-if="message.role === 'assistant'"
                         :providerModel="message.provider_model || ''" />
                     <div class="message-content text-sm markdown-body p-3">
-                        <template v-if="isImageUrl(message.content)">
-                            <img :src="message.content" alt="Generated image" class="max-w-full h-auto rounded-lg" />
+                        <template v-if="message.attachment_id">
+                            <ImageRenderer :messageId="message.id" :attachmentId="message.attachment_id"
+                                :altText="'Generated image'" />
                         </template>
                         <template v-else>
                             <div v-html="message.renderedContent || message.content"></div>
@@ -52,12 +53,15 @@
 import { defineComponent, PropType, ref, watch, nextTick, onMounted } from 'vue';
 import ResponseToolbar from './ResponseToolbar.vue';
 import ResponseTopToolbar from './ResponseTopToolbar.vue';
+import ImageRenderer from './ImageRenderer.vue';
 
 interface Message {
+    id: string;
     role: string;
     content: string;
     renderedContent?: string;
     provider_model?: string;
+    attachment_id?: string;
 }
 
 interface Conversation {
@@ -70,6 +74,7 @@ export default defineComponent({
     components: {
         ResponseToolbar,
         ResponseTopToolbar,
+        ImageRenderer,
     },
     props: {
         isSidebarOpen: {
@@ -118,13 +123,8 @@ export default defineComponent({
             scrollToBottom();
         });
 
-        const isImageUrl = (content: string): boolean => {
-            return content.startsWith('http') && content.match(/\.(jpeg|jpg|gif|png)/) !== null;
-        };
-
         return {
             chatMessages,
-            isImageUrl,
         };
     },
 });
