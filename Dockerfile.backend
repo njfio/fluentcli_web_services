@@ -19,8 +19,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY --from=builder /app/target/release/fws /app/fws
 
+ENV ATTACHMENT_DIR=/app/attachments
 ENV RUST_LOG=debug
 
-EXPOSE 8
+EXPOSE 8000
+RUN mkdir -p $ATTACHMENT_DIR
 RUN mkdir -p /shared_tmp
+
 CMD ["/app/fws"]

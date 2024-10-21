@@ -8,8 +8,8 @@ use crate::handlers::llm_provider::{
     update_user_llm_config,
 };
 use crate::handlers::{
-    amber_store, api_key, configuration, docker_file, fluentcli, job, llm, pipeline, secure_vault,
-    stream_chat, user, worker,
+    amber_store, api_key, attachment, configuration, docker_file, fluentcli, job, llm, pipeline,
+    secure_vault, stream_chat, user, worker,
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, Scope};
@@ -129,6 +129,10 @@ pub fn configure_routes() -> Scope {
                 .route("/conversations/{id}/messages", web::get().to(get_messages))
                 .route("/attachments", web::post().to(create_attachment))
                 .route("/messages/{id}/attachments", web::get().to(get_attachments))
+                .route(
+                    "/attachments/{id}",
+                    web::get().to(attachment::get_attachment),
+                ) // New route for fetching a single attachment
                 .route("/stream", web::get().to(stream_chat::stream_chat)),
         )
         .service(

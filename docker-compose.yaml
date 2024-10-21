@@ -1,4 +1,3 @@
-
 services:
   frontend:
     build:
@@ -17,6 +16,7 @@ services:
       dockerfile: Dockerfile.worker
     volumes:
       - shared_tmp:/shared_tmp
+      - attachment-data:/app/attachments
     environment:
       - AMBER_SECRET=${AMBER_SECRET}
       - AMBER_YAML=/.fluent/amber.yaml
@@ -31,6 +31,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - COHERE_API_KEY=${COHERE_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ATTACHMENT_DIR=/app/attachments
     ports:
       - "8080:8080"
     networks:
@@ -56,6 +57,7 @@ services:
         condition: service_healthy
     volumes:
       - shared_tmp:/shared_tmp
+      - attachment-data:/app/attachments
     environment:
       - WORKER_ADDRESS=http://worker:8080/execute
       - DATABASE_URL=postgres://user:password@db:5432/fws_db
@@ -69,9 +71,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - COHERE_API_KEY=${COHERE_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ATTACHMENT_DIR=/app/attachments
     networks:
       - fws_network
-
 
   management:
     build:
@@ -84,12 +86,14 @@ services:
       - ./src:/app/src
       - ./migrations:/app/migrations
       - ./diesel.toml:/app/diesel.toml
+      - attachment-data:/app/attachments
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       PG_HOST: db
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      ATTACHMENT_DIR: /app/attachments
     networks:
       - fws_network
     tty: true
@@ -138,6 +142,7 @@ volumes:
   postgres_data:
   neo4j_data:
   shared_tmp:
+  attachment-data:
 
 networks:
   fws_network:

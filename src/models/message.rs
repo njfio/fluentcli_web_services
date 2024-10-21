@@ -1,3 +1,4 @@
+use crate::models::conversation::Conversation;
 use crate::schema::messages;
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
@@ -5,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-#[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug)]
+#[derive(Queryable, Identifiable, Associations, Serialize, Deserialize, Debug)]
+#[diesel(belongs_to(Conversation))]
 #[diesel(table_name = messages)]
 pub struct Message {
     pub id: Uuid,
@@ -34,8 +36,8 @@ pub struct NewMessage {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MessageContent {
     pub text: Option<String>,
-    pub image_url: Option<String>,
-    pub audio_url: Option<String>,
+    pub image_urls: Option<Vec<String>>,
+    pub audio_urls: Option<Vec<String>>,
 }
 
 impl Message {
@@ -48,7 +50,7 @@ impl NewMessage {
     pub fn new(
         conversation_id: Uuid,
         role: String,
-        content: Value,
+        content: String,
         provider_model: String,
         attachment_id: Option<Uuid>,
         raw_output: Option<String>,
@@ -57,7 +59,7 @@ impl NewMessage {
         NewMessage {
             conversation_id,
             role,
-            content: content.to_string(),
+            content,
             provider_model,
             attachment_id,
             raw_output,

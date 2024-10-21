@@ -39,20 +39,20 @@ pub async fn llm_chat_handler(
         .await
         .map_err(|e: LLMServiceError| AppError::ExternalServiceError(e.to_string()))?;
 
-    // Save the LLM response to the database
-    ChatService::create_message(
+    // Save the LLM response to the database with attachment processing
+    let message = ChatService::create_message_with_attachments(
         &pool,
         req.conversation_id,
         "assistant".to_string(),
-        Value::String(response.clone()),
+        response.clone(),
         provider.name.clone(),
-        None,                   // attachment_id
         Some(response.clone()), // raw_output
         None,                   // usage_stats
-    )?;
+    )
+    .await?;
 
     Ok(HttpResponse::Ok().json(LLMChatResponse {
         status: "success".to_string(),
-        response,
+        response: message.content,
     }))
 }
