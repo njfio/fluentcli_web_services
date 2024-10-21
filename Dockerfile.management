@@ -14,8 +14,8 @@ WORKDIR /app
 COPY . .
 
 # Copy the generate_migrations.sh script
-COPY generate_migrations.sh /app/generate_migrations.sh
-RUN chmod +x /app/generate_migrations.sh
+#COPY generate_migrations.sh /app/generate_migrations.sh
+#RUN chmod +x /app/generate_migrations.sh
 
 # Set environment variables
 ENV POSTGRES_USER=user
@@ -27,7 +27,7 @@ ENV PG_HOST=db
 #RUN /bin/bash ./generate_migrations.sh
 
 # Build the application
-#RUN cargo build --release
+RUN cargo build --release
 
 # Runtime stage
 FROM debian:buster-slim

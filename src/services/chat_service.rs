@@ -10,6 +10,7 @@ use crate::services::attachment_service::AttachmentService;
 use diesel::prelude::*;
 use log::{error, info};
 use serde_json::Value;
+use tokio::sync::oneshot;
 use uuid::Uuid;
 
 pub struct ChatService;
@@ -30,57 +31,85 @@ impl ChatService {
         );
 
         let conn = &mut pool.get()?;
-        conn.transaction(|conn| {
-            // Create the message first
-            let new_message = NewMessage {
-                conversation_id,
-                role: role.clone(),
-                content: content.clone(),
-                provider_model: provider_model.clone(),
-                attachment_id: None,
-                raw_output: raw_output.clone(),
-                usage_stats: usage_stats.clone(),
-            };
+        let message: Message = conn
+            .transaction::<_, diesel::result::Error, _>(|conn| {
+                // Create the message first
+                let new_message = NewMessage {
+                    conversation_id,
+                    role: role.clone(),
+                    content: content.clone(),
+                    provider_model: provider_model.clone(),
+                    attachment_id: None,
+                    raw_output: raw_output.clone(),
+                    usage_stats: usage_stats.clone(),
+                };
 
-            let message: Message = diesel::insert_into(messages::table)
-                .values(&new_message)
-                .get_result(conn)?;
+                let message: Message = diesel::insert_into(messages::table)
+                    .values(&new_message)
+                    .get_result(conn)?;
 
-            info!("Message created: {:?}", message);
+                info!("Message created: {:?}", message);
+                Ok(message)
+            })
+            .map_err(AppError::DatabaseError)?;
 
-            // Process and store images
-            match tokio::task::block_in_place(|| {
-                tokio::runtime::Runtime::new().unwrap().block_on(
-                    AttachmentService::process_and_store_images(pool, message.id, &content),
-                )
-            }) {
+        // Process attachments asynchronously and wait for the result
+        let pool_clone = pool.clone();
+        let content_clone = content.clone();
+        let message_id = message.id;
+        let (tx, rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            let result = AttachmentService::process_and_store_images(
+                &pool_clone,
+                message_id,
+                &content_clone,
+            )
+            .await;
+
+            match result {
                 Ok(attachments) => {
                     info!("Processed {} attachments", attachments.len());
                     if let Some(main_attachment) = attachments.first() {
-                        // Update the message with the first attachment ID and replace URLs with placeholders
                         let updated_content = AttachmentService::replace_urls_with_attachment_ids(
-                            &content,
+                            &content_clone,
                             &attachments,
                         );
-                        let updated_message = diesel::update(&message)
+                        let conn = &mut pool_clone.get().expect("Failed to get DB connection");
+                        let update_result = diesel::update(messages::table.find(message_id))
                             .set((
                                 messages::attachment_id.eq(main_attachment.id),
                                 messages::content.eq(updated_content),
                             ))
-                            .get_result::<Message>(conn)?;
-                        info!("Updated message with attachment information");
-                        Ok(updated_message)
+                            .execute(conn);
+                        match update_result {
+                            Ok(_) => {
+                                info!("Updated message with attachment information");
+                                let updated_message =
+                                    messages::table.find(message_id).first::<Message>(conn).ok();
+                                let _ = tx.send(updated_message);
+                            }
+                            Err(e) => {
+                                error!("Failed to update message with attachment: {:?}", e);
+                                let _ = tx.send(None);
+                            }
+                        }
                     } else {
-                        Ok(message)
+                        let _ = tx.send(None);
                     }
                 }
                 Err(e) => {
                     error!("Failed to process attachments: {:?}", e);
-                    Err(diesel::result::Error::RollbackTransaction)
+                    let _ = tx.send(None);
                 }
             }
-        })
-        .map_err(AppError::DatabaseError)
+        });
+
+        // Wait for the attachment processing to complete
+        match rx.await {
+            Ok(Some(updated_message)) => Ok(updated_message),
+            _ => Ok(message),
+        }
     }
 
     pub fn create_conversation(
