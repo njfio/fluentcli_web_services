@@ -1,4 +1,5 @@
 use crate::error::AppError;
+use crate::services::llm_providers::ProviderConfig;
 use crate::services::llm_service::{LLMChatMessage, LLMProviderTrait, LLMServiceError};
 use futures::stream::{self, Stream, StreamExt};
 use log::{debug, error, warn};
@@ -7,7 +8,15 @@ use serde_json::Value;
 use std::pin::Pin;
 use std::sync::Arc;
 
-pub struct GeminiProvider;
+pub struct GeminiProvider {
+    config: Value,
+}
+
+impl ProviderConfig for GeminiProvider {
+    fn new(config: Value) -> Self {
+        GeminiProvider { config }
+    }
+}
 
 impl LLMProviderTrait for GeminiProvider {
     fn prepare_request(
@@ -17,11 +26,7 @@ impl LLMProviderTrait for GeminiProvider {
         api_key: &str,
     ) -> Result<reqwest::RequestBuilder, LLMServiceError> {
         let client = Client::new();
-        let model = config["model"].as_str().ok_or_else(|| {
-            LLMServiceError(AppError::BadRequest(
-                "Model not specified for Gemini provider".to_string(),
-            ))
-        })?;
+        let model = self.config["model"].as_str().unwrap_or("gemini-pro");
 
         let formatted_messages: Vec<Value> = messages
             .iter()
@@ -41,10 +46,10 @@ impl LLMProviderTrait for GeminiProvider {
         let request_body = serde_json::json!({
             "contents": formatted_messages,
             "generationConfig": {
-                "temperature": config["temperature"].as_f64().unwrap_or(0.7),
-                "topK": config["top_k"].as_u64().unwrap_or(40),
-                "topP": config["top_p"].as_f64().unwrap_or(0.95),
-                "maxOutputTokens": config["max_tokens"].as_u64().unwrap_or(1024),
+                "temperature": self.config["temperature"].as_f64().unwrap_or(0.7),
+                "topK": self.config["top_k"].as_u64().unwrap_or(40),
+                "topP": self.config["top_p"].as_f64().unwrap_or(0.95),
+                "maxOutputTokens": self.config["max_tokens"].as_u64().unwrap_or(1024),
             },
             "safetySettings": [
                 {
@@ -67,7 +72,6 @@ impl LLMProviderTrait for GeminiProvider {
         });
 
         debug!("Gemini request body: {:?}", request_body);
-        debug!("Using API key: {}", api_key);
 
         Ok(client
             .post(format!(
@@ -78,7 +82,6 @@ impl LLMProviderTrait for GeminiProvider {
             .header("x-goog-api-key", api_key)
             .json(&request_body))
     }
-
     fn parse_response(&self, response_text: &str) -> Result<String, LLMServiceError> {
         debug!("Parsing Gemini response: {}", response_text);
 
@@ -86,11 +89,19 @@ impl LLMProviderTrait for GeminiProvider {
             debug!("Parsed Gemini response JSON: {:?}", response_json);
 
             let mut result = String::new();
-            if let Some(candidates) = response_json.as_array() {
-                for candidate_obj in candidates {
-                    if let Some(candidate) = candidate_obj["candidates"].as_array() {
-                        for content in candidate {
-                            if let Some(parts) = content["content"]["parts"].as_array() {
+
+            // Handle both single response and array of responses
+            let candidates = if response_json.is_array() {
+                response_json.as_array().unwrap()
+            } else {
+                std::slice::from_ref(&response_json)
+            };
+
+            for chunk in candidates {
+                if let Some(candidates) = chunk["candidates"].as_array() {
+                    for candidate in candidates {
+                        if let Some(content) = candidate["content"].as_object() {
+                            if let Some(parts) = content["parts"].as_array() {
                                 for part in parts {
                                     if let Some(text) = part["text"].as_str() {
                                         result.push_str(text);
@@ -186,6 +197,20 @@ impl LLMProviderTrait for GeminiProvider {
 
 impl Clone for GeminiProvider {
     fn clone(&self) -> Self {
-        GeminiProvider
+        GeminiProvider {
+            config: self.config.clone(),
+        }
     }
+}
+
+// Default configuration for Gemini provider
+pub fn default_config() -> Value {
+    serde_json::json!({
+        "model": "gemini-pro",
+        "temperature": 0.7,
+        "top_k": 40,
+        "top_p": 0.95,
+        "max_tokens": 1024,
+        "stream": true  // Explicitly enable streaming
+    })
 }
