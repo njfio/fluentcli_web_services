@@ -8,7 +8,7 @@ pub mod perplexity;
 pub use anthropic::AnthropicProvider;
 pub use cohere::CohereProvider;
 pub use dalle::DalleProvider;
-pub use gemini::GeminiProvider;
+pub use gemini::{default_config as gemini_default_config, GeminiProvider};
 pub use openai::OpenAIProvider;
 pub use perplexity::PerplexityProvider;
 
@@ -17,12 +17,19 @@ use serde_json::Value;
 
 pub fn get_provider(provider_type: &str) -> Box<dyn LLMProviderTrait> {
     match provider_type {
-        "anthropic" => Box::new(AnthropicProvider),
-        "cohere" => Box::new(CohereProvider),
+        "claude" => Box::new(AnthropicProvider),
+        "command" => Box::new(CohereProvider),
         "dalle" => Box::new(DalleProvider),
-        "gemini" => Box::new(GeminiProvider),
-        "openai" => Box::new(OpenAIProvider),
+        "gemini" => {
+            let config = gemini_default_config();
+            Box::new(GeminiProvider::new(config))
+        }
+        "gpt" => Box::new(OpenAIProvider),
         "perplexity" => Box::new(PerplexityProvider),
         _ => panic!("Unknown provider type: {}", provider_type),
     }
+}
+
+pub trait ProviderConfig {
+    fn new(config: Value) -> Self;
 }

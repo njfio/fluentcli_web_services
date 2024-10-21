@@ -15,7 +15,7 @@ pub struct CreateUserLLMConfigRequest {
     description: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct GetUserLLMConfigQuery {
     user_id: Uuid,
     provider_id: Uuid,

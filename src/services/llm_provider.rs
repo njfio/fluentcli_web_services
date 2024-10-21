@@ -6,6 +6,7 @@ use crate::schema::{llm_providers, user_llm_configs};
 use diesel::prelude::*;
 use uuid::Uuid;
 
+#[derive(Debug)]
 pub struct LLMProviderService;
 impl LLMProviderService {
     pub fn create_llm_provider(
@@ -24,6 +25,13 @@ impl LLMProviderService {
         llm_providers::table
             .find(provider_id)
             .first(conn)
+            .map_err(AppError::DatabaseError)
+    }
+
+    pub fn get_llm_providers(pool: &DbPool) -> Result<Vec<LLMProvider>, AppError> {
+        let conn = &mut pool.get().unwrap();
+        llm_providers::table
+            .load::<LLMProvider>(conn)
             .map_err(AppError::DatabaseError)
     }
 

@@ -1,14 +1,17 @@
 use crate::db::db::DbPool;
 use crate::error::AppError;
+use crate::models::llm_provider::LLMProvider;
+use crate::models::user_llm_config::UserLLMConfig;
 use crate::services::chat_service::ChatService;
-use crate::services::llm_service::{llm_stream_chat, LLMChatMessage, LLMServiceError};
+use crate::services::llm_service::{LLMChatMessage, LLMService, LLMServiceError};
 use crate::utils::extractors::AuthenticatedUser;
 use actix_web::{web, HttpResponse, Responder};
-use futures::{StreamExt, TryStreamExt};
-use serde::{Deserialize, Serialize};
+use futures::{Stream, StreamExt};
+use serde::Deserialize;
 use serde_json::Value;
-use std::sync::{Arc, Mutex};
-use tokio::sync::oneshot;
+use std::pin::Pin;
+use std::sync::Arc;
+use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -22,8 +25,12 @@ pub async fn stream_chat(
     query: web::Query<StreamChatQuery>,
     user: AuthenticatedUser,
 ) -> Result<HttpResponse, AppError> {
-    let provider = ChatService::get_llm_provider(&pool, query.provider_id)?;
-    let user_config = ChatService::get_user_llm_config(&pool, user.0, query.provider_id)?;
+    let provider = Arc::new(ChatService::get_llm_provider(&pool, query.provider_id)?);
+    let user_config = Arc::new(ChatService::get_user_llm_config(
+        &pool,
+        user.0,
+        query.provider_id,
+    )?);
 
     let messages = ChatService::get_messages(&pool, query.conversation_id)?;
 
@@ -35,61 +42,114 @@ pub async fn stream_chat(
         })
         .collect();
 
-    let stream = llm_stream_chat(&pool, &provider, &user_config, llm_messages).await;
-
+    let (tx, rx) = mpsc::channel(100);
     let full_response = Arc::new(Mutex::new(String::new()));
     let full_response_clone = Arc::clone(&full_response);
 
-    let (tx, rx) = oneshot::channel();
+    let pool_arc = Arc::new(pool.get_ref().clone());
 
-    let response_stream = stream.then(move |chunk_result| {
-        let full_response = Arc::clone(&full_response);
+    actix_web::rt::spawn({
+        let pool_arc = Arc::clone(&pool_arc);
+        let provider = Arc::clone(&provider);
+        let user_config = Arc::clone(&user_config);
         async move {
-            match chunk_result {
-                Ok(chunk) => {
-                    let mut full = full_response.lock().unwrap();
-                    full.push_str(&chunk);
-                    Ok(web::Bytes::from(chunk))
-                }
-                Err(e) => Err(AppError::ExternalServiceError(e.to_string())),
+            if let Err(e) = handle_llm_stream(
+                pool_arc,
+                provider,
+                user_config,
+                llm_messages,
+                tx,
+                full_response_clone,
+            )
+            .await
+            {
+                eprintln!("Error in handle_llm_stream: {:?}", e);
             }
         }
     });
+
+    let response_stream = create_response_stream(rx);
 
     // Use a separate task to save the full response to the database
-    let pool_clone = pool.clone();
     let conversation_id = query.conversation_id;
     let provider_model = provider.name.clone();
-    actix_web::rt::spawn(async move {
-        let full_response = full_response_clone.lock().unwrap().clone();
-        if !full_response.trim().is_empty() {
-            match ChatService::create_message(
-                &pool_clone,
-                conversation_id,
-                "assistant".to_string(),
-                Value::String(full_response.clone()),
-                provider_model,
-                None,                        // attachment_id
-                Some(full_response.clone()), // raw_output
-                None,                        // usage_stats
-            ) {
-                Ok(_) => {
-                    println!("Message saved to database successfully");
-                    let _ = tx.send(());
-                }
-                Err(e) => {
-                    eprintln!("Error saving message to database: {:?}", e);
-                    let _ = tx.send(());
+
+    actix_web::rt::spawn({
+        let pool_arc = Arc::clone(&pool_arc);
+        let full_response = Arc::clone(&full_response);
+        async move {
+            let full_response = full_response.lock().await.clone();
+            if !full_response.trim().is_empty() {
+                match ChatService::create_message(
+                    &pool_arc,
+                    conversation_id,
+                    "assistant".to_string(),
+                    Value::String(full_response.clone()),
+                    provider_model,
+                    None,                        // attachment_id
+                    Some(full_response.clone()), // raw_output
+                    None,                        // usage_stats
+                ) {
+                    Ok(_) => println!("Message saved to database successfully"),
+                    Err(e) => eprintln!("Error saving message to database: {:?}", e),
                 }
             }
-        } else {
-            let _ = tx.send(());
         }
     });
 
-    // Wait for the database write to complete before sending the response
-    let response = HttpResponse::Ok().streaming(response_stream);
-    rx.await.expect("Failed to receive completion signal");
+    Ok(HttpResponse::Ok()
+        .content_type("text/event-stream")
+        .streaming(response_stream))
+}
 
-    Ok(response)
+async fn handle_llm_stream(
+    pool: Arc<DbPool>,
+    provider: Arc<LLMProvider>,
+    user_config: Arc<UserLLMConfig>,
+    messages: Vec<LLMChatMessage>,
+    tx: mpsc::Sender<Result<web::Bytes, actix_web::Error>>,
+    full_response: Arc<Mutex<String>>,
+) -> Result<(), AppError> {
+    let stream = LLMService::llm_stream_chat(pool, provider, user_config, messages).await;
+    process_stream(stream, tx, full_response).await;
+    Ok(())
+}
+
+async fn process_stream(
+    mut stream: Pin<Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send>>,
+    tx: mpsc::Sender<Result<web::Bytes, actix_web::Error>>,
+    full_response: Arc<Mutex<String>>,
+) {
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(chunk) => {
+                let mut full = full_response.lock().await;
+                full.push_str(&chunk);
+                if tx.send(Ok(web::Bytes::from(chunk))).await.is_err() {
+                    break;
+                }
+            }
+            Err(e) => {
+                let _ = tx
+                    .send(Err(actix_web::error::ErrorInternalServerError(
+                        e.to_string(),
+                    )))
+                    .await;
+                break;
+            }
+        }
+    }
+}
+
+fn create_response_stream(
+    mut rx: mpsc::Receiver<Result<web::Bytes, actix_web::Error>>,
+) -> impl Stream<Item = Result<web::Bytes, actix_web::Error>> {
+    futures::stream::poll_fn(move |cx| rx.poll_recv(cx))
+}
+
+// Add this implementation to convert LLMServiceError to AppError
+impl From<LLMServiceError> for AppError {
+    fn from(error: LLMServiceError) -> Self {
+        AppError::ExternalServiceError(error.to_string())
+    }
 }

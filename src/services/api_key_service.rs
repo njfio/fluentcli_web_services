@@ -119,6 +119,7 @@ impl ApiKeyService {
                     "API key decrypted. Decrypted key length: {}",
                     api_key.key_value.len()
                 );
+                debug!("API key decrypted: {}", api_key.key_value);
                 Ok(Some(api_key))
             }
             None => {

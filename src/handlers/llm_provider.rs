@@ -7,7 +7,7 @@ use actix_web::{web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct CreateLLMProviderRequest {
     pub user_id: Uuid,
     pub name: String,
