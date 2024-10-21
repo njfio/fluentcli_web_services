@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Queryable, Identifiable, Selectable, AsChangeset)]
+#[derive(
+    Debug, Serialize, Deserialize, Queryable, Identifiable, Selectable, AsChangeset, Clone,
+)]
 #[diesel(table_name = llm_providers)]
 pub struct LLMProvider {
     pub id: Uuid,
@@ -18,7 +20,7 @@ pub struct LLMProvider {
     pub updated_at: chrono::NaiveDateTime,
 }
 
-#[derive(Debug, Insertable, AsChangeset)]
+#[derive(Debug, Insertable, AsChangeset, Clone)]
 #[diesel(table_name = llm_providers)]
 pub struct NewLLMProvider {
     pub user_id: Uuid,

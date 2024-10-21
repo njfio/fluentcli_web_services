@@ -209,6 +209,39 @@ const updateProviderDefaults = () => {
             top_p: 0.95,
             max_tokens: 1024
         }, null, 2);
+    } else if (newProvider.value.providerType === 'claude') {
+        newProvider.value.apiEndpoint = 'https://api.anthropic.com/v1/chat/completions';
+        newProvider.value.supportedModalities = 'text';
+        newProvider.value.configuration = JSON.stringify({
+            model: 'claude-2',
+            max_tokens: 1024,
+            temperature: 0.7
+        }, null, 2);
+    } else if (newProvider.value.providerType === 'command') {
+        newProvider.value.apiEndpoint = 'https://api.cohere.ai/v1/generate';
+        newProvider.value.supportedModalities = 'text';
+        newProvider.value.configuration = JSON.stringify({
+            model: 'command',
+            max_tokens: 1024,
+            temperature: 0.7
+        }, null, 2);
+    } else if (newProvider.value.providerType === 'dalle') {
+        newProvider.value.apiEndpoint = 'https://api.openai.com/v1/images/generations';
+        newProvider.value.supportedModalities = 'image';
+        newProvider.value.configuration = JSON.stringify({
+            model: 'dall-e-3',
+            size: '1024x1024',
+            quality: 'standard',
+            n: 1
+        }, null, 2);
+    } else if (newProvider.value.providerType === 'gpt') {
+        newProvider.value.apiEndpoint = 'https://api.openai.com/v1/chat/completions';
+        newProvider.value.supportedModalities = 'text';
+        newProvider.value.configuration = JSON.stringify({
+            model: 'gpt-4',
+            max_tokens: 1024,
+            temperature: 0.7
+        }, null, 2);
     }
 };
 

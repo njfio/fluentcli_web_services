@@ -1,11 +1,10 @@
 use crate::db::db::DbPool;
 use crate::error::AppError;
 use crate::services::chat_service::ChatService;
-use crate::services::llm_service::{chat as llm_chat, LLMChatMessage, LLMServiceError};
+use crate::services::llm_service::{LLMChatMessage, LLMService, LLMServiceError};
 use crate::utils::extractors::AuthenticatedUser;
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -35,7 +34,7 @@ pub async fn llm_chat_handler(
     let provider = ChatService::get_llm_provider(&pool, user_config.provider_id)?;
 
     // Call the LLM service
-    let response = llm_chat(&pool, &provider, &user_config, req.messages.clone())
+    let response = LLMService::chat(&pool, &provider, &user_config, req.messages.clone())
         .await
         .map_err(|e: LLMServiceError| AppError::ExternalServiceError(e.to_string()))?;
 
