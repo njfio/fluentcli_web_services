@@ -23,8 +23,7 @@
                             <div v-html="message.renderedContent || message.content"></div>
                         </template>
                     </div>
-                    <ResponseToolbar v-if="message.role === 'assistant'" :messageId="message.id"
-                        @deleteMessage="handleDeleteMessage" />
+                    <ResponseToolbar :messageId="message.id" @deleteMessage="handleDeleteMessage" />
                 </div>
             </div>
             <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
