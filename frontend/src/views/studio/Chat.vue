@@ -1,5 +1,5 @@
 <template>
-    <div class="chat-container flex h-full bg-gray-100 dark:bg-gray-900">
+    <div class="flex h-full">
         <Sidebar :isSidebarOpen="isSidebarOpen" :conversations="conversations"
             :currentConversation="currentConversation" @toggle-sidebar="toggleSidebar"
             @create-new-conversation="createNewConversation" @select-conversation="selectConversation"
@@ -117,15 +117,3 @@ export default defineComponent({
     },
 });
 </script>
-
-<style scoped>
-.chat-container {
-    height: calc(100vh - 4rem);
-    overflow: hidden;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-}
-
-.chat-container>div {
-    transition: all 0.3s ease-in-out;
-}
-</style>

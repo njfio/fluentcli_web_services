@@ -5,7 +5,10 @@
             <StudioHeader @toggleSidebar="toggleSidebar" @toggleDarkMode="toggleDarkMode" :isDarkMode="isDarkMode" />
             <main
                 class="flex-grow overflow-x-hidden overflow-y-auto bg-gradient-to-br from-neutral-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-white">
-                <div class="container mx-auto p-6">
+                <template v-if="isChatRoute">
+                    <slot></slot>
+                </template>
+                <div v-else class="container mx-auto p-6">
                     <slot></slot>
                 </div>
             </main>
@@ -14,32 +17,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { useStore } from 'vuex';
+import { useRoute } from 'vue-router';
 import StudioHeader from './StudioHeader.vue';
 import StudioSidebar from './StudioSidebar.vue';
 
 const store = useStore();
+const route = useRoute();
 const isSidebarCollapsed = ref(false);
 
 const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
+const isChatRoute = computed(() => route.name === 'Chat');
 
 const toggleSidebar = () => {
     isSidebarCollapsed.value = !isSidebarCollapsed.value;
 };
 
 const toggleDarkMode = () => {
-    console.log('Toggling dark mode in StudioLayout');
     store.dispatch('theme/toggleDarkMode');
 };
-
-// Watch for changes in the isDarkMode computed property
-watch(isDarkMode, (newValue) => {
-    console.log('Dark mode changed in StudioLayout:', newValue);
-});
-
-// Log the initial dark mode state
-console.log('Initial dark mode state in StudioLayout:', isDarkMode.value);
 </script>
 
 <style scoped>

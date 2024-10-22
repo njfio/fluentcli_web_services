@@ -2,28 +2,31 @@
     <div class="flex-1 flex flex-col h-full overflow-hidden">
         <!-- Chat Messages -->
         <div class="flex-grow overflow-y-auto p-4" ref="chatMessages">
-            <div v-if="currentConversation && displayMessages.length > 0">
-                <div v-for="(message, index) in displayMessages" :key="index" :class="['message mb-3 rounded-lg max-w-3xl',
-                    message.role === 'user' ? 'bg-blue-600 text-white ml-auto' : 'bg-gray-700 text-white mr-auto']">
-                    <ResponseTopToolbar v-if="message.role === 'assistant'"
-                        :providerModel="message.provider_model || ''" />
-                    <div class="message-content text-sm markdown-body p-3">
-                        <template v-if="message.attachment_id">
-                            <ImageRenderer :messageId="message.id" :attachmentId="message.attachment_id"
-                                :altText="'Generated image'" />
-                        </template>
-                        <template v-else>
-                            <div v-html="message.renderedContent || message.content"></div>
-                        </template>
+            <div class="max-w-4xl mx-auto">
+                <div v-if="currentConversation && displayMessages.length > 0">
+                    <div v-for="(message, index) in displayMessages" :key="index"
+                        :class="['message mb-3 rounded-lg max-w-3xl',
+                            message.role === 'user' ? 'bg-blue-600 text-white ml-auto' : 'bg-gray-700 text-white mr-auto']">
+                        <ResponseTopToolbar v-if="message.role === 'assistant'"
+                            :providerModel="message.provider_model || ''" />
+                        <div class="message-content text-sm markdown-body p-3">
+                            <template v-if="message.attachment_id">
+                                <ImageRenderer :messageId="message.id" :attachmentId="message.attachment_id"
+                                    :altText="'Generated image'" />
+                            </template>
+                            <template v-else>
+                                <div v-html="message.renderedContent || message.content"></div>
+                            </template>
+                        </div>
+                        <ResponseToolbar :messageId="message.id" @deleteMessage="handleDeleteMessage" />
                     </div>
-                    <ResponseToolbar :messageId="message.id" @deleteMessage="handleDeleteMessage" />
                 </div>
-            </div>
-            <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
-                <p class="text-gray-500 dark:text-gray-400">No messages yet. Start a conversation!</p>
-            </div>
-            <div v-else class="flex items-center justify-center h-full">
-                <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.</p>
+                <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
+                    <p class="text-gray-500 dark:text-gray-400">No messages yet. Start a conversation!</p>
+                </div>
+                <div v-else class="flex items-center justify-center h-full">
+                    <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.</p>
+                </div>
             </div>
         </div>
 
