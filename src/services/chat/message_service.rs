@@ -206,4 +206,51 @@ impl MessageService {
             }
         }
     }
+
+    pub fn delete_message(
+        pool: &DbPool,
+        _conversation_id: Uuid,
+        _message_id: Uuid,
+    ) -> Result<(), AppError> {
+        use crate::schema::messages::dsl::*;
+
+        info!(
+            "Deleting message with id: {:?} from conversation: {:?}",
+            _message_id, _conversation_id
+        );
+
+        let conn = &mut pool.get()?;
+
+        // First, check if the message belongs to the specified conversation
+        let message_exists = messages
+            .filter(id.eq(_message_id))
+            .filter(conversation_id.eq(_conversation_id))
+            .first::<Message>(conn)
+            .optional()
+            .map_err(|e| {
+                error!("Error checking message existence: {:?}", e);
+                AppError::DatabaseError(e)
+            })?;
+
+        if message_exists.is_none() {
+            error!("Message not found or doesn't belong to the specified conversation");
+            return Err(AppError::NotFoundError("Message not found".to_string()));
+        }
+
+        // If the message exists and belongs to the conversation, delete it
+        diesel::delete(messages.find(_message_id))
+            .execute(conn)
+            .map_err(|e| {
+                error!("Error deleting message: {:?}", e);
+                AppError::DatabaseError(e)
+            })?;
+
+        info!(
+            "Successfully deleted message with id: {:?} from conversation: {:?}",
+            _message_id, _conversation_id
+        );
+        Ok(())
+    }
+
+    // ... (keep all other existing methods)
 }
