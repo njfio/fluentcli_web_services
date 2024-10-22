@@ -4,9 +4,10 @@
         <div class="flex-grow overflow-y-auto p-4" ref="chatMessages">
             <div class="max-w-4xl mx-auto">
                 <div v-if="currentConversation && displayMessages.length > 0">
-                    <div v-for="(message, index) in displayMessages" :key="index"
-                        :class="['message mb-3 rounded-lg max-w-3xl',
-                            message.role === 'user' ? 'bg-blue-600 text-white ml-auto' : 'bg-gray-700 text-white mr-auto']">
+                    <div v-for="(message, index) in displayMessages" :key="index" :class="['message mb-3 rounded-lg max-w-3xl',
+                        message.role === 'user'
+                            ? 'bg-blue-600 text-white ml-auto'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white mr-auto']">
                         <ResponseTopToolbar v-if="message.role === 'assistant'"
                             :providerModel="message.provider_model || ''" />
                         <div class="message-content text-sm markdown-body p-3">
@@ -22,17 +23,17 @@
                     </div>
                 </div>
                 <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
-                    <p class="text-gray-500 dark:text-gray-400">No messages yet. Start a conversation!</p>
+                    <p class="text-gray-500">No messages yet. Start a conversation!</p>
                 </div>
                 <div v-else class="flex items-center justify-center h-full">
-                    <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.</p>
+                    <p class="text-gray-500">Select or create a conversation to start chatting.</p>
                 </div>
             </div>
         </div>
 
         <!-- AI Thinking Indicator -->
         <div v-if="isLoading"
-            class="absolute bottom-0 left-0 right-0 bg-gray-800 p-2 text-xs text-gray-400 flex items-center justify-center border-t border-gray-700">
+            class="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-800 p-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center border-t border-gray-200 dark:border-gray-700">
             <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none"
                 viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -177,19 +178,27 @@ export default defineComponent({
 }
 
 .markdown-body pre {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.05);
     padding: 0.5rem;
     border-radius: 0.25rem;
     margin-bottom: 0.5rem;
     overflow-x: auto;
 }
 
+.dark .markdown-body pre {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
 .markdown-body code {
     font-family: monospace;
     font-size: 0.875rem;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.05);
     padding: 0.125rem 0.25rem;
     border-radius: 0.25rem;
+}
+
+.dark .markdown-body code {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .markdown-body p {
@@ -203,22 +212,35 @@ export default defineComponent({
 
 .markdown-body blockquote {
     border-left-width: 4px;
-    border-color: #4b5563;
+    border-color: #e5e7eb;
     padding-left: 0.5rem;
     font-style: italic;
     margin: 0.5rem 0;
 }
 
+.dark .markdown-body blockquote {
+    border-color: #4b5563;
+}
+
 .markdown-body table {
     border-collapse: collapse;
-    border: 1px solid #4b5563;
+    border: 1px solid #e5e7eb;
     margin: 0.5rem 0;
+}
+
+.dark .markdown-body table {
+    border-color: #4b5563;
 }
 
 .markdown-body th,
 .markdown-body td {
-    border: 1px solid #4b5563;
+    border: 1px solid #e5e7eb;
     padding: 0.25rem;
+}
+
+.dark .markdown-body th,
+.dark .markdown-body td {
+    border-color: #4b5563;
 }
 
 .markdown-body img {
