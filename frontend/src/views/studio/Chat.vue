@@ -4,12 +4,17 @@
             :currentConversation="currentConversation" @toggle-sidebar="toggleSidebar"
             @create-new-conversation="createNewConversation" @select-conversation="selectConversation"
             @delete-conversation="deleteConversation" />
-        <ChatArea :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded" :currentConversation="currentConversation"
-            :messages="currentMessages" :isLoading="isLoading" />
-        <ChatInput :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded" :userLLMConfigs="userLLMConfigs"
-            v-model:selectedConfigId="selectedConfigId" v-model:userInput="userInput"
-            :currentConversation="currentConversation" :isLoading="isLoading" @toggle-expand="toggleExpand"
-            @send-message="sendMessage" />
+        <div class="flex-1 flex flex-col min-h-0">
+            <div class="flex-grow overflow-hidden relative">
+                <ChatArea :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded"
+                    :currentConversation="currentConversation" :messages="currentMessages" :isLoading="isLoading" />
+            </div>
+            <div class="flex-shrink-0">
+                <ChatInput :isSidebarOpen="isSidebarOpen" :userLLMConfigs="userLLMConfigs"
+                    v-model:selectedConfigId="selectedConfigId" v-model:userInput="userInput"
+                    :currentConversation="currentConversation" :isLoading="isLoading" @send-message="sendMessage" />
+            </div>
+        </div>
     </div>
 </template>
 
@@ -57,22 +62,13 @@ export default defineComponent({
         const isAuthenticated = computed(() => store.getters.isAuthenticated);
         const userId = computed(() => store.getters.userId);
 
-        const toggleExpand = () => {
-            isExpanded.value = !isExpanded.value;
-        };
-
         const toggleSidebar = () => {
             isSidebarOpen.value = !isSidebarOpen.value;
         };
 
         onMounted(async () => {
             try {
-                console.log('Chat component mounted');
-                console.log('Is authenticated:', isAuthenticated.value);
-                console.log('User ID:', userId.value);
-                console.log('Fetching conversations...');
                 if (!isAuthenticated.value) {
-                    console.log('User not authenticated. Redirecting to login...');
                     router.push('/login');
                     return;
                 }
@@ -81,10 +77,7 @@ export default defineComponent({
                     return;
                 }
                 await store.dispatch('chat/getConversations');
-                console.log('Conversations fetched:', conversations.value);
-
                 await loadUserLLMConfigs();
-                console.log('User LLM Configs loaded:', userLLMConfigs.value);
 
                 if (userLLMConfigs.value.length > 0) {
                     selectedConfigId.value = userLLMConfigs.value[0].id;
@@ -119,7 +112,6 @@ export default defineComponent({
             sendMessage,
             retryLastMessage,
             deleteConversation,
-            toggleExpand,
             toggleSidebar,
         };
     },
@@ -128,14 +120,9 @@ export default defineComponent({
 
 <style scoped>
 .chat-container {
-    height: calc(99vh - 140px);
+    height: calc(100vh - 4rem);
     overflow: hidden;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-}
-
-.chat-container {
-    padding-bottom: 20px;
-    margin-bottom: 20px;
 }
 
 .chat-container>div {
