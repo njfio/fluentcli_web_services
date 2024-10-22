@@ -75,8 +75,7 @@
                                 apiKey.description }}</div>
                         </td>
                         <td class="px-4 py-4">
-                            <div class="text-sm text-gray-500 dark:text-gray-400 font-mono">•••••{{
-                                apiKey.key_value.slice(-3) }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400 font-mono">********</div>
                         </td>
                         <td class="px-4 py-4">
                             <div class="text-sm text-gray-500 dark:text-gray-400">{{ formatDate(apiKey.created_at) }}
