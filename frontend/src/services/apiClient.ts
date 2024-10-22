@@ -135,6 +135,7 @@ interface ApiClient {
     usageStats?: any
   ) => Promise<AxiosResponse<any>>;
   getMessages: (conversationId: string) => Promise<AxiosResponse<any>>;
+  deleteMessage: (conversationId: string, messageId: string) => Promise<AxiosResponse<any>>;
   createAttachment: (messageId: string, fileType: string, filePath: string) => Promise<AxiosResponse<any>>;
   getAttachments: (messageId: string) => Promise<AxiosResponse<any>>;
   getAttachment: (attachmentId: string) => Promise<AxiosResponse<any>>;
@@ -164,6 +165,7 @@ interface ApiClient {
   updateApiKey: (id: string, key_value: string, description: string) => Promise<AxiosResponse<any>>;
   deleteApiKey: (id: string) => Promise<AxiosResponse<any>>;
 }
+
 const apiClient: ApiClient = {
   // User routes
   validateToken: () => axiosInstance.get('/users/validate-token'),
@@ -236,9 +238,11 @@ const apiClient: ApiClient = {
       usage_stats: usageStats,
     }),
   getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
+  deleteMessage: (conversationId, messageId) => axiosInstance.delete(`/chat/conversations/${conversationId}/messages/${messageId}`),
   createAttachment: (messageId, fileType, filePath) => axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),
   getAttachments: (messageId) => axiosInstance.get(`/chat/messages/${messageId}/attachments`),
   getAttachment: (attachmentId) => axiosInstance.get(`/chat/attachments/${attachmentId}`, { responseType: 'arraybuffer' }),
+
   // LLM Provider routes
   createLLMProvider: (providerData) => axiosInstance.post('/llm/providers', providerData),
   updateLLMProvider: (id, providerData) => axiosInstance.put(`/llm/providers/${id}`, providerData),
@@ -263,7 +267,6 @@ const apiClient: ApiClient = {
   getApiKey: (id) => axiosInstance.get(`/api_keys/${id}`),
   updateApiKey: (id, key_value, description) => axiosInstance.put(`/api_keys/${id}`, { key_value, description }),
   deleteApiKey: (id) => axiosInstance.delete(`/api_keys/${id}`),
-
 };
 
 export default apiClient;

@@ -88,6 +88,9 @@ const chatModule: Module<ChatState, RootState> = {
                 state.messages[index] = updatedMessage;
             }
         },
+        removeMessage(state, messageId: string) {
+            state.messages = state.messages.filter(message => message.id !== messageId);
+        },
         setAttachments(state, { messageId, attachments }: { messageId: string; attachments: Attachment[] }) {
             state.attachments[messageId] = attachments;
         },
@@ -381,6 +384,19 @@ const chatModule: Module<ChatState, RootState> = {
                 commit('removeUserLLMConfig', id);
             } catch (error) {
                 console.error('Error deleting user LLM config:', error);
+                throw error;
+            }
+        },
+        async deleteMessage({ commit, state }, messageId: string) {
+            try {
+                if (!state.currentConversation) {
+                    throw new Error('No active conversation');
+                }
+                console.log('Deleting message:', messageId, 'from conversation:', state.currentConversation.id);
+                await apiClient.deleteMessage(state.currentConversation.id, messageId);
+                commit('removeMessage', messageId);
+            } catch (error) {
+                console.error('Error deleting message:', error);
                 throw error;
             }
         },

@@ -91,6 +91,14 @@ impl ChatService {
         MessageService::get_messages(pool, conversation_id)
     }
 
+    pub fn delete_message(
+        pool: &DbPool,
+        conversation_id: Uuid,
+        message_id: Uuid,
+    ) -> Result<(), AppError> {
+        MessageService::delete_message(pool, conversation_id, message_id)
+    }
+
     // Attachment-related methods
     pub fn create_attachment(
         pool: &DbPool,

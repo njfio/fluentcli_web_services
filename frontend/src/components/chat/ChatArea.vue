@@ -9,8 +9,8 @@
             paddingBottom: isExpanded ? 'calc(66vh + 1rem)' : '8rem',
             maxWidth: '100%'
         }" ref="chatMessages">
-            <div v-if="currentConversation && messages.length > 0">
-                <div v-for="(message, index) in messages" :key="index" :class="['message mb-3 rounded-lg max-w-3xl',
+            <div v-if="currentConversation && displayMessages.length > 0">
+                <div v-for="(message, index) in displayMessages" :key="index" :class="['message mb-3 rounded-lg max-w-3xl',
                     message.role === 'user' ? 'bg-blue-600 text-white ml-auto' : 'bg-gray-700 text-white mr-auto']">
                     <ResponseTopToolbar v-if="message.role === 'assistant'"
                         :providerModel="message.provider_model || ''" />
@@ -23,7 +23,7 @@
                             <div v-html="message.renderedContent || message.content"></div>
                         </template>
                     </div>
-                    <ResponseToolbar v-if="message.role === 'assistant'" />
+                    <ResponseToolbar :messageId="message.id" @deleteMessage="handleDeleteMessage" />
                 </div>
             </div>
             <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
@@ -50,10 +50,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType, ref, watch, nextTick, onMounted } from 'vue';
+import { defineComponent, PropType, ref, watch, nextTick, onMounted, computed } from 'vue';
 import ResponseToolbar from './ResponseToolbar.vue';
 import ResponseTopToolbar from './ResponseTopToolbar.vue';
 import ImageRenderer from './ImageRenderer.vue';
+import { useChatLogic } from './ChatLogic';
 
 interface Message {
     id: string;
@@ -99,7 +100,13 @@ export default defineComponent({
         },
     },
     setup(props) {
+        const { deleteMessage } = useChatLogic();
         const chatMessages = ref<HTMLElement | null>(null);
+        const deletedMessageIds = ref<Set<string>>(new Set());
+
+        const displayMessages = computed(() => {
+            return props.messages.filter(message => !deletedMessageIds.value.has(message.id));
+        });
 
         const scrollToBottom = () => {
             if (chatMessages.value) {
@@ -107,7 +114,7 @@ export default defineComponent({
             }
         };
 
-        watch(() => props.messages, () => {
+        watch(displayMessages, () => {
             nextTick(() => {
                 scrollToBottom();
             });
@@ -123,8 +130,15 @@ export default defineComponent({
             scrollToBottom();
         });
 
+        const handleDeleteMessage = async (messageId: string) => {
+            await deleteMessage(messageId);
+            deletedMessageIds.value.add(messageId);
+        };
+
         return {
             chatMessages,
+            handleDeleteMessage,
+            displayMessages,
         };
     },
 });

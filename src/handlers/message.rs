@@ -10,7 +10,7 @@ use uuid::Uuid;
 pub struct CreateMessageRequest {
     conversation_id: Uuid,
     role: String,
-    content: String, // Changed from Value to String
+    content: String,
     provider_model: String,
     raw_output: Option<String>,
     usage_stats: Option<Value>,
@@ -55,4 +55,16 @@ pub async fn get_message(
         .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
     Ok(HttpResponse::Ok().json(message))
+}
+
+pub async fn delete_message(
+    pool: web::Data<DbPool>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<HttpResponse, AppError> {
+    let (conversation_id, message_id) = path.into_inner();
+    web::block(move || ChatService::delete_message(&pool, conversation_id, message_id))
+        .await
+        .map_err(|e| AppError::GenericError(Box::new(e)))??;
+
+    Ok(HttpResponse::NoContent().finish())
 }

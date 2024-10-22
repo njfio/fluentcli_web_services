@@ -320,6 +320,27 @@ export function useChatLogic() {
         }
     }
 
+    async function deleteMessage(messageId: string) {
+        if (!currentConversation.value) {
+            error.value = 'No active conversation';
+            return;
+        }
+
+        try {
+            console.log('Deleting message:', messageId);
+            await store.dispatch('chat/deleteMessage', messageId);
+
+            // Update both the Vuex store and the local state
+            store.commit('chat/removeMessage', messageId);
+            currentMessages.value = currentMessages.value.filter(m => m.id !== messageId);
+
+            console.log('Message deleted successfully');
+        } catch (err) {
+            console.error('Error deleting message:', err);
+            error.value = 'Failed to delete message. Please try again.';
+        }
+    }
+
     return {
         userInput,
         chatMessages,
@@ -340,5 +361,6 @@ export function useChatLogic() {
         scrollToBottom,
         renderMarkdown,
         loadUserLLMConfigs,
+        deleteMessage,
     };
 }
