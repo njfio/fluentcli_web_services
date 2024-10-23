@@ -24,15 +24,14 @@ impl LLMProviderTrait for DalleProvider {
         let size = config["size"].as_str().unwrap_or("1024x1024");
         let quality = config["quality"].as_str().unwrap_or("standard");
 
-        // For DALL-E, we'll use the last non-empty message as the prompt
+        // Only use the most recent message as the prompt
         let prompt = messages
-            .iter()
-            .filter(|msg| !msg.content.trim().is_empty())
             .last()
             .map(|msg| msg.content.trim())
+            .filter(|content| !content.is_empty())
             .ok_or_else(|| {
                 LLMServiceError(AppError::BadRequest(
-                    "No valid prompt found for DALL-E".to_string(),
+                    "No valid prompt found in the most recent message for DALL-E".to_string(),
                 ))
             })?;
 

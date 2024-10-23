@@ -6,9 +6,9 @@ use reqwest::Client;
 use serde_json::Value;
 use std::pin::Pin;
 
-pub struct OpenAIProvider;
+pub struct GrokProvider;
 
-impl LLMProviderTrait for OpenAIProvider {
+impl LLMProviderTrait for GrokProvider {
     fn prepare_request(
         &self,
         messages: &[LLMChatMessage],
@@ -18,32 +18,35 @@ impl LLMProviderTrait for OpenAIProvider {
         let client = Client::new();
         let model = config["model"].as_str().ok_or_else(|| {
             LLMServiceError(AppError::BadRequest(
-                "Model not specified for OpenAI provider".to_string(),
+                "Model not specified for Grok provider".to_string(),
             ))
         })?;
 
         let request_body = serde_json::json!({
             "model": model,
             "messages": messages,
-            "stream": true
+            "stream": true,
+            "temperature": config["temperature"].as_f64().unwrap_or(0.7),
+            "max_tokens": config["max_tokens"].as_u64().unwrap_or(1024),
+            "top_p": config["top_p"].as_f64().unwrap_or(0.9),
         });
 
-        debug!("OpenAI request body: {:?}", request_body);
+        debug!("Grok request body: {:?}", request_body);
         debug!("Using API key: {}", api_key);
 
         Ok(client
-            .post("https://api.openai.com/v1/chat/completions")
+            .post("https://api.x.ai/v1/chat/completions")
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
             .json(&request_body))
     }
 
     fn parse_response(&self, response_text: &str) -> Result<String, LLMServiceError> {
-        debug!("Parsing OpenAI response: {}", response_text);
+        debug!("Parsing Grok response: {}", response_text);
 
         // First, try to parse as a JSON object
         if let Ok(response_json) = serde_json::from_str::<Value>(response_text) {
-            debug!("Parsed OpenAI response JSON: {:?}", response_json);
+            debug!("Parsed Grok response JSON: {:?}", response_json);
 
             // Check for the expected structure
             if let Some(content) = response_json["choices"][0]["message"]["content"].as_str() {
@@ -60,7 +63,7 @@ impl LLMProviderTrait for OpenAIProvider {
         }
 
         // If it's not valid JSON, return the raw text
-        warn!("OpenAI response is not valid JSON, returning raw text");
+        warn!("Grok response is not valid JSON, returning raw text");
         Ok(response_text.to_string())
     }
 
