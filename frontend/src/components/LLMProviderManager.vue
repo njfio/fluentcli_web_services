@@ -34,6 +34,7 @@
                         <option value="dalle">DALL-E</option>
                         <option value="perplexity">Perplexity</option>
                         <option value="gemini">Gemini</option>
+                        <option value="grok">Grok</option>
                     </select>
                 </div>
                 <div>
@@ -313,6 +314,16 @@ const updateProviderDefaults = () => {
             top_k: 40,
             top_p: 0.95,
             max_tokens: 1024
+        }, null, 2);
+    } else if (newProvider.value.providerType === 'grok') {
+        newProvider.value.apiEndpoint = 'https://api.x.ai/v1/chat/completions';
+        newProvider.value.supportedModalities = 'text';
+        newProvider.value.configuration = JSON.stringify({
+            model: 'grok-1',
+            temperature: 0.7,
+            max_tokens: 1024,
+            top_p: 0.95,
+            stream: true
         }, null, 2);
     }
 };
