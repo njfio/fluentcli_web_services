@@ -17,6 +17,7 @@ import JobData from '../views/studio/JobData.vue';
 import JobLogs from '../views/studio/JobLogs.vue';
 import StateFiles from '../views/studio/StateFiles.vue';
 import Chat from '../views/studio/Chat.vue';
+import ChatArena from '../views/studio/ChatArena.vue';
 import ApiKeysView from '../views/studio/ApiKeysView.vue';
 import LLMProvidersView from '../views/studio/LLMProvidersView.vue';
 import UserLLMConfigsView from '../views/studio/UserLLMConfigsView.vue';
@@ -84,6 +85,7 @@ const routes: Array<RouteRecordRaw> = [
       },
       { path: 'statefiles', name: 'StateFiles', component: StateFiles },
       { path: 'chat', name: 'Chat', component: Chat },
+      { path: 'chat/arena', name: 'ChatArena', component: ChatArena },
       { path: 'apikeys', name: 'ApiKeys', component: ApiKeysView },
       { path: 'llmproviders', name: 'LLMProviders', component: LLMProvidersView },
       { path: 'userllmconfigs', name: 'UserLLMConfigs', component: UserLLMConfigsView },

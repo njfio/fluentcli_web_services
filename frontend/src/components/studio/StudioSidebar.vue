@@ -64,6 +64,26 @@ const ChatIcon = defineComponent({
   },
 });
 
+const ChatArenaIcon = defineComponent({
+  name: 'ChatArenaIcon',
+  render() {
+    return h('svg', {
+      xmlns: 'http://www.w3.org/2000/svg',
+      fill: 'none',
+      viewBox: '0 0 24 24',
+      stroke: 'currentColor',
+      class: 'w-6 h-6',
+    }, [
+      h('path', {
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '2',
+        d: 'M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z',
+      }),
+    ]);
+  },
+});
+
 const ApiKeyIcon = defineComponent({
   name: 'ApiKeyIcon',
   render() {
@@ -143,6 +163,7 @@ const mainMenuItems = [
   { label: 'Amber Stores', route: '/studio/amberstores', routeName: 'AmberStores', icon: CircleStackIcon },
   { label: 'State Files', route: '/studio/statefiles', routeName: 'StateFiles', icon: DocumentIcon },
   { label: 'Chat', route: '/studio/chat', routeName: 'Chat', icon: ChatIcon },
+  { label: 'Chat Arena', route: '/studio/chat/arena', routeName: 'ChatArena', icon: ChatArenaIcon },
   { label: 'API Keys', route: '/studio/apikeys', routeName: 'ApiKeys', icon: ApiKeyIcon },
   { label: 'LLM Providers', route: '/studio/llmproviders', routeName: 'LLMProviders', icon: LLMProviderIcon },
   { label: 'User LLM Configs', route: '/studio/userllmconfigs', routeName: 'UserLLMConfigs', icon: UserLLMConfigIcon },

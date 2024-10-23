@@ -13,17 +13,19 @@ impl ConversationService {
         pool: &DbPool,
         _user_id: Uuid,
         _title: String,
+        _mode: String,
     ) -> Result<Conversation, AppError> {
         use crate::schema::conversations::dsl::*;
 
         info!(
-            "Creating new conversation - user_id: {:?}, title: {:?}",
-            _user_id, _title
+            "Creating new conversation - user_id: {:?}, title: {:?}, mode: {:?}",
+            _user_id, _title, _mode
         );
 
         let new_conversation = NewConversation {
             user_id: _user_id,
             title: _title,
+            mode: _mode,
         };
 
         diesel::insert_into(conversations)

@@ -9,6 +9,12 @@ use uuid::Uuid;
 #[derive(Deserialize)]
 pub struct CreateConversationRequest {
     title: String,
+    #[serde(default = "default_mode")]
+    mode: String,
+}
+
+fn default_mode() -> String {
+    "chat".to_string()
 }
 
 pub async fn create_conversation(
@@ -16,10 +22,11 @@ pub async fn create_conversation(
     pool: web::Data<DbPool>,
     req: web::Json<CreateConversationRequest>,
 ) -> Result<HttpResponse, AppError> {
-    let conversation =
-        web::block(move || ChatService::create_conversation(&pool, user.0, req.title.clone()))
-            .await
-            .map_err(|e| AppError::GenericError(Box::new(e)))??;
+    let conversation = web::block(move || {
+        ChatService::create_conversation(&pool, user.0, req.title.clone(), req.mode.clone())
+    })
+    .await
+    .map_err(|e| AppError::GenericError(Box::new(e)))??;
 
     Ok(HttpResponse::Created().json(conversation))
 }

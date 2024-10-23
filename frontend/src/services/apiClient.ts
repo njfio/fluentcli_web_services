@@ -62,6 +62,13 @@ interface UserLLMConfigData {
   user_id: string;
   provider_id: string;
   api_key_id: string;
+  description?: string;
+}
+
+interface ConversationData {
+  user_id: string;
+  title: string;
+  mode?: string;
 }
 
 interface ApiClient {
@@ -121,7 +128,7 @@ interface ApiClient {
   fetchAmberStores: () => Promise<AxiosResponse<any>>;
 
   // Chat routes
-  createConversation: (data: { user_id: string; title: string }) => Promise<AxiosResponse<any>>;
+  createConversation: (data: ConversationData) => Promise<AxiosResponse<any>>;
   listConversations: () => Promise<AxiosResponse<any>>;
   getConversation: (id: string) => Promise<AxiosResponse<any>>;
   deleteConversation: (id: string) => Promise<AxiosResponse<any>>;

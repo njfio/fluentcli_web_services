@@ -12,6 +12,7 @@ pub struct Conversation {
     pub title: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+    pub mode: String, // Added mode field to distinguish between 'chat' and 'arena'
 }
 
 #[derive(Insertable, Deserialize, Debug)]
@@ -19,6 +20,7 @@ pub struct Conversation {
 pub struct NewConversation {
     pub user_id: uuid::Uuid,
     pub title: String,
+    pub mode: String, // Added mode field for new conversations
 }
 
 // Add this function to print type information
