@@ -1,7 +1,7 @@
 import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import { Message, UserLLMConfig } from '../../store/modules/chat';
-import chatArenaService, { ArenaMessage } from '../../services/chatArenaService';
+import chatArenaService from '../../services/chatArenaService';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import hljs from 'highlight.js';

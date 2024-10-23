@@ -1,10 +1,11 @@
 use crate::error::AppError;
 use crate::services::llm_service::{LLMChatMessage, LLMProviderTrait, LLMServiceError};
 use futures::stream::{self, Stream, StreamExt};
-use log::{debug, error};
-use reqwest::Client;
+use log::{debug, error, warn};
+use reqwest::{Client, StatusCode};
 use serde_json::Value;
 use std::pin::Pin;
+use std::time::Duration;
 
 pub struct PerplexityProvider;
 
@@ -15,39 +16,35 @@ impl LLMProviderTrait for PerplexityProvider {
         config: &Value,
         api_key: &str,
     ) -> Result<reqwest::RequestBuilder, LLMServiceError> {
-        let client = Client::new();
+        let client = Client::builder()
+            .timeout(Duration::from_secs(30)) // Set a 30 second timeout
+            .connect_timeout(Duration::from_secs(10)) // Set connection timeout
+            .build()
+            .map_err(|e| LLMServiceError(AppError::ExternalServiceError(e.to_string())))?;
+
         let model = config["model"].as_str().ok_or_else(|| {
             LLMServiceError(AppError::BadRequest(
                 "Model not specified for Perplexity provider".to_string(),
             ))
         })?;
 
-        // Format messages for Perplexity API, ensuring alternating user and assistant roles
-        let mut formatted_messages: Vec<Value> = Vec::new();
-        let mut last_role = String::new();
+        // Format messages for Perplexity API
+        let formatted_messages: Vec<Value> = messages
+            .iter()
+            .map(|msg| {
+                let role = match msg.role.as_str() {
+                    "user" => "user",
+                    "assistant" => "assistant",
+                    "system" => "system",
+                    _ => "user", // Default to user for unknown roles
+                };
 
-        for msg in messages.iter().rev() {
-            let role = match msg.role.as_str() {
-                "user" => "user",
-                "assistant" => "assistant",
-                "system" => "system",
-                _ => "user", // Default to user for unknown roles
-            };
-
-            if role != last_role || formatted_messages.is_empty() {
-                formatted_messages.push(serde_json::json!({
+                serde_json::json!({
                     "role": role,
                     "content": msg.content
-                }));
-                last_role = role.to_string();
-            }
-
-            if formatted_messages.len() >= 3 {
-                break; // Limit to last 3 messages (1 user, 1 assistant, 1 user)
-            }
-        }
-
-        formatted_messages.reverse(); // Reverse to maintain chronological order
+                })
+            })
+            .collect();
 
         let request_body = serde_json::json!({
             "model": model,
@@ -76,15 +73,14 @@ impl LLMProviderTrait for PerplexityProvider {
             )))
         })?;
 
-        let content = response["choices"][0]["message"]["content"]
+        response["choices"][0]["message"]["content"]
             .as_str()
             .ok_or_else(|| {
                 LLMServiceError(AppError::ExternalServiceError(
                     "No content found in Perplexity response".to_string(),
                 ))
-            })?;
-
-        Ok(content.to_string())
+            })
+            .map(|s| s.to_string())
     }
 
     fn stream_response(
@@ -124,12 +120,22 @@ impl LLMProviderTrait for PerplexityProvider {
                     Ok(None) => None,
                     Err(e) => {
                         error!("Error in stream_response: {:?}", e);
-                        Some((
-                            Err(LLMServiceError(AppError::ExternalServiceError(
-                                e.to_string(),
-                            ))),
-                            response,
-                        ))
+                        if e.is_timeout() {
+                            warn!("Perplexity API timeout, attempting to recover");
+                            Some((
+                                Err(LLMServiceError(AppError::ExternalServiceError(
+                                    "Request timed out. Please try again.".to_string(),
+                                ))),
+                                response,
+                            ))
+                        } else {
+                            Some((
+                                Err(LLMServiceError(AppError::ExternalServiceError(
+                                    e.to_string(),
+                                ))),
+                                response,
+                            ))
+                        }
                     }
                 }
             })
