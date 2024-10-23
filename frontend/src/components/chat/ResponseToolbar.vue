@@ -1,5 +1,6 @@
 <template>
-    <div class="flex items-center justify-end px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+    <div
+        class="flex items-center justify-end px-4 py-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
         <div class="flex items-center space-x-3">
             <button class="toolbar-button group" @click="copyContent" title="Copy message">
                 <svg class="w-4 h-4 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none"
@@ -72,7 +73,7 @@ export default defineComponent({
 
 <style scoped>
 .toolbar-button {
-    @apply p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 relative;
+    @apply p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 relative;
     @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800;
 }
 

@@ -1,21 +1,19 @@
 <template>
-    <div
-        class="flex-1 flex flex-col h-full overflow-hidden bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-        <!-- Chat Messages -->
-        <div class="flex-grow overflow-y-auto p-4 space-y-6" ref="chatMessages">
-            <div class="max-w-5xl mx-auto">
+    <div class="h-full flex flex-col bg-white dark:bg-[#1e2329]">
+        <div class="flex-1 overflow-y-auto" ref="chatMessages">
+            <div class="max-w-5xl mx-auto px-4">
                 <div v-if="currentConversation && displayMessages.length > 0">
                     <div v-for="(message, index) in displayMessages" :key="index"
-                        class="message-container animate-fade-in"
+                        class="message-container animate-fade-in py-2"
                         :class="{ 'mt-8': index > 0 && displayMessages[index - 1]?.role !== message.role }">
                         <div
                             :class="['message rounded-xl shadow-sm max-w-3xl transition-all duration-200 hover:shadow-md',
                                 message.role === 'user'
                                     ? 'bg-blue-600 text-white ml-auto'
-                                    : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white mr-auto border border-gray-100 dark:border-gray-600']">
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white mr-auto border border-gray-200 dark:border-gray-600']">
                             <ResponseTopToolbar v-if="message.role === 'assistant'"
                                 :providerModel="message.provider_model || ''"
-                                class="border-b border-gray-100 dark:border-gray-600" />
+                                class="border-b border-gray-200 dark:border-gray-600" />
                             <div class="message-content text-sm markdown-body p-4">
                                 <template v-if="message.attachment_id">
                                     <div class="rounded-lg overflow-hidden shadow-lg">
@@ -28,19 +26,19 @@
                                 </template>
                             </div>
                             <ResponseToolbar :messageId="message.id" @deleteMessage="handleDeleteMessage"
-                                class="border-t border-gray-100 dark:border-gray-600" />
+                                class="border-t border-gray-200 dark:border-gray-600" />
                         </div>
                     </div>
                 </div>
-                <div v-else-if="currentConversation" class="flex items-center justify-center h-full">
+                <div v-else-if="currentConversation" class="h-full flex items-center justify-center">
                     <div class="text-center space-y-4">
-                        <div class="text-4xl text-gray-300 dark:text-gray-600">💭</div>
+                        <div class="text-4xl text-gray-400 dark:text-gray-600">💭</div>
                         <p class="text-gray-500 dark:text-gray-400">No messages yet. Start a conversation!</p>
                     </div>
                 </div>
-                <div v-else class="flex items-center justify-center h-full">
+                <div v-else class="h-full flex items-center justify-center">
                     <div class="text-center space-y-4">
-                        <div class="text-4xl text-gray-300 dark:text-gray-600">👋</div>
+                        <div class="text-4xl text-gray-400 dark:text-gray-600">👋</div>
                         <p class="text-gray-500 dark:text-gray-400">Select or create a conversation to start chatting.
                         </p>
                     </div>
@@ -179,45 +177,48 @@ export default defineComponent({
 .markdown-body {
     font-size: 0.875rem;
     line-height: 1.5;
+    color: inherit;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+    color: inherit;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
 }
 
 .markdown-body h1 {
     font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 1rem;
-    color: inherit;
 }
 
 .markdown-body h2 {
     font-size: 1.25rem;
-    font-weight: bold;
-    margin-bottom: 0.75rem;
-    color: inherit;
 }
 
 .markdown-body h3 {
     font-size: 1.125rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    color: inherit;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+    padding-left: 1.5em;
+    margin: 0.5em 0;
 }
 
 .markdown-body ul {
     list-style-type: disc;
-    list-style-position: inside;
-    margin: 0.75rem 0;
-    padding-left: 1rem;
 }
 
 .markdown-body ol {
     list-style-type: decimal;
-    list-style-position: inside;
-    margin: 0.75rem 0;
-    padding-left: 1rem;
 }
 
 .markdown-body pre {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.1);
     padding: 1rem;
     border-radius: 0.5rem;
     margin: 0.75rem 0;
@@ -225,19 +226,19 @@ export default defineComponent({
 }
 
 .dark .markdown-body pre {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.2);
 }
 
 .markdown-body code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 0.875rem;
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.1);
     padding: 0.125rem 0.25rem;
     border-radius: 0.25rem;
 }
 
 .dark .markdown-body code {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.2);
 }
 
 .markdown-body p {
@@ -250,8 +251,16 @@ export default defineComponent({
     transition: color 0.2s;
 }
 
+.dark .markdown-body a {
+    color: #60a5fa;
+}
+
 .markdown-body a:hover {
     color: #2563eb;
+}
+
+.dark .markdown-body a:hover {
+    color: #93c5fd;
 }
 
 .markdown-body blockquote {
@@ -259,37 +268,13 @@ export default defineComponent({
     padding: 0.5rem 1rem;
     font-style: italic;
     margin: 0.75rem 0;
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: rgba(0, 0, 0, 0.05);
     border-radius: 0.25rem;
 }
 
 .dark .markdown-body blockquote {
     border-color: #4b5563;
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.markdown-body table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 0.75rem 0;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    overflow: hidden;
-}
-
-.dark .markdown-body table {
-    border-color: #4b5563;
-}
-
-.markdown-body th,
-.markdown-body td {
-    border: 1px solid #e5e7eb;
-    padding: 0.5rem;
-}
-
-.dark .markdown-body th,
-.dark .markdown-body td {
-    border-color: #4b5563;
+    background-color: rgba(0, 0, 0, 0.2);
 }
 
 .markdown-body img {

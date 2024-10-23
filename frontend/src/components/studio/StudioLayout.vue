@@ -5,7 +5,7 @@
             <StudioHeader @toggleSidebar="toggleSidebar" @toggleDarkMode="toggleDarkMode" :isDarkMode="isDarkMode" />
             <main
                 class="flex-grow overflow-x-hidden overflow-y-auto bg-gradient-to-br from-neutral-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-white">
-                <template v-if="isChatRoute">
+                <template v-if="isChatRoute || isArenaRoute">
                     <slot></slot>
                 </template>
                 <div v-else class="container mx-auto p-6">
@@ -29,6 +29,7 @@ const isSidebarCollapsed = ref(false);
 
 const isDarkMode = computed(() => store.getters['theme/isDarkMode']);
 const isChatRoute = computed(() => route.name === 'Chat');
+const isArenaRoute = computed(() => route.name === 'ChatArena');
 
 const toggleSidebar = () => {
     isSidebarCollapsed.value = !isSidebarCollapsed.value;
