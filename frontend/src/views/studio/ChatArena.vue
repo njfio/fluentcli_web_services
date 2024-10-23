@@ -1,17 +1,18 @@
 <template>
     <div class="flex h-full">
         <Sidebar :isSidebarOpen="isSidebarOpen" :conversations="conversations"
-            :currentConversation="currentConversation" @toggle-sidebar="toggleSidebar"
-            @create-new-conversation="createNewConversation" @select-conversation="selectConversation"
-            @delete-conversation="deleteConversation" />
+            :currentConversation="currentConversation" @create-new-conversation="createNewArenaConversation"
+            @select-conversation="selectConversation" @delete-conversation="deleteConversation"
+            @toggle-sidebar="toggleSidebar" />
+
         <div class="flex-1 flex flex-col min-h-0">
             <div class="flex-grow overflow-hidden relative">
-                <ChatArea :isSidebarOpen="isSidebarOpen" :isExpanded="isExpanded"
-                    :currentConversation="currentConversation" :messages="currentMessages" :isLoading="isLoading" />
+                <ChatArea :isSidebarOpen="isSidebarOpen" :isExpanded="false" :currentConversation="currentConversation"
+                    :messages="currentMessages" :isLoading="isLoading" :isArenaView="true" />
             </div>
             <div class="flex-shrink-0">
-                <ChatInput :isSidebarOpen="isSidebarOpen" :userLLMConfigs="userLLMConfigs"
-                    v-model:selectedConfigId="selectedConfigId" v-model:userInput="userInput"
+                <ChatArenaInput :isSidebarOpen="isSidebarOpen" :userLLMConfigs="userLLMConfigs"
+                    v-model:selectedConfigIds="selectedConfigIds" v-model:userInput="userInput"
                     :currentConversation="currentConversation" :isLoading="isLoading" @send-message="sendMessage" />
             </div>
         </div>
@@ -20,24 +21,26 @@
 
 <script lang="ts">
 import { defineComponent, onMounted, watch, computed, ref } from 'vue';
-import { useChatLogic } from '../../components/chat/ChatLogic';
+import { useChatArenaLogic } from '../../components/chat/ChatArenaLogic';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { RootState } from '../../store/types';
 import Sidebar from '../../components/chat/Sidebar.vue';
 import ChatArea from '../../components/chat/ChatArea.vue';
-import ChatInput from '../../components/chat/ChatInput.vue';
+import ChatArenaInput from '../../components/chat/ChatArenaInput.vue';
 
 export default defineComponent({
-    name: 'Chat',
+    name: 'ChatArena',
     components: {
         Sidebar,
         ChatArea,
-        ChatInput,
+        ChatArenaInput,
     },
     setup() {
         const store = useStore<RootState>();
         const router = useRouter();
+        const isSidebarOpen = ref(true);
+
         const {
             isLoading,
             error,
@@ -45,25 +48,33 @@ export default defineComponent({
             currentConversation,
             currentMessages,
             userLLMConfigs,
-            selectedConfigId,
+            selectedConfigIds,
             userInput,
             loadMessages,
             selectConversation,
             createNewConversation,
             sendMessage,
-            retryLastMessage,
             deleteConversation,
             loadUserLLMConfigs,
-        } = useChatLogic();
-
-        const isSidebarOpen = ref(true);
-        const isExpanded = ref(false);
+        } = useChatArenaLogic();
 
         const isAuthenticated = computed(() => store.getters.isAuthenticated);
         const userId = computed(() => store.getters.userId);
 
         const toggleSidebar = () => {
             isSidebarOpen.value = !isSidebarOpen.value;
+        };
+
+        const createNewArenaConversation = async () => {
+            const title = prompt('Enter conversation title:');
+            if (title) {
+                try {
+                    await createNewConversation(title);
+                } catch (err) {
+                    console.error('Error creating new arena conversation:', err);
+                    error.value = 'Failed to create a new arena conversation. Please try again later.';
+                }
+            }
         };
 
         onMounted(async () => {
@@ -80,7 +91,7 @@ export default defineComponent({
                 await loadUserLLMConfigs();
 
                 if (userLLMConfigs.value.length > 0) {
-                    selectedConfigId.value = userLLMConfigs.value[0].id;
+                    selectedConfigIds.value = [userLLMConfigs.value[0].id];
                 } else {
                     error.value = 'No User LLM Configs available. Please create one in the settings.';
                 }
@@ -103,17 +114,21 @@ export default defineComponent({
             currentConversation,
             currentMessages,
             userLLMConfigs,
-            selectedConfigId,
+            selectedConfigIds,
             userInput,
-            isExpanded,
-            isSidebarOpen,
             selectConversation,
-            createNewConversation,
+            createNewArenaConversation,
             sendMessage,
-            retryLastMessage,
             deleteConversation,
+            isSidebarOpen,
             toggleSidebar,
         };
     },
 });
 </script>
+
+<style scoped>
+.h-full {
+    height: 100%;
+}
+</style>

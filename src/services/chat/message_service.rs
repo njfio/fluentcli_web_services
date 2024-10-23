@@ -190,6 +190,7 @@ impl MessageService {
 
         let result = messages
             .filter(conversation_id.eq(_conversation_id))
+            .order(created_at.asc()) // Order by creation date ascending
             .load::<Message>(&mut pool.get()?);
 
         match result {

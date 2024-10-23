@@ -70,6 +70,7 @@ diesel::table! {
         title -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        mode -> Varchar,
     }
 }
 

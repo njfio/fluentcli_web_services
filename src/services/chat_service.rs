@@ -20,8 +20,9 @@ impl ChatService {
         pool: &DbPool,
         user_id: Uuid,
         title: String,
+        mode: String,
     ) -> Result<Conversation, AppError> {
-        ConversationService::create_conversation(pool, user_id, title)
+        ConversationService::create_conversation(pool, user_id, title, mode)
     }
 
     pub fn get_conversation(

@@ -1,29 +1,45 @@
 <template>
     <div class="chat-input-container bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
         <div class="max-w-5xl mx-auto px-4 py-3">
-            <div class="grid grid-cols-[auto_1fr_auto] gap-3 items-center">
-                <select v-model="selectedConfigIdComputed"
-                    class="p-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-200 dark:border-gray-600">
-                    <option v-for="config in userLLMConfigs" :key="config.id" :value="config.id">
+            <div class="space-y-3">
+                <!-- Model Selection -->
+                <div class="flex flex-wrap gap-2">
+                    <button v-for="config in userLLMConfigs" :key="config.id" @click="toggleConfig(config.id)"
+                        :class="['px-3 py-1.5 text-sm rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500',
+                            selectedConfigIdsComputed.includes(config.id)
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600']">
                         {{ getConfigDescription(config) }}
-                    </option>
-                </select>
-                <div class="relative">
-                    <textarea v-model="userInputComputed" @input="autoResize"
-                        class="w-full p-3 pr-12 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 dark:border-gray-600"
-                        :style="{ height: textareaHeight + 'px', minHeight: '44px', maxHeight: '120px' }"
-                        placeholder="Type your message here..."></textarea>
-                    <button @click="handleSendMessage"
-                        :disabled="isLoading || userInputComputed.trim() === '' || !selectedConfigIdComputed || !currentConversation"
-                        class="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 rounded-full chat-input-send-button hover:bg-gray-100 dark:hover:bg-gray-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
                     </button>
                 </div>
-                <InputToolbar @attach-file="handleAttachFile" @insert-image="handleInsertImage" />
+
+                <!-- Input Area -->
+                <div class="grid grid-cols-[1fr_auto] gap-3 items-center">
+                    <div class="relative">
+                        <textarea v-model="userInputComputed" @input="autoResize"
+                            class="w-full p-3 pr-12 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 dark:border-gray-600"
+                            :style="{ height: textareaHeight + 'px', minHeight: '44px', maxHeight: '120px' }"
+                            placeholder="Type your message here..."></textarea>
+                        <button @click="handleSendMessage"
+                            :disabled="isLoading || userInputComputed.trim() === '' || selectedConfigIdsComputed.length === 0 || !currentConversation"
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 rounded-full chat-input-send-button hover:bg-gray-100 dark:hover:bg-gray-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </button>
+                    </div>
+                    <InputToolbar @attach-file="handleAttachFile" @insert-image="handleInsertImage" />
+                </div>
+
+                <!-- Helper Text -->
+                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>Press <kbd class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700">Enter</kbd> to
+                        send</span>
+                    <span>{{ selectedConfigIdsComputed.length }} model{{ selectedConfigIdsComputed.length !== 1 ? 's' :
+                        '' }} selected</span>
+                </div>
             </div>
         </div>
     </div>
@@ -48,7 +64,7 @@ interface Conversation {
 }
 
 export default defineComponent({
-    name: 'ChatInput',
+    name: 'ChatArenaInput',
     components: {
         InputToolbar,
     },
@@ -61,8 +77,8 @@ export default defineComponent({
             type: Array as PropType<UserLLMConfig[]>,
             required: true,
         },
-        selectedConfigId: {
-            type: String,
+        selectedConfigIds: {
+            type: Array as PropType<string[]>,
             required: true,
         },
         currentConversation: {
@@ -80,23 +96,33 @@ export default defineComponent({
         },
     },
     emits: {
-        'update:selectedConfigId': (configId: string) => typeof configId === 'string',
+        'update:selectedConfigIds': (configIds: string[]) => Array.isArray(configIds),
         'update:userInput': (input: string) => typeof input === 'string',
         'send-message': () => true,
     },
     setup(props, { emit }) {
-        const isDarkMode = ref(true);
         const textareaHeight = ref(44);
 
-        const selectedConfigIdComputed = computed({
-            get: () => props.selectedConfigId,
-            set: (value: string) => emit('update:selectedConfigId', value)
+        const selectedConfigIdsComputed = computed({
+            get: () => props.selectedConfigIds,
+            set: (value: string[]) => emit('update:selectedConfigIds', value)
         });
 
         const userInputComputed = computed({
             get: () => props.userInput,
             set: (value: string) => emit('update:userInput', value)
         });
+
+        const toggleConfig = (configId: string) => {
+            const newSelectedIds = [...selectedConfigIdsComputed.value];
+            const index = newSelectedIds.indexOf(configId);
+            if (index === -1) {
+                newSelectedIds.push(configId);
+            } else {
+                newSelectedIds.splice(index, 1);
+            }
+            selectedConfigIdsComputed.value = newSelectedIds;
+        };
 
         const handleSendMessage = () => {
             emit('send-message');
@@ -129,8 +155,7 @@ export default defineComponent({
         });
 
         return {
-            isDarkMode,
-            selectedConfigIdComputed,
+            selectedConfigIdsComputed,
             userInputComputed,
             handleSendMessage,
             getConfigDescription,
@@ -138,6 +163,7 @@ export default defineComponent({
             handleInsertImage,
             autoResize,
             textareaHeight,
+            toggleConfig,
         };
     },
 });
@@ -185,21 +211,7 @@ export default defineComponent({
     --chat-input-send-bg-hover: rgba(55, 65, 81, 0.5);
 }
 
-select {
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
-    background-position: right 0.5rem center;
-    background-repeat: no-repeat;
-    background-size: 1.5em 1.5em;
-    padding-right: 2.5rem;
-}
-
-.dark select {
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%239CA3AF' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
-}
-
-select:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
+kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 </style>

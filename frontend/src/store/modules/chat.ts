@@ -6,6 +6,7 @@ import { AxiosError } from 'axios';
 export interface Conversation {
     id: string;
     title: string;
+    mode: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -45,6 +46,7 @@ export interface UserLLMConfig {
     userId: string;
     providerId: string;
     apiKeyId: string;
+    description?: string;
 }
 
 export interface ChatState {
@@ -167,13 +169,13 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createConversation({ commit, rootState }, title: string) {
+        async createConversation({ commit, rootState }, { title, mode = 'chat' }: { title: string; mode?: string }) {
             try {
                 const userId = rootState.auth.user?.user_id;
                 if (!userId) {
                     throw new Error('User ID not found');
                 }
-                const response = await apiClient.createConversation({ user_id: userId, title });
+                const response = await apiClient.createConversation({ user_id: userId, title, mode });
                 const conversation = response.data;
                 commit('addConversation', conversation);
                 return conversation;
@@ -346,13 +348,13 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async createUserLLMConfig({ commit, rootState }, { providerId, apiKeyId }: { providerId: string; apiKeyId: string }) {
+        async createUserLLMConfig({ commit, rootState }, { providerId, apiKeyId, description }: { providerId: string; apiKeyId: string; description?: string }) {
             try {
                 const userId = rootState.auth.user?.user_id;
                 if (!userId) {
                     throw new Error('User ID not found');
                 }
-                const configData = { user_id: userId, provider_id: providerId, api_key_id: apiKeyId };
+                const configData = { user_id: userId, provider_id: providerId, api_key_id: apiKeyId, description };
                 const response = await apiClient.createUserLLMConfig(configData);
                 const config = response.data;
                 commit('addUserLLMConfig', config);
@@ -362,13 +364,13 @@ const chatModule: Module<ChatState, RootState> = {
                 throw error;
             }
         },
-        async updateUserLLMConfig({ commit, rootState }, { id, providerId, apiKeyId }: { id: string; providerId: string; apiKeyId: string }) {
+        async updateUserLLMConfig({ commit, rootState }, { id, providerId, apiKeyId, description }: { id: string; providerId: string; apiKeyId: string; description?: string }) {
             try {
                 const userId = rootState.auth.user?.user_id;
                 if (!userId) {
                     throw new Error('User ID not found');
                 }
-                const configData = { user_id: userId, provider_id: providerId, api_key_id: apiKeyId };
+                const configData = { user_id: userId, provider_id: providerId, api_key_id: apiKeyId, description };
                 const response = await apiClient.updateUserLLMConfig(id, configData);
                 const updatedConfig = response.data;
                 commit('updateUserLLMConfig', updatedConfig);
@@ -419,6 +421,13 @@ const chatModule: Module<ChatState, RootState> = {
             return currentConversationId
                 ? state.messages.filter(message => message.conversationId === currentConversationId)
                 : [];
+        },
+        // New getters for filtering conversations by mode
+        normalConversations: (state) => {
+            return state.conversations.filter(conv => conv.mode === 'chat');
+        },
+        arenaConversations: (state) => {
+            return state.conversations.filter(conv => conv.mode === 'arena');
         },
     },
 };
