@@ -1,6 +1,6 @@
 <template>
     <div class="flex h-full">
-        <Sidebar :isSidebarOpen="isSidebarOpen" :conversations="filteredConversations"
+        <Sidebar :isSidebarOpen="isSidebarOpen" :conversations="conversations"
             :currentConversation="currentConversation" @toggle-sidebar="toggleSidebar"
             @create-new-conversation="createNewArenaConversation" @select-conversation="selectConversation"
             @delete-conversation="deleteConversation" />
@@ -23,7 +23,6 @@ import { onMounted, watch, computed, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { useChatArenaLogic } from '../../components/chat/ChatArenaLogic';
-import { Conversation } from '../../store/modules/chat';
 import Sidebar from '../../components/chat/Sidebar.vue';
 import ChatArea from '../../components/chat/ChatArea.vue';
 import ChatArenaInput from '../../components/chat/ChatArenaInput.vue';
@@ -68,11 +67,6 @@ const createNewArenaConversation = async () => {
         }
     }
 };
-
-// Filter conversations to show only arena mode
-const filteredConversations = computed(() => {
-    return conversations.value.filter((conv: Conversation) => conv.mode === 'arena');
-});
 
 onMounted(async () => {
     try {

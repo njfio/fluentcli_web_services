@@ -31,7 +31,7 @@ export function useChatLogic() {
     let retryCount = 0;
     const maxRetries = 3;
 
-    const conversations = computed(() => store.state.chat.conversations);
+    const conversations = computed(() => store.getters['chat/normalConversations']);
     const currentConversation = computed(() => store.state.chat.currentConversation);
     const messages = computed(() => store.state.chat.messages);
     const currentMessages = ref<Message[]>([]);
@@ -64,7 +64,7 @@ export function useChatLogic() {
         const title = prompt('Enter conversation title:');
         if (title) {
             try {
-                const newConversation = await store.dispatch('chat/createConversation', title);
+                const newConversation = await store.dispatch('chat/createConversation', { title, mode: 'chat' });
                 await selectConversation(newConversation.id);
             } catch (err) {
                 console.error('Error creating new conversation:', err);

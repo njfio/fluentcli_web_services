@@ -124,13 +124,14 @@ class ChatArenaService {
                         fullContent // raw output
                     );
 
-                    // Update message with backend-generated ID
+                    // Update message with all properties from the saved message
                     const savedMessage = response.data;
                     const messageIndex = messages.findIndex(m => m.configId === configIds[index]);
                     if (messageIndex !== -1) {
                         messages[messageIndex] = {
-                            ...messages[messageIndex],
-                            id: savedMessage.id,
+                            ...savedMessage, // Include all properties from the saved message
+                            configId: configIds[index], // Keep the configId from our local message
+                            providerModel: providerModels[index] // Keep the provider model
                         };
                     }
                 }

@@ -422,6 +422,13 @@ const chatModule: Module<ChatState, RootState> = {
                 ? state.messages.filter(message => message.conversationId === currentConversationId)
                 : [];
         },
+        // New getters for filtering conversations by mode
+        normalConversations: (state) => {
+            return state.conversations.filter(conv => conv.mode === 'chat');
+        },
+        arenaConversations: (state) => {
+            return state.conversations.filter(conv => conv.mode === 'arena');
+        },
     },
 };
 

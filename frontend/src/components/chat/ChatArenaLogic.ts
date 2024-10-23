@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import { Message, UserLLMConfig } from '../../store/modules/chat';
 import chatArenaService, { ArenaMessage } from '../../services/chatArenaService';
@@ -29,11 +29,29 @@ export function useChatArenaLogic() {
     const error = ref('');
     const selectedConfigIds = ref<string[]>([]);
 
-    const conversations = computed(() => store.state.chat.conversations);
+    const conversations = computed(() => store.getters['chat/arenaConversations']);
     const currentConversation = computed(() => store.state.chat.currentConversation);
     const messages = computed(() => store.state.chat.messages);
     const currentMessages = ref<Message[]>([]);
     const userLLMConfigs = computed(() => store.state.chat.userLLMConfigs);
+
+    // Watch for changes in the messages store
+    watch(messages, async (newMessages) => {
+        if (newMessages.length > 0) {
+            currentMessages.value = await Promise.all(
+                newMessages.filter((m: Message | null): m is Message => m !== null)
+                    .map(async (m: Message) => ({
+                        ...m,
+                        renderedContent: await renderMarkdown(m.content)
+                    }))
+            );
+        }
+    }, { deep: true });
+
+    // Watch for changes in currentMessages
+    watch(currentMessages, () => {
+        scrollToBottom();
+    }, { deep: true });
 
     async function loadMessages(conversationId: string) {
         await store.dispatch('chat/getMessages', conversationId);
@@ -52,13 +70,7 @@ export function useChatArenaLogic() {
 
     async function createNewConversation(title: string) {
         try {
-            const userId = store.getters.userId;
-            if (!userId) {
-                throw new Error('User ID not found');
-            }
-
-            const response = await chatArenaService.createArenaConversation(userId, title);
-            const newConversation = response.data;
+            const newConversation = await store.dispatch('chat/createConversation', { title, mode: 'arena' });
             await selectConversation(newConversation.id);
             return newConversation;
         } catch (err) {
@@ -99,7 +111,7 @@ export function useChatArenaLogic() {
 
             const userMessage = userMessageResponse.data;
             userMessage.renderedContent = await renderMarkdown(userMessage.content);
-            currentMessages.value.push(userMessage);
+            store.commit('chat/addMessage', userMessage);
 
             // Get provider models for selected configs
             const configProviderModels = await Promise.all(
@@ -130,16 +142,14 @@ export function useChatArenaLogic() {
                 configProviderModels.map(c => c.providerName)
             );
 
-            // Add rendered content to messages
-            const renderedMessages = await Promise.all(
-                arenaMessages.map(async (message: ArenaMessage) => ({
+            // Add rendered content to messages and commit to store
+            for (const message of arenaMessages) {
+                const renderedMessage = {
                     ...message,
                     renderedContent: await renderMarkdown(message.content)
-                }))
-            );
-
-            // Update messages in UI
-            currentMessages.value = [...currentMessages.value, ...renderedMessages];
+                };
+                store.commit('chat/addMessage', renderedMessage);
+            }
 
             // Clear input
             userInput.value = '';
