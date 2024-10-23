@@ -1,86 +1,88 @@
 <template>
-    <div class="response-toolbar">
-        <button class="toolbar-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            title="Share">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                stroke="currentColor" class="w-4 h-4">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-            </svg>
-        </button>
-        <button class="toolbar-button text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            title="Edit">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                stroke="currentColor" class="w-4 h-4">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-            </svg>
-        </button>
-        <button class="toolbar-button text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-            title="Delete" @click="deleteMessage">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                stroke="currentColor" class="w-4 h-4">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-            </svg>
-        </button>
+    <div class="flex items-center justify-end px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+        <div class="flex items-center space-x-3">
+            <button class="toolbar-button group" @click="copyContent" title="Copy message">
+                <svg class="w-4 h-4 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M8 5H6C4.89543 5 4 5.89543 4 7V19C4 20.1046 4.89543 21 6 21H16C17.1046 21 18 20.1046 18 19V17M8 5C8 6.10457 8.89543 7 10 7H12C13.1046 7 14 6.10457 14 5M8 5C8 3.89543 8.89543 3 10 3H12C13.1046 3 14 3.89543 14 5M14 5H16C17.1046 5 18 5.89543 18 7V10"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="tooltip">Copy</span>
+            </button>
+            <button class="toolbar-button group" @click="regenerateResponse" title="Regenerate response">
+                <svg class="w-4 h-4 transition-transform group-hover:rotate-180" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M4 4V9H4.58152M19.9381 11C19.446 7.05369 16.0796 4 12 4C8.64262 4 5.76829 6.06817 4.58152 9M4.58152 9H9M20 20V15H19.4185M19.4185 15C18.2317 17.9318 15.3574 20 12 20C7.92038 20 4.55399 16.9463 4.06189 13M19.4185 15H15"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="tooltip">Regenerate</span>
+            </button>
+            <button class="toolbar-button group" @click="$emit('deleteMessage', messageId)" title="Delete message">
+                <svg class="w-4 h-4 transition-colors group-hover:text-red-500" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M19 7L18.1327 19.1425C18.0579 20.1891 17.187 21 16.1378 21H7.86224C6.81296 21 5.94208 20.1891 5.86732 19.1425L5 7M10 11V17M14 11V17M15 7V4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4V7M4 7H20"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="tooltip">Delete</span>
+            </button>
+        </div>
     </div>
 </template>
 
-<script setup lang="ts">
-import { defineProps, defineEmits } from 'vue';
+<script lang="ts">
+import { defineComponent } from 'vue';
 
-const props = defineProps<{
-    messageId: string
-}>();
+export default defineComponent({
+    name: 'ResponseToolbar',
+    props: {
+        messageId: {
+            type: String,
+            required: true,
+        },
+    },
+    emits: ['deleteMessage'],
+    setup(props) {
+        const copyContent = async () => {
+            try {
+                const messageElement = document.querySelector(`[data-message-id="${props.messageId}"] .message-content`);
+                if (messageElement) {
+                    const textContent = messageElement.textContent || '';
+                    await navigator.clipboard.writeText(textContent);
+                }
+            } catch (err) {
+                console.error('Failed to copy message:', err);
+            }
+        };
 
-const emit = defineEmits<{
-    (e: 'deleteMessage', messageId: string): void
-}>();
+        const regenerateResponse = () => {
+            // TODO: Implement regenerate functionality
+            console.log('Regenerate response clicked');
+        };
 
-const deleteMessage = () => {
-    emit('deleteMessage', props.messageId);
-};
+        return {
+            copyContent,
+            regenerateResponse,
+        };
+    },
+});
 </script>
 
 <style scoped>
-.response-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    padding: 0.25rem;
-    background-color: rgba(0, 0, 0, 0.03);
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-    transition: background-color 0.2s;
-}
-
-.dark .response-toolbar {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-top-color: rgba(255, 255, 255, 0.1);
-}
-
 .toolbar-button {
-    display: flex;
-    align-items: center;
-    padding: 0.25rem;
-    margin-left: 0.25rem;
-    background-color: transparent;
-    border: none;
-    border-radius: 0.25rem;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    @apply p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 relative;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800;
 }
 
-.toolbar-button:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+.tooltip {
+    @apply invisible absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-gray-800 text-white text-xs;
+    @apply group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity duration-200;
 }
 
-.dark .toolbar-button:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.toolbar-button:focus {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+.tooltip::after {
+    content: '';
+    @apply absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800;
 }
 </style>

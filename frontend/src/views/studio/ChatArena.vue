@@ -18,86 +18,113 @@
     </div>
 </template>
 
-<script setup lang="ts">
-import { onMounted, watch, computed, ref } from 'vue';
+<script lang="ts">
+import { defineComponent, onMounted, watch, computed, ref } from 'vue';
+import { useChatArenaLogic } from '../../components/chat/ChatArenaLogic';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { useChatArenaLogic } from '../../components/chat/ChatArenaLogic';
+import { RootState } from '../../store/types';
 import Sidebar from '../../components/chat/Sidebar.vue';
 import ChatArea from '../../components/chat/ChatArea.vue';
 import ChatArenaInput from '../../components/chat/ChatArenaInput.vue';
 
-const store = useStore();
-const router = useRouter();
+export default defineComponent({
+    name: 'ChatArena',
+    components: {
+        Sidebar,
+        ChatArea,
+        ChatArenaInput,
+    },
+    setup() {
+        const store = useStore<RootState>();
+        const router = useRouter();
+        const {
+            isLoading,
+            error,
+            conversations,
+            currentConversation,
+            currentMessages,
+            userLLMConfigs,
+            selectedConfigIds,
+            userInput,
+            loadMessages,
+            selectConversation,
+            createNewConversation,
+            sendMessage,
+            deleteConversation,
+            loadUserLLMConfigs,
+        } = useChatArenaLogic();
 
-const {
-    isLoading,
-    error,
-    conversations,
-    currentConversation,
-    currentMessages,
-    userLLMConfigs,
-    selectedConfigIds,
-    userInput,
-    loadMessages,
-    selectConversation,
-    createNewConversation,
-    sendMessage,
-    deleteConversation,
-    loadUserLLMConfigs,
-} = useChatArenaLogic();
+        const isSidebarOpen = ref(true);
+        const isExpanded = ref(false);
 
-const isAuthenticated = computed(() => store.getters.isAuthenticated);
-const userId = computed(() => store.getters.userId);
-const isSidebarOpen = ref(true);
-const isExpanded = ref(false);
+        const isAuthenticated = computed(() => store.getters.isAuthenticated);
+        const userId = computed(() => store.getters.userId);
 
-const toggleSidebar = () => {
-    isSidebarOpen.value = !isSidebarOpen.value;
-};
+        const toggleSidebar = () => {
+            isSidebarOpen.value = !isSidebarOpen.value;
+        };
 
-const createNewArenaConversation = async () => {
-    const title = prompt('Enter conversation title:');
-    if (title) {
-        try {
-            await createNewConversation(title);
-        } catch (err) {
-            console.error('Error creating new arena conversation:', err);
-            error.value = 'Failed to create a new arena conversation. Please try again later.';
-        }
-    }
-};
+        const createNewArenaConversation = async () => {
+            const title = prompt('Enter conversation title:');
+            if (title) {
+                try {
+                    await createNewConversation(title);
+                } catch (err) {
+                    console.error('Error creating new arena conversation:', err);
+                    error.value = 'Failed to create a new arena conversation. Please try again later.';
+                }
+            }
+        };
 
-onMounted(async () => {
-    try {
-        if (!isAuthenticated.value) {
-            router.push('/login');
-            return;
-        }
-        if (!userId.value) {
-            console.error('User is authenticated but user ID is missing');
-            return;
-        }
+        onMounted(async () => {
+            try {
+                if (!isAuthenticated.value) {
+                    router.push('/login');
+                    return;
+                }
+                if (!userId.value) {
+                    console.error('User is authenticated but user ID is missing');
+                    return;
+                }
+                await store.dispatch('chat/getConversations');
+                await loadUserLLMConfigs();
 
-        await store.dispatch('chat/getConversations');
-        await loadUserLLMConfigs();
+                if (userLLMConfigs.value.length > 0) {
+                    selectedConfigIds.value = [userLLMConfigs.value[0].id];
+                } else {
+                    error.value = 'No User LLM Configs available. Please create one in the settings.';
+                }
+            } catch (err) {
+                console.error('Error in onMounted:', err);
+                error.value = 'Failed to fetch conversations or User LLM Configs. Please try again later.';
+            }
+        });
 
-        if (userLLMConfigs.value.length > 0) {
-            // Select first config by default
-            selectedConfigIds.value = [userLLMConfigs.value[0].id];
-        } else {
-            error.value = 'No User LLM Configs available. Please create one in the settings.';
-        }
-    } catch (err) {
-        console.error('Error in onMounted:', err);
-        error.value = 'Failed to fetch conversations or User LLM Configs. Please try again later.';
-    }
-});
+        watch(currentConversation, async (newConversation) => {
+            if (newConversation) {
+                await loadMessages(newConversation.id);
+            }
+        });
 
-watch(currentConversation, async (newConversation) => {
-    if (newConversation) {
-        await loadMessages(newConversation.id);
-    }
+        return {
+            isLoading,
+            error,
+            conversations,
+            currentConversation,
+            currentMessages,
+            userLLMConfigs,
+            selectedConfigIds,
+            userInput,
+            isExpanded,
+            isSidebarOpen,
+            selectConversation,
+            createNewArenaConversation,
+            sendMessage,
+            deleteConversation,
+            toggleSidebar,
+        };
+    },
 });
 </script>
 
