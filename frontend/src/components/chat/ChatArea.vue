@@ -12,8 +12,7 @@
                             :providerModel="message.provider_model || ''" />
                         <div class="message-content text-sm markdown-body p-3">
                             <template v-if="message.attachment_id">
-                                <ImageRenderer :messageId="message.id" :attachmentId="message.attachment_id"
-                                    :altText="'Generated image'" />
+                                <ImageRenderer :attachmentId="message.attachment_id" :altText="'Generated image'" />
                             </template>
                             <template v-else>
                                 <div v-html="message.renderedContent || message.content"></div>
