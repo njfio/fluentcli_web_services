@@ -7,7 +7,7 @@
         <div class="flex-1 flex flex-col min-h-0">
             <div class="flex-grow overflow-hidden relative">
                 <ChatArea :isSidebarOpen="true" :isExpanded="false" :currentConversation="currentConversation"
-                    :messages="currentMessages" :isLoading="isLoading" />
+                    :messages="currentMessages" :isLoading="isLoading" :isArenaView="true" />
             </div>
             <div class="flex-shrink-0">
                 <ChatArenaInput :isSidebarOpen="true" :userLLMConfigs="userLLMConfigs"

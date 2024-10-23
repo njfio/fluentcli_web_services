@@ -79,8 +79,9 @@ class ChatArenaService {
         configIds: string[],
         providerModels: string[]
     ): Promise<ArenaMessage[]> {
-        const messages: ArenaMessage[] = [];
+        const messages: Map<string, ArenaMessage> = new Map(); // Use Map to ensure uniqueness by configId
         const decoder = new TextDecoder();
+        const finalMessages: ArenaMessage[] = [];
 
         const streamPromises = streams.map(async (stream, index) => {
             const reader = stream.getReader();
@@ -93,29 +94,10 @@ class ChatArenaService {
 
                     const chunk = decoder.decode(value);
                     fullContent += chunk;
-
-                    // Create or update message for this stream
-                    const message: ArenaMessage = {
-                        id: '', // Will be set when saved to backend
-                        conversationId,
-                        role: 'assistant',
-                        content: fullContent,
-                        providerModel: providerModels[index],
-                        configId: configIds[index],
-                        createdAt: new Date().toISOString(),
-                    };
-
-                    // Replace existing message or add new one
-                    const existingIndex = messages.findIndex(m => m.configId === configIds[index]);
-                    if (existingIndex !== -1) {
-                        messages[existingIndex] = message;
-                    } else {
-                        messages.push(message);
-                    }
                 }
 
-                // Save final message to backend
                 if (fullContent.trim()) {
+                    // Save final message to backend first
                     const response = await this.createArenaMessage(
                         conversationId,
                         'assistant',
@@ -124,16 +106,16 @@ class ChatArenaService {
                         fullContent // raw output
                     );
 
-                    // Update message with all properties from the saved message
+                    // Create final message with backend data
                     const savedMessage = response.data;
-                    const messageIndex = messages.findIndex(m => m.configId === configIds[index]);
-                    if (messageIndex !== -1) {
-                        messages[messageIndex] = {
-                            ...savedMessage, // Include all properties from the saved message
-                            configId: configIds[index], // Keep the configId from our local message
-                            providerModel: providerModels[index] // Keep the provider model
-                        };
-                    }
+                    const finalMessage: ArenaMessage = {
+                        ...savedMessage,
+                        configId: configIds[index],
+                        providerModel: providerModels[index]
+                    };
+
+                    // Store in Map to ensure uniqueness
+                    messages.set(configIds[index], finalMessage);
                 }
             } catch (error) {
                 console.error(`Error processing stream for config ${configIds[index]}:`, error);
@@ -142,8 +124,18 @@ class ChatArenaService {
             }
         });
 
+        // Wait for all streams to complete
         await Promise.all(streamPromises);
-        return messages;
+
+        // Convert Map to array, maintaining order based on original configIds
+        for (const configId of configIds) {
+            const message = messages.get(configId);
+            if (message) {
+                finalMessages.push(message);
+            }
+        }
+
+        return finalMessages;
     }
 }
 

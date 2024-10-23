@@ -3,32 +3,59 @@
         <div class="flex-1 overflow-y-auto" ref="chatMessages">
             <div class="max-w-5xl mx-auto px-4">
                 <div v-if="currentConversation && displayMessages.length > 0">
-                    <div v-for="(message, index) in displayMessages" :key="index"
-                        class="message-container animate-fade-in py-2"
-                        :class="{ 'mt-8': index > 0 && displayMessages[index - 1]?.role !== message.role }">
-                        <div
-                            :class="['message rounded-xl shadow-sm max-w-3xl transition-all duration-200 hover:shadow-md',
-                                message.role === 'user'
-                                    ? 'bg-blue-600 text-white ml-auto'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white mr-auto border border-gray-200 dark:border-gray-600']">
-                            <ResponseTopToolbar v-if="message.role === 'assistant'"
-                                :providerModel="message.provider_model || ''"
-                                class="border-b border-gray-200 dark:border-gray-600" />
-                            <div class="message-content text-sm markdown-body p-4">
-                                <template v-if="message.attachment_id">
-                                    <div class="rounded-lg overflow-hidden shadow-lg">
-                                        <ImageRenderer :attachmentId="message.attachment_id"
-                                            :altText="'Generated image'" />
-                                    </div>
-                                </template>
-                                <template v-else>
+                    <template v-for="(message, index) in displayMessages" :key="message.id">
+                        <!-- User messages -->
+                        <div v-if="message.role === 'user'" class="message-container animate-fade-in py-2 w-full"
+                            :class="{ 'mt-8': index > 0 && displayMessages[index - 1]?.role !== message.role }">
+                            <div
+                                class="message rounded-xl shadow-sm max-w-3xl transition-all duration-200 hover:shadow-md bg-blue-600 text-white ml-auto">
+                                <div class="message-content text-sm markdown-body p-4">
                                     <div v-html="message.renderedContent || message.content"></div>
-                                </template>
+                                </div>
                             </div>
-                            <ResponseToolbar :messageId="message.id" @deleteMessage="handleDeleteMessage"
-                                class="border-t border-gray-200 dark:border-gray-600" />
                         </div>
-                    </div>
+
+                        <!-- Assistant messages -->
+                        <div v-else-if="shouldStartNewAssistantGroup(index)" :class="[
+                            'w-full mt-8',
+                            isArenaView ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 place-items-center' : ''
+                        ]">
+                            <template v-for="(groupMessage, groupIndex) in getAssistantMessageGroup(index)"
+                                :key="groupMessage.id">
+                                <div class="message-container animate-fade-in" :class="[
+                                    isArenaView ? 'w-full max-w-md' : 'w-full max-w-3xl',
+                                ]" :style="{ 'animation-delay': `${groupIndex * 100}ms` }">
+                                    <div class="message rounded-xl shadow-sm transition-all duration-200 hover:shadow-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600"
+                                        :class="{ 'expanded': expandedMessages.has(groupMessage.id) }">
+                                        <ResponseTopToolbar :providerModel="groupMessage.provider_model || ''"
+                                            class="border-b border-gray-200 dark:border-gray-600" />
+                                        <div class="message-content text-sm markdown-body p-4"
+                                            :class="{ 'max-h-96 overflow-y-auto': !expandedMessages.has(groupMessage.id) }">
+                                            <template v-if="groupMessage.attachment_id">
+                                                <div class="rounded-lg overflow-hidden shadow-lg">
+                                                    <ImageRenderer :attachmentId="groupMessage.attachment_id"
+                                                        :altText="'Generated image'" />
+                                                </div>
+                                            </template>
+                                            <template v-else>
+                                                <div v-html="groupMessage.renderedContent || groupMessage.content">
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div
+                                            class="flex items-center justify-between border-t border-gray-200 dark:border-gray-600 p-2">
+                                            <button @click="toggleExpand(groupMessage.id)"
+                                                class="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">
+                                                {{ expandedMessages.has(groupMessage.id) ? 'Collapse' : 'Expand' }}
+                                            </button>
+                                            <ResponseToolbar :messageId="groupMessage.id"
+                                                @deleteMessage="handleDeleteMessage" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
                 </div>
                 <div v-else-if="currentConversation" class="h-full flex items-center justify-center">
                     <div class="text-center space-y-4">
@@ -75,6 +102,7 @@ interface Message {
     renderedContent?: string;
     provider_model?: string;
     attachment_id?: string;
+    createdAt: string;
 }
 
 interface Conversation {
@@ -110,19 +138,67 @@ export default defineComponent({
             type: Boolean,
             required: true,
         },
+        isArenaView: {
+            type: Boolean,
+            default: false,
+        },
     },
     setup(props) {
         const { deleteMessage } = useChatLogic();
         const chatMessages = ref<HTMLElement | null>(null);
         const deletedMessageIds = ref<Set<string>>(new Set());
+        const expandedMessages = ref<Set<string>>(new Set());
+        const processedGroups = ref<Set<string>>(new Set());
 
         const displayMessages = computed(() => {
-            return props.messages.filter(message => !deletedMessageIds.value.has(message.id));
+            return props.messages
+                .filter(message => !deletedMessageIds.value.has(message.id))
+                .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         });
 
         const scrollToBottom = () => {
             if (chatMessages.value) {
                 chatMessages.value.scrollTop = chatMessages.value.scrollHeight;
+            }
+        };
+
+        const shouldStartNewAssistantGroup = (index: number) => {
+            const message = displayMessages.value[index];
+            if (message.role !== 'assistant') return false;
+
+            // Start a new group if this is the first message or previous message is from user
+            const prevMessage = index > 0 ? displayMessages.value[index - 1] : null;
+            return !prevMessage || prevMessage.role !== 'assistant';
+        };
+
+        const getAssistantMessageGroup = (startIndex: number) => {
+            const messages = [];
+            let i = startIndex;
+
+            // Get all consecutive assistant messages
+            while (i < displayMessages.value.length &&
+                displayMessages.value[i].role === 'assistant') {
+                messages.push(displayMessages.value[i]);
+                i++;
+            }
+
+            // Sort messages by creation date
+            messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+            // Mark this group as processed
+            const groupId = messages.map(m => m.id).join('-');
+            if (!processedGroups.value.has(groupId)) {
+                processedGroups.value.add(groupId);
+            }
+
+            return messages;
+        };
+
+        const toggleExpand = (messageId: string) => {
+            if (expandedMessages.value.has(messageId)) {
+                expandedMessages.value.delete(messageId);
+            } else {
+                expandedMessages.value.add(messageId);
             }
         };
 
@@ -135,6 +211,8 @@ export default defineComponent({
         watch(() => props.currentConversation, () => {
             nextTick(() => {
                 scrollToBottom();
+                expandedMessages.value.clear();
+                processedGroups.value.clear();
             });
         });
 
@@ -145,12 +223,17 @@ export default defineComponent({
         const handleDeleteMessage = async (messageId: string) => {
             await deleteMessage(messageId);
             deletedMessageIds.value.add(messageId);
+            expandedMessages.value.delete(messageId);
         };
 
         return {
             chatMessages,
             handleDeleteMessage,
             displayMessages,
+            expandedMessages,
+            toggleExpand,
+            shouldStartNewAssistantGroup,
+            getAssistantMessageGroup,
         };
     },
 });
@@ -287,5 +370,9 @@ export default defineComponent({
 
 .dark .markdown-body img {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.18);
+}
+
+.message.expanded .message-content {
+    max-height: none !important;
 }
 </style>
