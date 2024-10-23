@@ -1,16 +1,17 @@
 <template>
     <div class="flex h-full">
-        <Sidebar :isSidebarOpen="true" :conversations="conversations" :currentConversation="currentConversation"
-            @create-new-conversation="createNewArenaConversation" @select-conversation="selectConversation"
-            @delete-conversation="deleteConversation" />
+        <Sidebar :isSidebarOpen="isSidebarOpen" :conversations="conversations"
+            :currentConversation="currentConversation" @create-new-conversation="createNewArenaConversation"
+            @select-conversation="selectConversation" @delete-conversation="deleteConversation"
+            @toggle-sidebar="toggleSidebar" />
 
         <div class="flex-1 flex flex-col min-h-0">
             <div class="flex-grow overflow-hidden relative">
-                <ChatArea :isSidebarOpen="true" :isExpanded="false" :currentConversation="currentConversation"
+                <ChatArea :isSidebarOpen="isSidebarOpen" :isExpanded="false" :currentConversation="currentConversation"
                     :messages="currentMessages" :isLoading="isLoading" :isArenaView="true" />
             </div>
             <div class="flex-shrink-0">
-                <ChatArenaInput :isSidebarOpen="true" :userLLMConfigs="userLLMConfigs"
+                <ChatArenaInput :isSidebarOpen="isSidebarOpen" :userLLMConfigs="userLLMConfigs"
                     v-model:selectedConfigIds="selectedConfigIds" v-model:userInput="userInput"
                     :currentConversation="currentConversation" :isLoading="isLoading" @send-message="sendMessage" />
             </div>
@@ -19,7 +20,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, watch, computed } from 'vue';
+import { defineComponent, onMounted, watch, computed, ref } from 'vue';
 import { useChatArenaLogic } from '../../components/chat/ChatArenaLogic';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -38,6 +39,8 @@ export default defineComponent({
     setup() {
         const store = useStore<RootState>();
         const router = useRouter();
+        const isSidebarOpen = ref(true);
+
         const {
             isLoading,
             error,
@@ -57,6 +60,10 @@ export default defineComponent({
 
         const isAuthenticated = computed(() => store.getters.isAuthenticated);
         const userId = computed(() => store.getters.userId);
+
+        const toggleSidebar = () => {
+            isSidebarOpen.value = !isSidebarOpen.value;
+        };
 
         const createNewArenaConversation = async () => {
             const title = prompt('Enter conversation title:');
@@ -113,6 +120,8 @@ export default defineComponent({
             createNewArenaConversation,
             sendMessage,
             deleteConversation,
+            isSidebarOpen,
+            toggleSidebar,
         };
     },
 });
