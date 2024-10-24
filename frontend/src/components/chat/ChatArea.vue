@@ -23,17 +23,16 @@
                             <option v-for="n in 4" :key="n" :value="n">{{ n }}</option>
                         </select>
                     </div>
-
-                    <button @click="toggleExpandAll"
-                        class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center space-x-1">
-                        <span>{{ isAllExpanded ? 'Collapse All' : 'Expand All' }}</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform"
-                            :class="{ 'rotate-180': isAllExpanded }" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
                 </template>
+
+                <button @click="toggleExpandAll"
+                    class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center space-x-1">
+                    <span>{{ isAllExpanded ? 'Collapse All' : 'Expand All' }}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform"
+                        :class="{ 'rotate-180': isAllExpanded }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -69,9 +68,7 @@
                                         <ResponseTopToolbar :providerModel="groupMessage.provider_model || ''"
                                             class="border-b border-gray-200 dark:border-gray-600" />
                                         <div class="message-content text-sm markdown-body p-4" :class="{
-                                            'max-h-96 overflow-y-auto':
-                                                (isArenaView && localGridLayout === 'standard' && !expandedMessages.has(groupMessage.id)) ||
-                                                (!isArenaView && !expandedMessages.has(groupMessage.id))
+                                            'max-h-96 overflow-y-auto': !expandedMessages.has(groupMessage.id)
                                         }">
                                             <template v-if="groupMessage.attachment_id">
                                                 <div class="rounded-lg overflow-hidden shadow-lg">
@@ -86,8 +83,7 @@
                                         </div>
                                         <div
                                             class="flex items-center justify-between border-t border-gray-200 dark:border-gray-600 p-2">
-                                            <button v-if="!isArenaView || localGridLayout !== 'masonry'"
-                                                @click="toggleExpand(groupMessage.id)"
+                                            <button @click="toggleExpand(groupMessage.id)"
                                                 class="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">
                                                 {{ expandedMessages.has(groupMessage.id) ? 'Collapse' : 'Expand' }}
                                             </button>
