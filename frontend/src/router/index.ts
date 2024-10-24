@@ -21,6 +21,7 @@ import ChatArena from '../views/studio/ChatArena.vue';
 import ApiKeysView from '../views/studio/ApiKeysView.vue';
 import LLMProvidersView from '../views/studio/LLMProvidersView.vue';
 import UserLLMConfigsView from '../views/studio/UserLLMConfigsView.vue';
+import AttachmentGallery from '../views/studio/AttachmentGallery.vue';
 
 const routes: Array<RouteRecordRaw> = [
   { path: '/', redirect: '/studio/dashboard' },
@@ -89,6 +90,7 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'apikeys', name: 'ApiKeys', component: ApiKeysView },
       { path: 'llmproviders', name: 'LLMProviders', component: LLMProvidersView },
       { path: 'userllmconfigs', name: 'UserLLMConfigs', component: UserLLMConfigsView },
+      { path: 'gallery', name: 'Gallery', component: AttachmentGallery },
     ],
   }
 ];

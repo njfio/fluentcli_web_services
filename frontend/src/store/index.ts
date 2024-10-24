@@ -3,6 +3,7 @@ import studioModule from './modules/studio';
 import themeModule from './modules/theme';
 import chatModule from './modules/chat';
 import chatUIModule from './modules/chatUI';
+import attachmentsModule from './modules/attachments';
 import { RootState, User } from './types';
 
 export default createStore<RootState>({
@@ -66,5 +67,6 @@ export default createStore<RootState>({
     theme: themeModule,
     chat: chatModule,
     chatUI: chatUIModule,
+    attachments: attachmentsModule,
   },
 });
