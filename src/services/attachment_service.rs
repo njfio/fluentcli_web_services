@@ -130,13 +130,26 @@ impl AttachmentService {
             .map_err(AppError::DatabaseError)
     }
 
-    pub fn delete_attachment(pool: &DbPool, attachment_id: Uuid) -> Result<(), AppError> {
+    pub async fn delete_attachment(pool: &DbPool, attachment_id: Uuid) -> Result<(), AppError> {
         use crate::schema::attachments::dsl;
 
+        // First get the attachment to get the file path
+        let attachment = Self::get_attachment(pool, attachment_id)?;
+        let file_path = PathBuf::from(&attachment.file_path);
+
+        // Delete from database
         let conn = &mut pool.get()?;
         diesel::delete(dsl::attachments.find(attachment_id))
             .execute(conn)
             .map_err(AppError::DatabaseError)?;
+
+        // Delete the file from disk
+        if file_path.exists() {
+            fs::remove_file(&file_path).await.map_err(|e| {
+                error!("Failed to delete attachment file: {:?}", e);
+                AppError::InternalServerError
+            })?;
+        }
 
         Ok(())
     }

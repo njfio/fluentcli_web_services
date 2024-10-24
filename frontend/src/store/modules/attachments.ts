@@ -5,6 +5,7 @@ import apiClient from '@/services/apiClient'
 interface Attachment {
     id: string
     message_id: string
+    conversation_id: string
     file_type: string
     created_at: string
 }
@@ -33,6 +34,9 @@ const attachments: Module<AttachmentsState, RootState> = {
         },
         setError(state, error: string | null) {
             state.error = error
+        },
+        removeAttachment(state, attachmentId: string) {
+            state.attachments = state.attachments.filter(att => att.id !== attachmentId)
         }
     },
 
@@ -46,21 +50,18 @@ const attachments: Module<AttachmentsState, RootState> = {
                 const conversations = conversationsResponse.data
 
                 // Then get messages for each conversation
-                const allMessages = await Promise.all(
-                    conversations.map(async (conv: any) => {
-                        const messagesResponse = await apiClient.getMessages(conv.id)
-                        return messagesResponse.data
-                    })
-                )
+                const messagesPromises = conversations.map((conv: any) => apiClient.getMessages(conv.id))
+                const messagesResponses = await Promise.all(messagesPromises)
 
-                // Flatten messages array and collect unique attachment IDs
-                const messages = allMessages.flat()
-                const attachments = messages
+                // Collect all messages with attachments
+                const attachments = messagesResponses
+                    .flatMap(response => response.data)
                     .filter((msg: any) => msg.attachment_id)
                     .map((msg: any) => ({
                         id: msg.attachment_id,
                         message_id: msg.id,
-                        file_type: 'Image', // We're only showing images in the gallery
+                        conversation_id: msg.conversation_id,
+                        file_type: 'Image',
                         created_at: msg.created_at
                     }))
 

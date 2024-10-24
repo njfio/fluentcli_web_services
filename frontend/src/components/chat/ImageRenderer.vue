@@ -95,6 +95,16 @@ export default defineComponent({
 <style scoped>
 .image-renderer {
     position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
 }
 
 .loading-overlay {
@@ -107,10 +117,24 @@ export default defineComponent({
     align-items: center;
     justify-content: center;
     background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
 }
 
 .error-message {
-    color: red;
+    color: #dc2626;
     text-align: center;
+    padding: 1rem;
+    background-color: #fee2e2;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+.dark .loading-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.dark .error-message {
+    color: #ef4444;
+    background-color: #7f1d1d;
 }
 </style>

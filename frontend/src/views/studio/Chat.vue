@@ -35,7 +35,14 @@ export default defineComponent({
         ChatArea,
         ChatInput,
     },
-    setup() {
+    props: {
+        conversationId: {
+            type: String,
+            required: false,
+            default: null
+        }
+    },
+    setup(props) {
         const store = useStore<RootState>();
         const router = useRouter();
         const {
@@ -84,15 +91,22 @@ export default defineComponent({
                 } else {
                     error.value = 'No User LLM Configs available. Please create one in the settings.';
                 }
+
+                // Handle initial conversation selection
+                if (props.conversationId) {
+                    await store.dispatch('chat/getConversation', props.conversationId);
+                    await loadMessages(props.conversationId);
+                }
             } catch (err) {
                 console.error('Error in onMounted:', err);
                 error.value = 'Failed to fetch conversations or User LLM Configs. Please try again later.';
             }
         });
 
-        watch(currentConversation, async (newConversation) => {
-            if (newConversation) {
-                await loadMessages(newConversation.id);
+        watch(() => props.conversationId, async (newId) => {
+            if (newId) {
+                await store.dispatch('chat/getConversation', newId);
+                await loadMessages(newId);
             }
         });
 

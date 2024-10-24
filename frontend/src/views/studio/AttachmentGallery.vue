@@ -23,32 +23,41 @@
         <div v-else-if="attachments.length > 0"
             class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             <div v-for="attachment in attachments" :key="attachment.id"
-                class="relative group bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer"
-                @click="openLightbox(attachment)">
-                <div class="aspect-square w-full overflow-hidden">
+                class="relative group bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
+                <!-- Image Container -->
+                <div class="aspect-square w-full overflow-hidden cursor-pointer" @click="openLightbox(attachment)">
                     <ImageRenderer :attachmentId="attachment.id" :isDalle="false" :altText="'Image ' + attachment.id"
                         class="w-full h-full object-cover" />
                 </div>
 
-                <!-- Overlay with actions -->
-                <div
-                    class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <div class="flex gap-2">
-                        <button @click.stop="downloadImage(attachment.id)"
-                            class="bg-white text-gray-800 p-2 rounded-full hover:bg-gray-100 transition-colors duration-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                                stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Image info -->
+                <!-- Info and Actions -->
                 <div class="p-3">
-                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                        {{ formatDate(attachment.created_at) }}
+                    <div class="flex justify-between items-center">
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                            {{ formatDate(attachment.created_at) }}
+                        </div>
+                        <div class="flex gap-2">
+                            <!-- View in Chat Link -->
+                            <router-link :to="{
+                                name: 'Chat',
+                                params: { conversationId: attachment.conversation_id }
+                            }" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                            </router-link>
+                            <!-- Download Button -->
+                            <button @click.stop="downloadImage(attachment.id)"
+                                class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -90,15 +99,29 @@
                         </svg>
                     </button>
 
-                    <!-- Download button -->
-                    <button @click.stop="downloadImage(currentAttachment?.id)"
-                        class="absolute bottom-4 right-4 p-2 bg-white text-gray-800 rounded-full hover:bg-gray-100 focus:outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                    </button>
+                    <!-- Action buttons -->
+                    <div class="absolute bottom-4 right-4 flex gap-2">
+                        <!-- View in Chat Link -->
+                        <router-link v-if="currentAttachment" :to="{
+                            name: 'Chat',
+                            params: { conversationId: currentAttachment.conversation_id }
+                        }" class="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 focus:outline-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </router-link>
+                        <!-- Download button -->
+                        <button @click.stop="downloadImage(currentAttachment?.id)"
+                            class="p-2 bg-white text-gray-800 rounded-full hover:bg-gray-100 focus:outline-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Next button -->
@@ -123,6 +146,7 @@ import apiClient from '@/services/apiClient'
 interface Attachment {
     id: string
     message_id: string
+    conversation_id: string
     file_type: string
     created_at: string
 }
@@ -172,7 +196,6 @@ async function downloadImage(attachmentId?: string) {
     }
 }
 
-// Lightbox functions
 function openLightbox(attachment: Attachment) {
     currentIndex.value = attachments.value.findIndex((a: Attachment) => a.id === attachment.id)
     lightboxOpen.value = true
@@ -194,7 +217,6 @@ function nextImage() {
     }
 }
 
-// Keyboard navigation
 function handleKeydown(event: KeyboardEvent) {
     if (!lightboxOpen.value) return
 

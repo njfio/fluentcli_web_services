@@ -85,8 +85,13 @@ const routes: Array<RouteRecordRaw> = [
         props: (route) => ({ id: route.params.id, returnToJobDetails: route.query.returnToJobDetails }),
       },
       { path: 'statefiles', name: 'StateFiles', component: StateFiles },
-      { path: 'chat', name: 'Chat', component: Chat },
       { path: 'chat/arena', name: 'ChatArena', component: ChatArena },
+      {
+        path: 'chat/:conversationId?',
+        name: 'Chat',
+        component: Chat,
+        props: true
+      },
       { path: 'apikeys', name: 'ApiKeys', component: ApiKeysView },
       { path: 'llmproviders', name: 'LLMProviders', component: LLMProvidersView },
       { path: 'userllmconfigs', name: 'UserLLMConfigs', component: UserLLMConfigsView },
