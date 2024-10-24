@@ -1,5 +1,28 @@
 <template>
     <div class="h-full flex flex-col bg-white dark:bg-[#1e2329]">
+        <!-- Layout Controls for Arena View -->
+        <div v-if="isArenaView"
+            class="flex items-center justify-end space-x-4 p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center space-x-2">
+                <label class="text-sm text-gray-600 dark:text-gray-300">Layout:</label>
+                <select v-model="localGridLayout"
+                    class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                    @change="updateLayout">
+                    <option value="standard">Standard Grid</option>
+                    <option value="brickwork">Brickwork</option>
+                </select>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <label class="text-sm text-gray-600 dark:text-gray-300">Columns:</label>
+                <select v-model="localGridColumns"
+                    class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                    @change="updateLayout">
+                    <option v-for="n in 4" :key="n" :value="n">{{ n }}</option>
+                </select>
+            </div>
+        </div>
+
         <div class="flex-1 overflow-y-auto" ref="chatMessages">
             <div class="max-w-5xl mx-auto px-4">
                 <div v-if="currentConversation && displayMessages.length > 0">
@@ -18,12 +41,14 @@
                         <!-- Assistant messages -->
                         <div v-else-if="shouldStartNewAssistantGroup(index)" :class="[
                             'w-full mt-8',
-                            isArenaView ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 place-items-center' : ''
+                            isArenaView ? `grid grid-cols-${localGridColumns} gap-3` : '',
+                            localGridLayout === 'brickwork' ? 'brickwork-layout' : ''
                         ]">
                             <template v-for="(groupMessage, groupIndex) in getAssistantMessageGroup(index)"
                                 :key="groupMessage.id">
                                 <div class="message-container animate-fade-in" :class="[
-                                    isArenaView ? 'w-full max-w-md' : 'w-full max-w-3xl',
+                                    isArenaView ? 'w-full max-w-md mx-auto' : 'w-full max-w-3xl',
+                                    localGridLayout === 'brickwork' && groupIndex % 2 !== 0 ? 'transform translate-y-4' : ''
                                 ]" :style="{ 'animation-delay': `${groupIndex * 100}ms` }">
                                     <div class="message rounded-xl shadow-sm transition-all duration-200 hover:shadow-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600"
                                         :class="{ 'expanded': expandedMessages.has(groupMessage.id) }">
@@ -90,6 +115,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType, ref, watch, nextTick, onMounted, computed } from 'vue';
+import { useStore } from 'vuex';
 import ResponseToolbar from './ResponseToolbar.vue';
 import ResponseTopToolbar from './ResponseTopToolbar.vue';
 import ImageRenderer from './ImageRenderer.vue';
@@ -144,11 +170,16 @@ export default defineComponent({
         },
     },
     setup(props) {
+        const store = useStore();
         const { deleteMessage } = useChatLogic();
         const chatMessages = ref<HTMLElement | null>(null);
         const deletedMessageIds = ref<Set<string>>(new Set());
         const expandedMessages = ref<Set<string>>(new Set());
         const processedGroups = ref<Set<string>>(new Set());
+
+        // Local state with store sync
+        const localGridLayout = ref<'standard' | 'brickwork'>('standard');
+        const localGridColumns = ref(3);
 
         const displayMessages = computed(() => {
             return props.messages
@@ -166,7 +197,6 @@ export default defineComponent({
             const message = displayMessages.value[index];
             if (message.role !== 'assistant') return false;
 
-            // Start a new group if this is the first message or previous message is from user
             const prevMessage = index > 0 ? displayMessages.value[index - 1] : null;
             return !prevMessage || prevMessage.role !== 'assistant';
         };
@@ -175,17 +205,14 @@ export default defineComponent({
             const messages = [];
             let i = startIndex;
 
-            // Get all consecutive assistant messages
             while (i < displayMessages.value.length &&
                 displayMessages.value[i].role === 'assistant') {
                 messages.push(displayMessages.value[i]);
                 i++;
             }
 
-            // Sort messages by creation date
             messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-            // Mark this group as processed
             const groupId = messages.map(m => m.id).join('-');
             if (!processedGroups.value.has(groupId)) {
                 processedGroups.value.add(groupId);
@@ -201,6 +228,40 @@ export default defineComponent({
                 expandedMessages.value.add(messageId);
             }
         };
+
+        const updateLayout = () => {
+            try {
+                store.dispatch('chatUI/setGridLayout', localGridLayout.value);
+                store.dispatch('chatUI/setGridColumns', localGridColumns.value);
+            } catch (error) {
+                console.warn('Store not ready for layout updates');
+            }
+        };
+
+        // Initialize from store if available
+        onMounted(() => {
+            try {
+                if (store.state.chatUI) {
+                    localGridLayout.value = store.state.chatUI.gridLayout || 'standard';
+                    localGridColumns.value = store.state.chatUI.gridColumns || 3;
+                }
+            } catch (error) {
+                console.warn('Store not initialized for chatUI');
+            }
+        });
+
+        // Watch store changes
+        watch(() => store.state.chatUI?.gridLayout, (newLayout) => {
+            if (newLayout && newLayout !== localGridLayout.value) {
+                localGridLayout.value = newLayout;
+            }
+        });
+
+        watch(() => store.state.chatUI?.gridColumns, (newColumns) => {
+            if (newColumns && newColumns !== localGridColumns.value) {
+                localGridColumns.value = newColumns;
+            }
+        });
 
         watch(displayMessages, () => {
             nextTick(() => {
@@ -234,6 +295,9 @@ export default defineComponent({
             toggleExpand,
             shouldStartNewAssistantGroup,
             getAssistantMessageGroup,
+            localGridLayout,
+            localGridColumns,
+            updateLayout
         };
     },
 });
@@ -255,6 +319,27 @@ export default defineComponent({
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+.brickwork-layout {
+    display: grid;
+    grid-gap: 1rem;
+}
+
+.grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .markdown-body {
