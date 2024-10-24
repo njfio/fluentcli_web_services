@@ -13,7 +13,7 @@
                 </select>
             </div>
 
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-2" v-if="localGridLayout === 'standard'">
                 <label class="text-sm text-gray-600 dark:text-gray-300">Columns:</label>
                 <select v-model="localGridColumns"
                     class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
@@ -24,7 +24,7 @@
         </div>
 
         <div class="flex-1 overflow-y-auto" ref="chatMessages">
-            <div class="max-w-5xl mx-auto px-4">
+            <div class="max-w-7xl mx-auto px-4">
                 <div v-if="currentConversation && displayMessages.length > 0">
                     <template v-for="(message, index) in displayMessages" :key="message.id">
                         <!-- User messages -->
@@ -41,21 +41,20 @@
                         <!-- Assistant messages -->
                         <div v-else-if="shouldStartNewAssistantGroup(index)" :class="[
                             'w-full mt-8',
-                            isArenaView ? `grid grid-cols-${localGridColumns} gap-3` : '',
-                            localGridLayout === 'brickwork' ? 'brickwork-layout' : ''
+                            isArenaView && localGridLayout === 'standard' ? `grid grid-cols-${localGridColumns} gap-3` : '',
+                            isArenaView && localGridLayout === 'brickwork' ? 'masonry-layout' : ''
                         ]">
                             <template v-for="(groupMessage, groupIndex) in getAssistantMessageGroup(index)"
                                 :key="groupMessage.id">
                                 <div class="message-container animate-fade-in" :class="[
-                                    isArenaView ? 'w-full max-w-md mx-auto' : 'w-full max-w-3xl',
-                                    localGridLayout === 'brickwork' && groupIndex % 2 !== 0 ? 'transform translate-y-4' : ''
+                                    isArenaView ? 'masonry-item' : 'w-full max-w-3xl',
                                 ]" :style="{ 'animation-delay': `${groupIndex * 100}ms` }">
-                                    <div class="message rounded-xl shadow-sm transition-all duration-200 hover:shadow-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600"
-                                        :class="{ 'expanded': expandedMessages.has(groupMessage.id) }">
+                                    <div
+                                        class="message rounded-xl shadow-sm transition-all duration-200 hover:shadow-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600">
                                         <ResponseTopToolbar :providerModel="groupMessage.provider_model || ''"
                                             class="border-b border-gray-200 dark:border-gray-600" />
                                         <div class="message-content text-sm markdown-body p-4"
-                                            :class="{ 'max-h-96 overflow-y-auto': !expandedMessages.has(groupMessage.id) }">
+                                            :class="{ 'max-h-96 overflow-y-auto': !isArenaView && !expandedMessages.has(groupMessage.id) }">
                                             <template v-if="groupMessage.attachment_id">
                                                 <div class="rounded-lg overflow-hidden shadow-lg">
                                                     <ImageRenderer :attachmentId="groupMessage.attachment_id"
@@ -69,7 +68,8 @@
                                         </div>
                                         <div
                                             class="flex items-center justify-between border-t border-gray-200 dark:border-gray-600 p-2">
-                                            <button @click="toggleExpand(groupMessage.id)"
+                                            <button v-if="!isArenaView || localGridLayout !== 'brickwork'"
+                                                @click="toggleExpand(groupMessage.id)"
                                                 class="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">
                                                 {{ expandedMessages.has(groupMessage.id) ? 'Collapse' : 'Expand' }}
                                             </button>
@@ -248,6 +248,7 @@ export default defineComponent({
             } catch (error) {
                 console.warn('Store not initialized for chatUI');
             }
+            scrollToBottom();
         });
 
         // Watch store changes
@@ -275,10 +276,6 @@ export default defineComponent({
                 expandedMessages.value.clear();
                 processedGroups.value.clear();
             });
-        });
-
-        onMounted(() => {
-            scrollToBottom();
         });
 
         const handleDeleteMessage = async (messageId: string) => {
@@ -321,9 +318,29 @@ export default defineComponent({
     }
 }
 
-.brickwork-layout {
-    display: grid;
-    grid-gap: 1rem;
+.masonry-layout {
+    column-count: 3;
+    column-gap: 1rem;
+    margin: 1rem 0;
+}
+
+@media (max-width: 1200px) {
+    .masonry-layout {
+        column-count: 2;
+    }
+}
+
+@media (max-width: 768px) {
+    .masonry-layout {
+        column-count: 1;
+    }
+}
+
+.masonry-item {
+    break-inside: avoid;
+    margin-bottom: 1rem;
+    display: inline-block;
+    width: 100%;
 }
 
 .grid-cols-1 {
