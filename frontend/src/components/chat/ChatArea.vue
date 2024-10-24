@@ -41,20 +41,24 @@
                         <!-- Assistant messages -->
                         <div v-else-if="shouldStartNewAssistantGroup(index)" :class="[
                             'w-full mt-8',
-                            isArenaView && localGridLayout === 'standard' ? `grid grid-cols-${localGridColumns} gap-3` : '',
+                            isArenaView && localGridLayout === 'standard' ? `grid-container grid-cols-${localGridColumns}` : '',
                             isArenaView && localGridLayout === 'brickwork' ? 'masonry-layout' : ''
                         ]">
                             <template v-for="(groupMessage, groupIndex) in getAssistantMessageGroup(index)"
                                 :key="groupMessage.id">
                                 <div class="message-container animate-fade-in" :class="[
-                                    isArenaView ? 'masonry-item' : 'w-full max-w-3xl',
+                                    isArenaView && localGridLayout === 'standard' ? 'grid-item' : '',
+                                    isArenaView && localGridLayout === 'brickwork' ? 'masonry-item' : 'w-full max-w-3xl',
                                 ]" :style="{ 'animation-delay': `${groupIndex * 100}ms` }">
                                     <div
                                         class="message rounded-xl shadow-sm transition-all duration-200 hover:shadow-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600">
                                         <ResponseTopToolbar :providerModel="groupMessage.provider_model || ''"
                                             class="border-b border-gray-200 dark:border-gray-600" />
-                                        <div class="message-content text-sm markdown-body p-4"
-                                            :class="{ 'max-h-96 overflow-y-auto': !isArenaView && !expandedMessages.has(groupMessage.id) }">
+                                        <div class="message-content text-sm markdown-body p-4" :class="{
+                                            'max-h-96 overflow-y-auto':
+                                                (isArenaView && localGridLayout === 'standard' && !expandedMessages.has(groupMessage.id)) ||
+                                                (!isArenaView && !expandedMessages.has(groupMessage.id))
+                                        }">
                                             <template v-if="groupMessage.attachment_id">
                                                 <div class="rounded-lg overflow-hidden shadow-lg">
                                                     <ImageRenderer :attachmentId="groupMessage.attachment_id"
@@ -318,6 +322,35 @@ export default defineComponent({
     }
 }
 
+.grid-container {
+    display: grid;
+    gap: 1rem;
+    align-items: start;
+}
+
+.grid-item {
+    width: 100%;
+    height: fit-content;
+    display: flex;
+    flex-direction: column;
+}
+
+.grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .masonry-layout {
     column-count: 3;
     column-gap: 1rem;
@@ -341,22 +374,6 @@ export default defineComponent({
     margin-bottom: 1rem;
     display: inline-block;
     width: 100%;
-}
-
-.grid-cols-1 {
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-}
-
-.grid-cols-2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.grid-cols-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.grid-cols-4 {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .markdown-body {
