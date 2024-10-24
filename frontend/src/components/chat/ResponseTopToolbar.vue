@@ -12,7 +12,7 @@
         </div>
         <div class="flex items-center space-x-2">
             <button class="hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200"
-                title="Copy model name" @click="copyToClipboard">
+                :title="copyButtonTitle" @click="copyMessageContent">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
                         d="M8 5H6C4.89543 5 4 5.89543 4 7V19C4 20.1046 4.89543 21 6 21H16C17.1046 21 18 20.1046 18 19V17M8 5C8 6.10457 8.89543 7 10 7H12C13.1046 7 14 6.10457 14 5M8 5C8 3.89543 8.89543 3 10 3H12C13.1046 3 14 3.89543 14 5M14 5H16C17.1046 5 18 5.89543 18 7V10"
@@ -24,7 +24,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, ref } from 'vue';
 
 export default defineComponent({
     name: 'ResponseTopToolbar',
@@ -35,16 +35,42 @@ export default defineComponent({
         },
     },
     setup(props) {
-        const copyToClipboard = async () => {
+        const copyButtonTitle = ref('Copy message content');
+
+        const copyMessageContent = async () => {
             try {
-                await navigator.clipboard.writeText(props.providerModel);
+                // Find the closest message container and get its content
+                const messageElement = document.activeElement?.closest('.message');
+                if (!messageElement) {
+                    throw new Error('Message content not found');
+                }
+
+                const contentElement = messageElement.querySelector('.message-content');
+                if (!contentElement) {
+                    throw new Error('Message content not found');
+                }
+
+                // Get the text content, removing HTML tags
+                const textContent = contentElement.textContent || '';
+                await navigator.clipboard.writeText(textContent);
+
+                // Show success feedback
+                copyButtonTitle.value = 'Copied!';
+                setTimeout(() => {
+                    copyButtonTitle.value = 'Copy message content';
+                }, 2000);
             } catch (err) {
-                console.error('Failed to copy to clipboard:', err);
+                console.error('Failed to copy message content:', err);
+                copyButtonTitle.value = 'Failed to copy';
+                setTimeout(() => {
+                    copyButtonTitle.value = 'Copy message content';
+                }, 2000);
             }
         };
 
         return {
-            copyToClipboard,
+            copyMessageContent,
+            copyButtonTitle,
         };
     },
 });
