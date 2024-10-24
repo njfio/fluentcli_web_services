@@ -15,6 +15,12 @@ export default createStore<RootState>({
       isExpanded: false,
       isSidebarOpen: true,
     },
+    chatUI: {
+      gridLayout: 'standard',
+      gridColumns: 3,
+      sidebarOpen: true,
+      selectedConversationId: null
+    }
   },
   mutations: {
     setUser(state, user: User | null) {

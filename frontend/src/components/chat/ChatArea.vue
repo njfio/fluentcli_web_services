@@ -10,7 +10,7 @@
                         class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                         @change="updateLayout">
                         <option value="standard">Standard Grid</option>
-                        <option value="brickwork">Brickwork</option>
+                        <option value="masonry">Masonry</option>
                     </select>
                 </div>
 
@@ -56,13 +56,13 @@
                         <div v-else-if="shouldStartNewAssistantGroup(index)" :class="[
                             'w-full mt-8',
                             isArenaView && localGridLayout === 'standard' ? `grid-container grid-cols-${localGridColumns}` : '',
-                            isArenaView && localGridLayout === 'brickwork' ? 'masonry-layout' : ''
+                            isArenaView && localGridLayout === 'masonry' ? 'masonry-layout' : ''
                         ]">
                             <template v-for="(groupMessage, groupIndex) in getAssistantMessageGroup(index)"
                                 :key="groupMessage.id">
                                 <div class="message-container animate-fade-in" :class="[
                                     isArenaView && localGridLayout === 'standard' ? 'grid-item' : '',
-                                    isArenaView && localGridLayout === 'brickwork' ? 'masonry-item' : 'w-full max-w-3xl',
+                                    isArenaView && localGridLayout === 'masonry' ? 'masonry-item' : 'w-full max-w-3xl',
                                 ]" :style="{ 'animation-delay': `${groupIndex * 100}ms` }">
                                     <div
                                         class="message rounded-xl shadow-sm transition-all duration-200 hover:shadow-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600">
@@ -86,7 +86,7 @@
                                         </div>
                                         <div
                                             class="flex items-center justify-between border-t border-gray-200 dark:border-gray-600 p-2">
-                                            <button v-if="!isArenaView || localGridLayout !== 'brickwork'"
+                                            <button v-if="!isArenaView || localGridLayout !== 'masonry'"
                                                 @click="toggleExpand(groupMessage.id)"
                                                 class="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">
                                                 {{ expandedMessages.has(groupMessage.id) ? 'Collapse' : 'Expand' }}
@@ -196,7 +196,7 @@ export default defineComponent({
         const processedGroups = ref<Set<string>>(new Set());
 
         // Local state with store sync
-        const localGridLayout = ref<'standard' | 'brickwork'>('standard');
+        const localGridLayout = ref<'standard' | 'masonry'>('standard');
         const localGridColumns = ref(3);
 
         // Computed property for expand all state

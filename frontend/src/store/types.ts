@@ -3,8 +3,7 @@ import { ChatUIState } from './modules/chatUI';
 
 export interface User {
   user_id: string;
-  username: string;
-  email: string;
+  token_version: number;
 }
 
 export interface AuthState {
@@ -12,7 +11,12 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
-export interface ChatState {
+export interface ChatUIOptions {
+  isExpanded: boolean;
+  isSidebarOpen: boolean;
+}
+
+export interface ChatState extends ChatUIOptions {
   conversations: Conversation[];
   currentConversation: Conversation | null;
   messages: Message[];
@@ -23,12 +27,7 @@ export interface ChatState {
 
 export interface RootState {
   auth: AuthState;
-  chat: {
-    isExpanded: boolean;
-    isSidebarOpen: boolean;
-  };
-  studio?: any;
-  theme?: any;
+  chat: ChatUIOptions;
   chatUI: ChatUIState;
 }
 
