@@ -3,23 +3,37 @@
         <!-- Layout Controls for Arena View -->
         <div v-if="isArenaView"
             class="flex items-center justify-end space-x-4 p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <div class="flex items-center space-x-2">
-                <label class="text-sm text-gray-600 dark:text-gray-300">Layout:</label>
-                <select v-model="localGridLayout"
-                    class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                    @change="updateLayout">
-                    <option value="standard">Standard Grid</option>
-                    <option value="brickwork">Brickwork</option>
-                </select>
-            </div>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm text-gray-600 dark:text-gray-300">Layout:</label>
+                    <select v-model="localGridLayout"
+                        class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                        @change="updateLayout">
+                        <option value="standard">Standard Grid</option>
+                        <option value="brickwork">Brickwork</option>
+                    </select>
+                </div>
 
-            <div class="flex items-center space-x-2" v-if="localGridLayout === 'standard'">
-                <label class="text-sm text-gray-600 dark:text-gray-300">Columns:</label>
-                <select v-model="localGridColumns"
-                    class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                    @change="updateLayout">
-                    <option v-for="n in 4" :key="n" :value="n">{{ n }}</option>
-                </select>
+                <template v-if="localGridLayout === 'standard'">
+                    <div class="flex items-center space-x-2">
+                        <label class="text-sm text-gray-600 dark:text-gray-300">Columns:</label>
+                        <select v-model="localGridColumns"
+                            class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                            @change="updateLayout">
+                            <option v-for="n in 4" :key="n" :value="n">{{ n }}</option>
+                        </select>
+                    </div>
+
+                    <button @click="toggleExpandAll"
+                        class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center space-x-1">
+                        <span>{{ isAllExpanded ? 'Collapse All' : 'Expand All' }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform"
+                            :class="{ 'rotate-180': isAllExpanded }" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                </template>
             </div>
         </div>
 
@@ -185,6 +199,12 @@ export default defineComponent({
         const localGridLayout = ref<'standard' | 'brickwork'>('standard');
         const localGridColumns = ref(3);
 
+        // Computed property for expand all state
+        const isAllExpanded = computed(() => {
+            const assistantMessages = displayMessages.value.filter(m => m.role === 'assistant');
+            return assistantMessages.length > 0 && assistantMessages.every(m => expandedMessages.value.has(m.id));
+        });
+
         const displayMessages = computed(() => {
             return props.messages
                 .filter(message => !deletedMessageIds.value.has(message.id))
@@ -230,6 +250,17 @@ export default defineComponent({
                 expandedMessages.value.delete(messageId);
             } else {
                 expandedMessages.value.add(messageId);
+            }
+        };
+
+        const toggleExpandAll = () => {
+            const assistantMessages = displayMessages.value.filter(m => m.role === 'assistant');
+            if (isAllExpanded.value) {
+                // Collapse all
+                assistantMessages.forEach(m => expandedMessages.value.delete(m.id));
+            } else {
+                // Expand all
+                assistantMessages.forEach(m => expandedMessages.value.add(m.id));
             }
         };
 
@@ -298,7 +329,9 @@ export default defineComponent({
             getAssistantMessageGroup,
             localGridLayout,
             localGridColumns,
-            updateLayout
+            updateLayout,
+            isAllExpanded,
+            toggleExpandAll
         };
     },
 });
@@ -355,6 +388,7 @@ export default defineComponent({
     column-count: 3;
     column-gap: 1rem;
     margin: 1rem 0;
+    width: 100%;
 }
 
 @media (max-width: 1200px) {
@@ -376,10 +410,37 @@ export default defineComponent({
     width: 100%;
 }
 
+.masonry-item .message {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.masonry-item pre {
+    max-width: none;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.masonry-item .markdown-body {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+.masonry-item table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
 .markdown-body {
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: 1.125rem;
+    line-height: 1.75;
     color: inherit;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .markdown-body h1,
@@ -390,25 +451,44 @@ export default defineComponent({
 .markdown-body h6 {
     color: inherit;
     margin-top: 1.5em;
-    margin-bottom: 0.5em;
+    margin-bottom: 0.75em;
+    font-weight: 600;
+    line-height: 1.3;
 }
 
 .markdown-body h1 {
-    font-size: 1.5rem;
+    font-size: 1.875rem;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+    padding-bottom: 0.5rem;
+}
+
+.dark .markdown-body h1 {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .markdown-body h2 {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding-bottom: 0.3rem;
+}
+
+.dark .markdown-body h2 {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .markdown-body h3 {
-    font-size: 1.125rem;
+    font-size: 1.25rem;
+}
+
+.markdown-body p {
+    margin: 1rem 0;
+    line-height: 1.75;
 }
 
 .markdown-body ul,
 .markdown-body ol {
-    padding-left: 1.5em;
-    margin: 0.5em 0;
+    padding-left: 1.75em;
+    margin: 0.75em 0;
 }
 
 .markdown-body ul {
@@ -419,38 +499,44 @@ export default defineComponent({
     list-style-type: decimal;
 }
 
+.markdown-body li {
+    margin: 0.5em 0;
+    line-height: 1.75;
+}
+
 .markdown-body pre {
-    background-color: rgba(0, 0, 0, 0.1);
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin: 0.75rem 0;
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 1.25rem;
+    border-radius: 0.75rem;
+    margin: 1rem 0;
     overflow-x: auto;
+    font-size: 1rem;
+    line-height: 1.6;
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .dark .markdown-body pre {
     background-color: rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .markdown-body code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 0.875rem;
-    background-color: rgba(0, 0, 0, 0.1);
-    padding: 0.125rem 0.25rem;
-    border-radius: 0.25rem;
+    font-size: 1rem;
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
 }
 
 .dark .markdown-body code {
     background-color: rgba(0, 0, 0, 0.2);
 }
 
-.markdown-body p {
-    margin: 0.75rem 0;
-}
-
 .markdown-body a {
     color: #3b82f6;
     text-decoration: underline;
-    transition: color 0.2s;
+    transition: all 0.2s;
+    font-weight: 500;
 }
 
 .dark .markdown-body a {
@@ -459,31 +545,32 @@ export default defineComponent({
 
 .markdown-body a:hover {
     color: #2563eb;
+    background-color: rgba(59, 130, 246, 0.1);
 }
 
 .dark .markdown-body a:hover {
     color: #93c5fd;
+    background-color: rgba(96, 165, 250, 0.1);
 }
 
 .markdown-body blockquote {
-    border-left: 4px solid #e5e7eb;
-    padding: 0.5rem 1rem;
-    font-style: italic;
-    margin: 0.75rem 0;
-    background-color: rgba(0, 0, 0, 0.05);
-    border-radius: 0.25rem;
+    border-left: 4px solid #3b82f6;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    background-color: rgba(59, 130, 246, 0.1);
+    border-radius: 0.5rem;
 }
 
 .dark .markdown-body blockquote {
-    border-color: #4b5563;
-    background-color: rgba(0, 0, 0, 0.2);
+    border-color: #60a5fa;
+    background-color: rgba(96, 165, 250, 0.1);
 }
 
 .markdown-body img {
     max-width: 100%;
     height: auto;
-    margin: 0.75rem 0;
-    border-radius: 0.5rem;
+    margin: 1.5rem 0;
+    border-radius: 0.75rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
@@ -493,5 +580,51 @@ export default defineComponent({
 
 .message.expanded .message-content {
     max-height: none !important;
+}
+
+/* Table styles */
+.markdown-body table {
+    width: 100%;
+    margin: 1.5rem 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .markdown-body table {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.markdown-body th,
+.markdown-body td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+    text-align: left;
+}
+
+.dark .markdown-body th,
+.dark .markdown-body td {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.markdown-body th {
+    background-color: rgba(0, 0, 0, 0.05);
+    font-weight: 600;
+}
+
+.dark .markdown-body th {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.markdown-body tr:last-child td {
+    border-bottom: none;
+}
+
+.markdown-body td:last-child,
+.markdown-body th:last-child {
+    border-right: none;
 }
 </style>
