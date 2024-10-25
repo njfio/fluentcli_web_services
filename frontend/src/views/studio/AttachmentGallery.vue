@@ -38,16 +38,14 @@
                         </div>
                         <div class="flex gap-2">
                             <!-- View in Chat Link -->
-                            <router-link :to="{
-                                name: 'Chat',
-                                params: { conversationId: attachment.conversation_id }
-                            }" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                            <button @click="navigateToChat(attachment.conversation_id)"
+                                class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
                                     stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                 </svg>
-                            </router-link>
+                            </button>
                             <!-- Download Button -->
                             <button @click.stop="downloadImage(attachment.id)"
                                 class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
@@ -73,27 +71,15 @@
         <!-- Lightbox Modal -->
         <div v-if="lightboxOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90"
             @click="closeLightbox">
-            <!-- Navigation buttons container -->
-            <div
-                class="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between items-center px-4 pointer-events-none">
-                <!-- Previous button -->
-                <button v-show="hasPrevious" @click.stop="previousImage"
-                    class="p-2 rounded-full bg-black bg-opacity-50 text-white hover:text-gray-300 hover:bg-opacity-70 focus:outline-none transform transition-transform hover:scale-110 pointer-events-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-
-                <!-- Next button -->
-                <button v-show="hasNext" @click.stop="nextImage"
-                    class="p-2 rounded-full bg-black bg-opacity-50 text-white hover:text-gray-300 hover:bg-opacity-70 focus:outline-none transform transition-transform hover:scale-110 pointer-events-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                </button>
-            </div>
+            <!-- Previous button -->
+            <button v-if="currentIndex > 0"
+                class="fixed left-4 top-1/2 -translate-y-1/2 z-50 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 focus:outline-none"
+                @click.stop="previousImage">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
 
             <!-- Image container -->
             <div class="relative max-h-full max-w-full" @click.stop>
@@ -103,7 +89,7 @@
 
                 <!-- Close button -->
                 <button @click.stop="closeLightbox"
-                    class="absolute top-4 right-4 p-2 rounded-full bg-black bg-opacity-50 text-white hover:text-gray-300 hover:bg-opacity-70 focus:outline-none transform transition-transform hover:scale-110">
+                    class="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 focus:outline-none">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -114,20 +100,17 @@
                 <!-- Action buttons -->
                 <div class="absolute bottom-4 right-4 flex gap-2">
                     <!-- View in Chat Link -->
-                    <router-link v-if="currentAttachment" :to="{
-                        name: 'Chat',
-                        params: { conversationId: currentAttachment.conversation_id }
-                    }"
-                        class="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 focus:outline-none transform transition-transform hover:scale-110">
+                    <button v-if="currentAttachment" @click.stop="navigateToChat(currentAttachment.conversation_id)"
+                        class="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 focus:outline-none">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
                             stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
-                    </router-link>
+                    </button>
                     <!-- Download button -->
                     <button @click.stop="downloadImage(currentAttachment?.id)"
-                        class="p-2 bg-white text-gray-800 rounded-full hover:bg-gray-100 focus:outline-none transform transition-transform hover:scale-110">
+                        class="p-2 bg-white text-gray-800 rounded-full hover:bg-gray-100 focus:outline-none">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
                             stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -136,6 +119,16 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Next button -->
+            <button v-if="currentIndex < attachments.length - 1"
+                class="fixed right-4 top-1/2 -translate-y-1/2 z-50 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 focus:outline-none"
+                @click.stop="nextImage">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
         </div>
     </div>
 </template>
@@ -143,6 +136,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, ref } from 'vue'
 import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import { useChatLogic } from '../../components/chat/ChatLogic'
 import ImageRenderer from '../../components/chat/ImageRenderer.vue'
 import apiClient from '../../services/apiClient'
 
@@ -154,7 +149,17 @@ interface Attachment {
     created_at: string
 }
 
+interface Conversation {
+    id: string
+    title: string
+    mode: string
+    createdAt: string
+    updatedAt: string
+}
+
 const store = useStore()
+const router = useRouter()
+const { loadMessages } = useChatLogic()
 
 const attachments = computed(() => store.state.attachments.attachments as Attachment[])
 const loading = computed(() => store.state.attachments.loading)
@@ -166,10 +171,6 @@ const currentIndex = ref(0)
 const currentAttachment = computed(() =>
     lightboxOpen.value ? attachments.value[currentIndex.value] : null
 )
-
-// Navigation state
-const hasPrevious = computed(() => currentIndex.value > 0)
-const hasNext = computed(() => currentIndex.value < attachments.value.length - 1)
 
 onMounted(() => {
     store.dispatch('attachments/fetchAttachments')
@@ -217,15 +218,47 @@ function closeLightbox() {
 
 function previousImage(event?: Event) {
     event?.stopPropagation()
-    if (hasPrevious.value) {
+    if (currentIndex.value > 0) {
         currentIndex.value--
     }
 }
 
 function nextImage(event?: Event) {
     event?.stopPropagation()
-    if (hasNext.value) {
+    if (currentIndex.value < attachments.value.length - 1) {
         currentIndex.value++
+    }
+}
+
+async function navigateToChat(conversationId: string) {
+    try {
+        // First ensure conversations are loaded
+        if (store.state.chat.conversations.length === 0) {
+            await store.dispatch('chat/getConversations')
+        }
+
+        // Get the conversation first
+        const response = await apiClient.getConversation(conversationId)
+        const conversation = response.data
+
+        // Add it to the conversations list if it's not there
+        if (!store.state.chat.conversations.find((c: Conversation) => c.id === conversation.id)) {
+            store.commit('chat/addConversation', conversation)
+        }
+
+        // Set it as current conversation
+        store.commit('chat/setCurrentConversation', conversation)
+
+        // Load messages using ChatLogic's loadMessages
+        await loadMessages(conversationId)
+
+        // Then navigate to the chat view
+        router.push({
+            name: 'Chat',
+            params: { conversationId }
+        })
+    } catch (err) {
+        console.error('Error navigating to chat:', err)
     }
 }
 
