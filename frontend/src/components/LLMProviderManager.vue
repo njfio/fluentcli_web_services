@@ -35,6 +35,7 @@
                         <option value="perplexity">Perplexity</option>
                         <option value="gemini">Gemini</option>
                         <option value="grok">Grok</option>
+                        <option value="leonardo">Leonardo AI</option>
                     </select>
                 </div>
                 <div>
@@ -165,6 +166,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
 import apiClient from '../services/apiClient';
+
 
 interface LLMProvider {
     id: string;
@@ -301,7 +303,7 @@ const updateProviderDefaults = () => {
         newProvider.value.apiEndpoint = 'https://api.perplexity.ai/chat/completions';
         newProvider.value.supportedModalities = 'text';
         newProvider.value.configuration = JSON.stringify({
-            model: 'mixtral-8x7b-instruct',
+            model: 'llama-3.1-sonar-huge-128k-online',
             max_tokens: 1024,
             temperature: 0.7
         }, null, 2);
@@ -309,7 +311,7 @@ const updateProviderDefaults = () => {
         newProvider.value.apiEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models';
         newProvider.value.supportedModalities = 'text';
         newProvider.value.configuration = JSON.stringify({
-            model: 'gemini-pro',
+            model: 'gemini-1.5-pro',
             temperature: 0.7,
             top_k: 40,
             top_p: 0.95,
@@ -319,11 +321,23 @@ const updateProviderDefaults = () => {
         newProvider.value.apiEndpoint = 'https://api.x.ai/v1/chat/completions';
         newProvider.value.supportedModalities = 'text';
         newProvider.value.configuration = JSON.stringify({
-            model: 'grok-1',
+            model: 'grok-beta',
             temperature: 0.7,
             max_tokens: 1024,
             top_p: 0.95,
             stream: true
+        }, null, 2);
+    } else if (newProvider.value.providerType === 'leonardo') {
+        newProvider.value.apiEndpoint = 'https://cloud.leonardo.ai/api/rest/v1/generations';
+        newProvider.value.supportedModalities = 'image';
+        newProvider.value.configuration = JSON.stringify({
+            model: 'phoenix',
+            width: 1024,
+            height: 1024,
+            num_images: 1,
+            contrast: 3.5,
+            alchemy: true,
+            enhance_prompt: false
         }, null, 2);
     }
 };
