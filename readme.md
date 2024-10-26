@@ -10,9 +10,10 @@ FluentCLI Web Services is a comprehensive platform designed to provide a user-fr
 4. [Usage](#usage)
 5. [Chat System](#chat-system)
 6. [LLM Providers](#llm-providers)
-7. [Running Tests](#running-tests)
-8. [Contributing](#contributing)
-9. [License](#license)
+7. [Image Generation](#image-generation)
+8. [Running Tests](#running-tests)
+9. [Contributing](#contributing)
+10. [License](#license)
 
 ## Features
 
@@ -24,6 +25,8 @@ FluentCLI Web Services is a comprehensive platform designed to provide a user-fr
 * **Cross-platform compatibility:** Access the platform through a desktop application (built with Tauri) or a web application.
 * **Chat system:** Integrated chat functionality for user communication and AI assistance.
 * **Multiple LLM providers:** Support for various Language Model providers, including GPT, Claude, Gemini, and more.
+* **Image generation:** Built-in support for AI image generation through multiple providers.
+* **Attachment handling:** Robust system for managing and serving generated images and other attachments.
 
 ## Architecture
 
@@ -34,11 +37,17 @@ The platform consists of three main components:
   * Data access layer (Diesel ORM) interacts with the PostgreSQL database.
   * FluentCLI integration executes FluentCLI commands and manages job execution.
   * LLM service integrates multiple AI providers for chat functionality.
+  * Attachment service manages file storage and retrieval.
+  * Temporary file service handles ephemeral data like generated images.
 * **Database (PostgreSQL):**
   * Stores user data, job configurations, execution history, and chat data.
+  * Manages attachment metadata and file paths.
+  * Handles user-specific LLM configurations and API keys.
 * **Frontend (Tauri):**
   * User interface built with HTML, CSS, JavaScript, and Vue.js.
   * Tauri API enables communication with the backend and access to native desktop features.
+  * Real-time chat interface with streaming responses.
+  * Image gallery for viewing and managing generated images.
 
 ## Getting Started
 
@@ -46,6 +55,7 @@ The platform consists of three main components:
 
 * Docker
 * Docker Compose
+* API keys for desired LLM providers
 
 ### Installation
 
@@ -55,13 +65,18 @@ The platform consists of three main components:
    git clone https://github.com/your-username/fluentcli-web-services.git
    ```
 
-2. Build and start the application using Docker Compose:
+2. Set up environment variables:
+   * Copy `.env.example` to `.env`
+   * Configure required API keys and settings
+   * Set up storage paths for attachments and temporary files
+
+3. Build and start the application using Docker Compose:
 
    ```bash
    docker-compose up -d
    ```
 
-3. Access the application:
+4. Access the application:
    * Desktop application: The Tauri application will be launched automatically.
    * Web application: Open your browser and navigate to `http://localhost:1420`.
 
@@ -73,16 +88,22 @@ The platform consists of three main components:
    * Use the API endpoints under `/users/{id}/api_keys` to manage your API keys.
 3. **Configure Amber Store and Vault Store:**
    * Use the API endpoints for Amber Store and Vault Store to manage your secure data.
-4. **Create and manage configurations:**
+4. **Configure LLM providers:**
+   * Set up provider-specific configurations in the LLM Provider Manager.
+   * Configure API keys and model parameters for each provider.
+5. **Create and manage configurations:**
    * Use the API endpoints under `/configurations` to create and manage configurations.
-5. **Create and manage pipelines:**
+6. **Create and manage pipelines:**
    * Use the API endpoints under `/pipelines` to create and manage pipelines.
-6. **Manage Docker files:**
+7. **Manage Docker files:**
    * Use the API endpoints under `/docker_files` to manage your Docker files.
-7. **Create and manage jobs:**
+8. **Create and manage jobs:**
    * Use the API endpoints under `/jobs` to create, manage, start, stop, and monitor jobs.
-8. **Use the chat system:**
+9. **Use the chat system:**
    * Use the API endpoints under `/chat` to create conversations, send messages, and manage attachments.
+10. **Generate and manage images:**
+    * Use image-capable LLM providers to generate images.
+    * View and manage images in the Attachment Gallery.
 
 ## Chat System
 
@@ -94,6 +115,8 @@ The chat system provides the following functionality:
 * Configure and use different LLM (Language Model) providers
 * Manage user-specific LLM configurations
 * Stream responses from AI models for real-time interaction
+* Generate and display AI-generated images
+* Manage attachments through a unified system
 
 To use the chat system, refer to the API documentation for detailed information on the available endpoints and their usage.
 
@@ -101,20 +124,95 @@ To use the chat system, refer to the API documentation for detailed information 
 
 FluentCLI Web Services supports multiple Language Model providers, each with its own implementation and configuration. The following providers are currently supported:
 
-1. **GPT (OpenAI):** Utilizes OpenAI's GPT models for natural language processing tasks.
-2. **Claude (Anthropic):** Integrates Anthropic's Claude model for advanced language understanding and generation.
-3. **Gemini (Google):** Implements Google's Gemini model, offering state-of-the-art language capabilities.
-4. **Command (Cohere):** Incorporates Cohere's Command model for various language tasks.
-5. **DALL-E:** Provides image generation capabilities using OpenAI's DALL-E model.
-6. **Perplexity:** Integrates the Perplexity API for additional language processing features.
+1. **GPT (OpenAI):**
+   * Text generation using GPT-3.5 and GPT-4 models
+   * Image generation through DALL-E integration
+   * Streaming support for real-time responses
 
-Each provider is implemented as a separate module in the `src/services/llm_providers` directory. The `GeminiProvider`, for example, is implemented in `src/services/llm_providers/gemini.rs` and includes the following key features:
+2. **Claude (Anthropic):**
+   * Advanced language understanding and generation
+   * Support for long context windows
+   * Specialized knowledge domains
 
-* Streaming support for real-time response generation
-* Customizable configuration options (temperature, top_k, top_p, max_tokens)
-* Error handling and logging for robust operation
+3. **Gemini (Google):**
+   * State-of-the-art language capabilities
+   * Multi-modal understanding
+   * Efficient processing of large contexts
 
-To add or modify LLM providers, refer to the existing implementations and follow the `LLMProviderTrait` interface.
+4. **Command (Cohere):**
+   * Specialized command understanding
+   * Custom model fine-tuning support
+   * Enterprise-grade reliability
+
+5. **DALL-E (OpenAI):**
+   * High-quality image generation
+   * Style and composition control
+   * Multiple size options
+
+6. **Perplexity:**
+   * Advanced language processing
+   * Real-time information updates
+   * Citation and source tracking
+
+7. **Leonardo AI:**
+   * Advanced image generation capabilities
+   * Style customization
+   * Multiple aspect ratio support
+
+8. **Stability AI:**
+   * High-fidelity image generation
+   * Fine-grained control over generation parameters
+   * Multiple model support (SD-XL, SD-XL-Turbo)
+
+Each provider is implemented as a separate module in the `src/services/llm_providers` directory, following the `LLMProviderTrait` interface which includes:
+
+* Request preparation with provider-specific parameters
+* Response parsing and processing
+* Streaming support for real-time interaction
+* Error handling and logging
+* File and attachment management
+
+## Image Generation
+
+The platform includes robust support for AI image generation through multiple providers:
+
+### Supported Providers
+
+* **DALL-E:** OpenAI's image generation model
+* **Leonardo AI:** Advanced image generation with style control
+* **Stability AI:** High-quality image generation with fine-tuned control
+
+### Image Processing Flow
+
+1. **Generation:**
+   * User submits prompt through chat interface
+   * Request is sent to selected provider
+   * Provider generates image and returns data
+
+2. **Storage:**
+   * Images are saved to the configured storage location
+   * Metadata is stored in the database
+   * Temporary files are managed automatically
+
+3. **Serving:**
+   * Images are served through dedicated endpoints
+   * Support for various formats (PNG, JPEG, WebP)
+   * Proper content type handling
+
+4. **Management:**
+   * View images in the Attachment Gallery
+   * Download generated images
+   * Delete unwanted images
+
+### Configuration
+
+Each image provider can be configured with:
+
+* API keys and authentication
+* Model selection
+* Generation parameters
+* Output format preferences
+* Storage locations
 
 ## Running Tests
 
@@ -130,6 +228,8 @@ This command will execute all the test scripts, including:
 * API key service tests
 * Configuration service tests
 * LLM provider tests
+* Image generation tests
+* Attachment handling tests
 * And more...
 
 Ensure all tests pass before submitting pull requests or deploying to production.
@@ -156,5 +256,6 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 * The Rust community for their robust and efficient programming language
 * The Tauri team for their cross-platform application framework
 * All contributors who have helped shape and improve this project
+* The teams behind the various LLM providers for their powerful APIs
 
 For any questions, issues, or feature requests, please open an issue on the GitHub repository or contact the maintainers directly.
