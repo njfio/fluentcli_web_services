@@ -1,6 +1,6 @@
 use crate::handlers::chat::{
-    create_attachment, create_conversation, create_message, delete_conversation, delete_message,
-    get_attachments, get_conversation, get_messages, list_conversations,
+    create_conversation, create_message, delete_conversation, delete_message, get_conversation,
+    get_messages, list_conversations,
 };
 use crate::handlers::llm_provider::{
     create_llm_provider, create_user_llm_config, delete_llm_provider, delete_user_llm_config,
@@ -130,13 +130,11 @@ pub fn configure_routes() -> Scope {
                 .route(
                     "/conversations/{conversation_id}/messages/{message_id}",
                     web::delete().to(delete_message),
-                ) // Updated route for deleting a message
-                .route("/attachments", web::post().to(create_attachment))
-                .route("/messages/{id}/attachments", web::get().to(get_attachments))
-                .route(
-                    "/attachments/{id}",
-                    web::get().to(attachment::get_attachment),
                 )
+                .service(attachment::get_attachment)
+                .service(attachment::create_attachment)
+                .service(attachment::get_message_attachments)
+                .service(attachment::delete_attachment)
                 .route("/stream", web::get().to(stream_chat::stream_chat)),
         )
         .service(

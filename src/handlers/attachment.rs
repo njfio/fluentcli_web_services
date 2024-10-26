@@ -1,105 +1,129 @@
-use crate::db::db::DbPool;
-use crate::error::AppError;
-use crate::models::attachment::AttachmentType;
-use crate::services::attachment_service::AttachmentService;
-use actix_web::{web, HttpResponse, Result};
+use actix_web::http::header;
+use actix_web::{delete, get, post, web, HttpResponse};
+use diesel::prelude::*;
 use log::{debug, error, info};
 use mime_guess::from_path;
-use serde::Deserialize;
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 use uuid::Uuid;
 
-#[derive(Deserialize)]
-pub struct CreateAttachmentRequest {
-    message_id: Uuid,
-    file_type: String,
-    file_path: String,
+use crate::db::db::DbPool;
+use crate::error::AppError;
+use crate::models::attachment::Attachment;
+use crate::schema::attachments;
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct CreateAttachmentData {
+    pub message_id: String,
+    pub file_type: String,
+    pub file_path: String,
 }
 
-pub async fn create_attachment(
-    pool: web::Data<DbPool>,
-    req: web::Json<CreateAttachmentRequest>,
-) -> Result<HttpResponse, AppError> {
-    let attachment_type = match req.file_type.as_str() {
-        "Text" => AttachmentType::Text,
-        "Document" => AttachmentType::Document,
-        "Video" => AttachmentType::Video,
-        "Image" => AttachmentType::Image,
-        "Audio" => AttachmentType::Audio,
-        _ => return Err(AppError::BadRequest("Invalid attachment type".into())),
-    };
-
-    let attachment = web::block(move || {
-        AttachmentService::create_attachment(
-            &pool,
-            req.message_id,
-            attachment_type,
-            req.file_path.clone(),
-        )
-    })
-    .await
-    .map_err(|e| AppError::GenericError(Box::new(e)))??;
-
-    Ok(HttpResponse::Created().json(attachment))
-}
-
-pub async fn get_attachments(
-    pool: web::Data<DbPool>,
-    message_id: web::Path<Uuid>,
-) -> Result<HttpResponse, AppError> {
-    let attachments =
-        web::block(move || AttachmentService::get_attachments(&pool, message_id.into_inner()))
-            .await
-            .map_err(|e| AppError::GenericError(Box::new(e)))??;
-
-    Ok(HttpResponse::Ok().json(attachments))
-}
-
+#[get("/attachments/{id}")]
 pub async fn get_attachment(
     pool: web::Data<DbPool>,
-    attachment_id: web::Path<Uuid>,
+    path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {
-    info!("Fetching attachment with ID: {}", attachment_id);
-    let attachment =
-        web::block(move || AttachmentService::get_attachment(&pool, attachment_id.into_inner()))
-            .await
-            .map_err(|e| {
-                error!("Failed to get attachment from database: {:?}", e);
-                AppError::GenericError(Box::new(e))
-            })??;
+    let id = path.into_inner();
+    info!("Fetching attachment with ID: {}", id);
 
-    debug!("Attachment retrieved from database: {:?}", attachment);
+    let conn = &mut pool.get().map_err(|e| AppError::R2D2Error(e))?;
+    let attachment = attachments::table
+        .find(id)
+        .first::<Attachment>(conn)
+        .map_err(|_| AppError::NotFoundError(format!("Attachment not found: {}", id)))?;
+
     info!("Attachment file path: {}", attachment.file_path);
 
-    let mut file = File::open(&attachment.file_path).map_err(|e| {
-        error!("Failed to open file: {:?}", e);
-        AppError::InternalServerError
-    })?;
+    let content = fs::read(&attachment.file_path)
+        .map_err(|e| AppError::TempFileError(format!("Failed to read file: {}", e)))?;
 
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).map_err(|e| {
-        error!("Failed to read file: {:?}", e);
-        AppError::InternalServerError
-    })?;
+    debug!("File size: {} bytes", content.len());
 
-    let content_type = from_path(&attachment.file_path)
+    let content_type = mime_guess::from_path(&attachment.file_path)
         .first_or_octet_stream()
         .to_string();
 
     info!("Serving attachment with content type: {}", content_type);
-    debug!("File size: {} bytes", buffer.len());
 
-    Ok(HttpResponse::Ok().content_type(content_type).body(buffer))
+    Ok(HttpResponse::Ok()
+        .insert_header(header::ContentType(content_type.parse().unwrap()))
+        .body(content))
 }
 
+#[post("/attachments")]
+pub async fn create_attachment(
+    pool: web::Data<DbPool>,
+    attachment_data: web::Json<CreateAttachmentData>,
+) -> Result<HttpResponse, AppError> {
+    let message_id = Uuid::parse_str(&attachment_data.message_id)
+        .map_err(|_| AppError::BadRequestError("Invalid message ID".to_string()))?;
+
+    let conn = &mut pool.get().map_err(|e| AppError::R2D2Error(e))?;
+    let attachment = diesel::insert_into(attachments::table)
+        .values((
+            attachments::message_id.eq(message_id),
+            attachments::file_type.eq(&attachment_data.file_type),
+            attachments::file_path.eq(&attachment_data.file_path),
+        ))
+        .get_result::<Attachment>(conn)
+        .map_err(|e| AppError::DatabaseError(e))?;
+
+    Ok(HttpResponse::Ok().json(attachment))
+}
+
+#[get("/messages/{message_id}/attachments")]
+pub async fn get_message_attachments(
+    pool: web::Data<DbPool>,
+    path: web::Path<Uuid>,
+) -> Result<HttpResponse, AppError> {
+    let message_id = path.into_inner();
+    let conn = &mut pool.get().map_err(|e| AppError::R2D2Error(e))?;
+
+    let attachments = attachments::table
+        .filter(attachments::message_id.eq(message_id))
+        .load::<Attachment>(conn)
+        .map_err(|e| AppError::DatabaseError(e))?;
+
+    Ok(HttpResponse::Ok().json(attachments))
+}
+
+#[delete("/attachments/{id}")]
 pub async fn delete_attachment(
     pool: web::Data<DbPool>,
-    attachment_id: web::Path<Uuid>,
+    path: web::Path<Uuid>,
 ) -> Result<HttpResponse, AppError> {
-    web::block(move || AttachmentService::delete_attachment(&pool, attachment_id.into_inner()))
-        .await
-        .map_err(|e| AppError::GenericError(Box::new(e)))??;
+    let id = path.into_inner();
+    info!("Deleting attachment with ID: {}", id);
+
+    let conn = &mut pool.get().map_err(|e| AppError::R2D2Error(e))?;
+
+    // Get the attachment first to get the file path
+    let attachment = attachments::table
+        .find(id)
+        .first::<Attachment>(conn)
+        .map_err(|_| AppError::NotFoundError(format!("Attachment not found: {}", id)))?;
+
+    let file_path = attachment.file_path.clone();
+
+    // Delete from database first
+    diesel::delete(attachments::table.find(id))
+        .execute(conn)
+        .map_err(|e| AppError::DatabaseError(e))?;
+
+    // Then try to delete the file
+    // Don't fail if file is already gone, just log the error
+    if let Err(e) = fs::remove_file(&file_path) {
+        error!("Failed to delete attachment file {}: {:?}", file_path, e);
+    } else {
+        info!("Successfully deleted attachment file: {}", file_path);
+    }
 
     Ok(HttpResponse::NoContent().finish())
+}
+
+pub fn config(cfg: &mut web::ServiceConfig) {
+    cfg.service(get_attachment)
+        .service(create_attachment)
+        .service(get_message_attachments)
+        .service(delete_attachment);
 }

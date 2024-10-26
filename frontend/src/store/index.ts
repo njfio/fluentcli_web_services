@@ -2,6 +2,8 @@ import { createStore } from 'vuex';
 import studioModule from './modules/studio';
 import themeModule from './modules/theme';
 import chatModule from './modules/chat';
+import chatUIModule from './modules/chatUI';
+import attachmentsModule from './modules/attachments';
 import { RootState, User } from './types';
 
 export default createStore<RootState>({
@@ -14,6 +16,12 @@ export default createStore<RootState>({
       isExpanded: false,
       isSidebarOpen: true,
     },
+    chatUI: {
+      gridLayout: 'standard',
+      gridColumns: 3,
+      sidebarOpen: true,
+      selectedConversationId: null
+    }
   },
   mutations: {
     setUser(state, user: User | null) {
@@ -58,5 +66,7 @@ export default createStore<RootState>({
     studio: studioModule,
     theme: themeModule,
     chat: chatModule,
+    chatUI: chatUIModule,
+    attachments: attachmentsModule,
   },
 });

@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { API_URL } from '../config';
 import AuthService from './AuthService';
-import { StudioConfiguration, NewStudioConfiguration } from '../store/modules/studio';
+import { StudioConfiguration } from '../store/modules/studio';
 import store from '../store';
 
 export const axiosInstance: AxiosInstance = axios.create({
@@ -13,7 +13,6 @@ export const axiosInstance: AxiosInstance = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor to add the auth token and user ID to headers
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = AuthService.getToken();
@@ -33,7 +32,6 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle global errors
 axiosInstance.interceptors.response.use(
   (response) => {
     console.log(`Received response from ${response.config.url} with status ${response.status}`);
@@ -49,27 +47,6 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-interface LLMProviderData {
-  name: string;
-  provider_type: string;
-  api_endpoint: string;
-  supported_modalities: string[];
-  configuration: any;
-}
-
-interface UserLLMConfigData {
-  user_id: string;
-  provider_id: string;
-  api_key_id: string;
-  description?: string;
-}
-
-interface ConversationData {
-  user_id: string;
-  title: string;
-  mode?: string;
-}
 
 interface ApiClient {
   // User routes
@@ -94,6 +71,7 @@ interface ApiClient {
   fetchJobLogs: (id: string) => Promise<AxiosResponse<any>>;
   fetchJobs: () => Promise<AxiosResponse<any>>;
   startJob: (id: string) => Promise<AxiosResponse<any>>;
+  stopJob: (id: string) => Promise<AxiosResponse<any>>;
 
   // Pipeline routes
   createPipeline: (pipelineData: any) => Promise<AxiosResponse<any>>;
@@ -103,21 +81,25 @@ interface ApiClient {
   deletePipeline: (id: string) => Promise<AxiosResponse<any>>;
   fetchPipelines: () => Promise<AxiosResponse<any>>;
 
+
   // Docker File routes
   createDockerFile: (dockerFileData: any) => Promise<AxiosResponse<any>>;
   listDockerFiles: () => Promise<AxiosResponse<any>>;
   getDockerFile: (id: string) => Promise<AxiosResponse<any>>;
   updateDockerFile: (id: string, dockerFileData: any) => Promise<AxiosResponse<any>>;
   deleteDockerFile: (id: string) => Promise<AxiosResponse<any>>;
+
   fetchDockerFiles: () => Promise<AxiosResponse<any>>;
 
+
   // Configuration routes
-  createConfiguration: (configurationData: NewStudioConfiguration) => Promise<AxiosResponse<StudioConfiguration>>;
+  createConfiguration: (configurationData: any) => Promise<AxiosResponse<StudioConfiguration>>;
   listConfigurations: () => Promise<AxiosResponse<StudioConfiguration[]>>;
   getConfiguration: (id: string) => Promise<AxiosResponse<StudioConfiguration>>;
-  updateConfiguration: (id: string, configurationData: StudioConfiguration) => Promise<AxiosResponse<StudioConfiguration>>;
+  updateConfiguration: (id: string, configurationData: any) => Promise<AxiosResponse<StudioConfiguration>>;
   deleteConfiguration: (id: string) => Promise<AxiosResponse<void>>;
   fetchConfigurations: () => Promise<AxiosResponse<StudioConfiguration[]>>;
+
 
   // Amber Store routes
   createAmberStore: (amberStoreData: any) => Promise<AxiosResponse<any>>;
@@ -127,36 +109,32 @@ interface ApiClient {
   deleteAmberStore: (id: string) => Promise<AxiosResponse<any>>;
   fetchAmberStores: () => Promise<AxiosResponse<any>>;
 
+
   // Chat routes
-  createConversation: (data: ConversationData) => Promise<AxiosResponse<any>>;
+  createConversation: (data: any) => Promise<AxiosResponse<any>>;
   listConversations: () => Promise<AxiosResponse<any>>;
   getConversation: (id: string) => Promise<AxiosResponse<any>>;
   deleteConversation: (id: string) => Promise<AxiosResponse<any>>;
-  createMessage: (
-    conversationId: string,
-    role: string,
-    content: string,
-    providerModel: string,
-    attachmentId?: string,
-    rawOutput?: string,
-    usageStats?: any
-  ) => Promise<AxiosResponse<any>>;
+  createMessage: (conversationId: string, role: string, content: string, providerModel: string, attachmentId?: string, rawOutput?: string, usageStats?: any) => Promise<AxiosResponse<any>>;
   getMessages: (conversationId: string) => Promise<AxiosResponse<any>>;
   deleteMessage: (conversationId: string, messageId: string) => Promise<AxiosResponse<any>>;
+
+  // Attachment routes
   createAttachment: (messageId: string, fileType: string, filePath: string) => Promise<AxiosResponse<any>>;
-  getAttachments: (messageId: string) => Promise<AxiosResponse<any>>;
   getAttachment: (attachmentId: string) => Promise<AxiosResponse<any>>;
+  getAttachments: (messageId: string) => Promise<AxiosResponse<any>>;
+  deleteAttachment: (attachmentId: string) => Promise<AxiosResponse<void>>;
 
   // LLM Provider routes
-  createLLMProvider: (providerData: LLMProviderData) => Promise<AxiosResponse<any>>;
-  updateLLMProvider: (id: string, providerData: LLMProviderData) => Promise<AxiosResponse<any>>;
+  createLLMProvider: (providerData: any) => Promise<AxiosResponse<any>>;
+  updateLLMProvider: (id: string, providerData: any) => Promise<AxiosResponse<any>>;
   listLLMProviders: () => Promise<AxiosResponse<any>>;
   getLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
   deleteLLMProvider: (id: string) => Promise<AxiosResponse<any>>;
 
   // User LLM Config routes
-  createUserLLMConfig: (configData: UserLLMConfigData) => Promise<AxiosResponse<any>>;
-  updateUserLLMConfig: (id: string, configData: UserLLMConfigData) => Promise<AxiosResponse<any>>;
+  createUserLLMConfig: (configData: any) => Promise<AxiosResponse<any>>;
+  updateUserLLMConfig: (id: string, configData: any) => Promise<AxiosResponse<any>>;
   listUserLLMConfigs: () => Promise<AxiosResponse<any>>;
   getUserLLMConfig: (id: string) => Promise<AxiosResponse<any>>;
   deleteUserLLMConfig: (id: string) => Promise<AxiosResponse<any>>;
@@ -164,6 +142,7 @@ interface ApiClient {
   // LLM Chat routes
   llmChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
   streamChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
+
 
   // API Key routes
   createApiKey: (key_value: string, description: string) => Promise<AxiosResponse<any>>;
@@ -196,6 +175,7 @@ const apiClient: ApiClient = {
   fetchJobLogs: (id) => axiosInstance.get(`/jobs/${id}/logs`),
   fetchJobs: () => axiosInstance.get('/jobs'),
   startJob: (id) => axiosInstance.post(`/jobs/${id}/start`),
+  stopJob: (id) => axiosInstance.post(`/jobs/${id}/stop`),
 
   // Pipeline routes
   createPipeline: (pipelineData) => axiosInstance.post('/pipelines', pipelineData),
@@ -205,6 +185,7 @@ const apiClient: ApiClient = {
   deletePipeline: (id) => axiosInstance.delete(`/pipelines/${id}`),
   fetchPipelines: () => axiosInstance.get('/pipelines'),
 
+
   // Docker File routes
   createDockerFile: (dockerFileData) => axiosInstance.post('/docker_files', dockerFileData),
   listDockerFiles: () => axiosInstance.get('/docker_files'),
@@ -212,6 +193,7 @@ const apiClient: ApiClient = {
   updateDockerFile: (id, dockerFileData) => axiosInstance.put(`/docker_files/${id}`, dockerFileData),
   deleteDockerFile: (id) => axiosInstance.delete(`/docker_files/${id}`),
   fetchDockerFiles: () => axiosInstance.get('/docker_files'),
+
 
   // Configuration routes
   createConfiguration: (configurationData) => axiosInstance.post('/configurations', configurationData),
@@ -221,6 +203,7 @@ const apiClient: ApiClient = {
   deleteConfiguration: (id) => axiosInstance.delete(`/configurations/${id}`),
   fetchConfigurations: () => axiosInstance.get('/configurations'),
 
+
   // Amber Store routes
   createAmberStore: (amberStoreData) => axiosInstance.post('/amber_stores', amberStoreData),
   listAmberStores: () => axiosInstance.get('/amber_stores'),
@@ -228,6 +211,7 @@ const apiClient: ApiClient = {
   updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_stores/${id}`, amberStoreData),
   deleteAmberStore: (id) => axiosInstance.delete(`/amber_stores/${id}`),
   fetchAmberStores: () => axiosInstance.get('/amber_stores'),
+
 
   // Chat routes
   createConversation: (data) => axiosInstance.post('/chat/conversations', data),
@@ -246,9 +230,13 @@ const apiClient: ApiClient = {
     }),
   getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
   deleteMessage: (conversationId, messageId) => axiosInstance.delete(`/chat/conversations/${conversationId}/messages/${messageId}`),
-  createAttachment: (messageId, fileType, filePath) => axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),
-  getAttachments: (messageId) => axiosInstance.get(`/chat/messages/${messageId}/attachments`),
+
+  // Attachment routes
+  createAttachment: (messageId, fileType, filePath) =>
+    axiosInstance.post('/chat/attachments', { message_id: messageId, file_type: fileType, file_path: filePath }),
   getAttachment: (attachmentId) => axiosInstance.get(`/chat/attachments/${attachmentId}`, { responseType: 'arraybuffer' }),
+  getAttachments: (messageId) => axiosInstance.get(`/chat/messages/${messageId}/attachments`),
+  deleteAttachment: (attachmentId) => axiosInstance.delete(`/chat/attachments/${attachmentId}`),
 
   // LLM Provider routes
   createLLMProvider: (providerData) => axiosInstance.post('/llm/providers', providerData),
@@ -267,6 +255,7 @@ const apiClient: ApiClient = {
   // LLM Chat routes
   llmChat: (providerId, messages) => axiosInstance.post('/llm/chat', { provider_id: providerId, messages }),
   streamChat: (providerId, messages) => axiosInstance.get('/chat/stream', { params: { provider_id: providerId, messages: JSON.stringify(messages) } }),
+
 
   // API Key routes
   createApiKey: (key_value, description) => axiosInstance.post('/api_keys', { key_value, description }),

@@ -1,7 +1,9 @@
+import { Message, Conversation, UserLLMConfig, LLMProvider } from './modules/chat';
+import { ChatUIState } from './modules/chatUI';
+
 export interface User {
   user_id: string;
   token_version: number;
-  // Add other user properties as needed
 }
 
 export interface AuthState {
@@ -9,22 +11,26 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
-export interface ChatState {
+export interface ChatUIOptions {
   isExpanded: boolean;
   isSidebarOpen: boolean;
-  // Add other chat-related state properties as needed
+}
+
+export interface ChatState extends ChatUIOptions {
+  conversations: Conversation[];
+  currentConversation: Conversation | null;
+  messages: Message[];
+  userLLMConfigs: UserLLMConfig[];
+  llmProviders: LLMProvider[];
+  error: string | null;
 }
 
 export interface RootState {
   auth: AuthState;
-  chat: ChatState;
-  // Add other module states as needed
-  // For example:
-  // studio: StudioState;
-  // theme: ThemeState;
+  chat: ChatUIOptions;
+  chatUI: ChatUIState;
 }
 
-// Add other module state interfaces as needed
-// For example:
-// export interface StudioState { ... }
-// export interface ThemeState { ... }
+export interface State extends RootState {
+  chat: ChatState;
+}

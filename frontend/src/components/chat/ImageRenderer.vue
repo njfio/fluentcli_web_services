@@ -7,8 +7,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
-import apiClient from '@/services/apiClient';
+import { defineComponent, ref, onMounted, onUnmounted, watch } from 'vue';
+import apiClient from '../../services/apiClient';
 
 export default defineComponent({
     name: 'ImageRenderer',
@@ -34,11 +34,18 @@ export default defineComponent({
 
         const loadImage = async () => {
             try {
+                // Clear previous image and reset state
+                if (imageUrl.value && !imageUrl.value.startsWith('http')) {
+                    URL.revokeObjectURL(imageUrl.value);
+                }
+                imageUrl.value = '';
+                loading.value = true;
+                error.value = false;
+                errorMessage.value = '';
+
                 console.log('Fetching attachment with ID:', props.attachmentId);
-                const response = props.isDalle
-                    ? await apiClient.getAttachment(props.attachmentId)
-                    : await apiClient.getAttachment(props.attachmentId);
-                console.log('Attachment response:', response);
+                const response = await apiClient.getAttachment(props.attachmentId);
+                console.log('Attachment response received');
 
                 if (props.isDalle && response.data && typeof response.data === 'object' && 'url' in response.data) {
                     imageUrl.value = response.data.url;
@@ -48,7 +55,7 @@ export default defineComponent({
                 } else {
                     throw new Error('Unexpected response format');
                 }
-                console.log('Image URL:', imageUrl.value);
+                console.log('New image URL created:', imageUrl.value);
             } catch (err) {
                 console.error('Failed to load image:', err);
                 error.value = true;
@@ -69,6 +76,14 @@ export default defineComponent({
             errorMessage.value = 'Image failed to load';
             console.error('Image failed to load:', e);
         };
+
+        // Watch for changes in attachmentId
+        watch(() => props.attachmentId, (newId, oldId) => {
+            console.log('AttachmentId changed from', oldId, 'to', newId);
+            if (newId && newId !== oldId) {
+                loadImage();
+            }
+        });
 
         onMounted(() => {
             loadImage();
@@ -95,6 +110,16 @@ export default defineComponent({
 <style scoped>
 .image-renderer {
     position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
 }
 
 .loading-overlay {
@@ -107,10 +132,24 @@ export default defineComponent({
     align-items: center;
     justify-content: center;
     background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
 }
 
 .error-message {
-    color: red;
+    color: #dc2626;
     text-align: center;
+    padding: 1rem;
+    background-color: #fee2e2;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+.dark .loading-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.dark .error-message {
+    color: #ef4444;
+    background-color: #7f1d1d;
 }
 </style>
