@@ -9,18 +9,6 @@ use std::pin::Pin;
 use std::time::Duration;
 use tokio::time::sleep;
 
-#[derive(Debug, Serialize)]
-struct LeonardoGenerationRequest {
-    #[serde(rename = "modelId")]
-    model_id: String,
-    prompt: String,
-    num_images: i32,
-    width: i32,
-    height: i32,
-    alchemy: bool,
-    contrast: f32,
-}
-
 #[derive(Debug, Deserialize)]
 struct LeonardoInitialResponse {
     sdGenerationJob: SdGenerationJob,
@@ -120,36 +108,27 @@ impl LLMProviderTrait for LeonardoProvider {
                 ))
             })?;
 
-        let width = config.get("width").and_then(|w| w.as_i64()).unwrap_or(1024) as i32;
-        let height = config
-            .get("height")
-            .and_then(|h| h.as_i64())
-            .unwrap_or(1024) as i32;
-        let num_images = config
-            .get("num_images")
-            .and_then(|n| n.as_i64())
-            .unwrap_or(1) as i32;
-        let contrast = config
-            .get("contrast")
-            .and_then(|c| c.as_f64())
-            .unwrap_or(3.5) as f32;
+        // Create a mutable copy of the config
+        let mut request_body = config.clone();
 
-        let request = LeonardoGenerationRequest {
-            model_id: "6b645e3a-d64f-4341-a6d8-7a3690fbf042".to_string(), // Leonardo Phoenix model
-            prompt: prompt.to_string(),
-            num_images,
-            width,
-            height,
-            alchemy: true,
-            contrast,
-        };
+        // Add or update required fields
+        request_body["prompt"] = json!(prompt);
 
-        debug!("Leonardo request body: {:?}", request);
+        // Set model ID based on model name or use default
+        if let Some("phoenix") = request_body.get("model").and_then(|m| m.as_str()) {
+            request_body["modelId"] = json!("6b645e3a-d64f-4341-a6d8-7a3690fbf042");
+        } else {
+            request_body["modelId"] = json!("6b645e3a-d64f-4341-a6d8-7a3690fbf042");
+            // Default to Phoenix
+        }
+        request_body.as_object_mut().unwrap().remove("model"); // Remove the model field as we use modelId
+
+        debug!("Leonardo request body: {:?}", request_body);
 
         Ok(client
             .post("https://cloud.leonardo.ai/api/rest/v1/generations")
             .header("Authorization", format!("Bearer {}", api_key))
-            .json(&request))
+            .json(&request_body))
     }
 
     fn parse_response(&self, response_text: &str) -> Result<String, LLMServiceError> {
@@ -209,7 +188,13 @@ mod tests {
             "width": 1472,
             "height": 832,
             "num_images": 4,
-            "contrast": 3.5
+            "contrast": 3.5,
+            "alchemy": true,
+            "enhancePrompt": true,
+            "model": "phoenix",
+            "styleUUID": "111dc692-d470-4eec-b791-3475abac4c46",
+            "ultra": true,
+            "custom_option": "value"
         });
 
         let messages = vec![LLMChatMessage {
