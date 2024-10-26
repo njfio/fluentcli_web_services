@@ -14,6 +14,7 @@ pub mod message;
 pub mod pipeline;
 pub mod secure_vault;
 pub mod stream_chat;
+pub mod temp_image;
 pub mod user;
 pub mod user_llm_config;
 pub mod worker;

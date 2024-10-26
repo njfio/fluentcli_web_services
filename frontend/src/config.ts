@@ -9,6 +9,7 @@ export const PROVIDER_TYPES = {
     GROK: 'grok',
     DALLE: 'dalle',
     LEONARDO: 'leonardo',
+    STABILITY: 'stability',
 } as const;
 
 export const PROVIDER_NAMES = {
@@ -20,6 +21,7 @@ export const PROVIDER_NAMES = {
     [PROVIDER_TYPES.GROK]: 'Grok',
     [PROVIDER_TYPES.DALLE]: 'DALL-E',
     [PROVIDER_TYPES.LEONARDO]: 'Leonardo AI',
+    [PROVIDER_TYPES.STABILITY]: 'Stability AI',
 } as const;
 
 export const PROVIDER_CONFIGS = {
@@ -73,6 +75,19 @@ export const PROVIDER_CONFIGS = {
             height: [832, 1024, 1472],
             num_images: [1, 2, 3, 4],
             contrast: [3.0, 3.5, 4.0],
+        },
+    },
+    [PROVIDER_TYPES.STABILITY]: {
+        defaultModel: 'stable-diffusion-ultra',
+        models: ['stable-diffusion-ultra'],
+        requiresOrganizationId: false,
+        isImageGenerator: true,
+        configOptions: {
+            width: [1024, 1536, 2048],
+            height: [1024, 1536, 2048],
+            cfg_scale: [1, 3, 5, 7, 10],
+            steps: [30, 40, 50],
+            style: ['enhance', 'anime', 'photographic', 'digital-art', 'comic-book', 'fantasy-art', 'line-art', 'analog-film', 'neon-punk', 'isometric', '3d-model', 'pixel-art', 'tile-texture', 'cinematic'],
         },
     },
 } as const;

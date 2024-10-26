@@ -6,12 +6,53 @@ use crate::services::attachment_service::AttachmentService;
 use diesel::prelude::*;
 use log::{error, info};
 use serde_json::Value;
+use std::path::PathBuf;
+use tokio::fs;
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
 pub struct MessageService;
 
 impl MessageService {
+    async fn process_stability_image(
+        pool: &DbPool,
+        message_id: Uuid,
+        image_data: &str,
+    ) -> Result<String, AppError> {
+        // Decode base64 image data
+        let image_bytes = base64::decode(image_data).map_err(|e| {
+            error!("Failed to decode base64 image data: {:?}", e);
+            AppError::InternalServerError
+        })?;
+
+        // Create attachments directory if it doesn't exist
+        let attachment_dir = AttachmentService::get_attachment_dir();
+        fs::create_dir_all(&attachment_dir).await.map_err(|e| {
+            error!("Failed to create attachments directory: {:?}", e);
+            AppError::InternalServerError
+        })?;
+
+        // Generate a unique filename
+        let file_name = format!("{}.png", Uuid::new_v4());
+        let file_path = attachment_dir.join(&file_name);
+
+        // Save the image
+        fs::write(&file_path, &image_bytes).await.map_err(|e| {
+            error!("Failed to write image file: {:?}", e);
+            AppError::InternalServerError
+        })?;
+
+        // Create attachment record
+        let attachment = AttachmentService::create_attachment(
+            pool,
+            message_id,
+            crate::models::attachment::AttachmentType::Image,
+            file_path.to_str().unwrap().to_string(),
+        )?;
+
+        Ok(format!("{{{{ATTACHMENT:{}}}}}", attachment.id))
+    }
+
     pub async fn create_message_with_attachments(
         pool: &DbPool,
         conversation_id: Uuid,
@@ -56,49 +97,83 @@ impl MessageService {
         let (tx, rx) = oneshot::channel();
 
         tokio::spawn(async move {
-            let result = AttachmentService::process_and_store_images(
-                &pool_clone,
-                message_id,
-                &content_clone,
-            )
-            .await;
-
-            match result {
-                Ok(attachments) => {
-                    info!("Processed {} attachments", attachments.len());
-                    if let Some(main_attachment) = attachments.first() {
-                        let updated_content = AttachmentService::replace_urls_with_attachment_ids(
-                            &content_clone,
-                            &attachments,
-                        );
+            let result = if content_clone.starts_with("STABILITY_IMAGE_DATA:") {
+                // Handle Stability AI image data
+                match Self::process_stability_image(
+                    &pool_clone,
+                    message_id,
+                    &content_clone[19..], // Skip the "STABILITY_IMAGE_DATA:" prefix
+                )
+                .await
+                {
+                    Ok(attachment_content) => {
                         let conn = &mut pool_clone.get().expect("Failed to get DB connection");
                         let update_result = diesel::update(messages::table.find(message_id))
-                            .set((
-                                messages::attachment_id.eq(main_attachment.id),
-                                messages::content.eq(updated_content),
-                            ))
+                            .set(messages::content.eq(&attachment_content))
                             .execute(conn);
+
                         match update_result {
                             Ok(_) => {
-                                info!("Updated message with attachment information");
-                                let updated_message =
-                                    messages::table.find(message_id).first::<Message>(conn).ok();
-                                let _ = tx.send(updated_message);
+                                info!("Updated message with Stability AI attachment");
+                                messages::table.find(message_id).first::<Message>(conn).ok()
                             }
                             Err(e) => {
                                 error!("Failed to update message with attachment: {:?}", e);
-                                let _ = tx.send(None);
+                                None
                             }
                         }
-                    } else {
-                        let _ = tx.send(None);
+                    }
+                    Err(e) => {
+                        error!("Failed to process Stability AI image: {:?}", e);
+                        None
                     }
                 }
-                Err(e) => {
-                    error!("Failed to process attachments: {:?}", e);
-                    let _ = tx.send(None);
+            } else {
+                // Handle regular image URLs
+                match AttachmentService::process_and_store_images(
+                    &pool_clone,
+                    message_id,
+                    &content_clone,
+                )
+                .await
+                {
+                    Ok(attachments) => {
+                        info!("Processed {} attachments", attachments.len());
+                        if let Some(main_attachment) = attachments.first() {
+                            let updated_content =
+                                AttachmentService::replace_urls_with_attachment_ids(
+                                    &content_clone,
+                                    &attachments,
+                                );
+                            let conn = &mut pool_clone.get().expect("Failed to get DB connection");
+                            let update_result = diesel::update(messages::table.find(message_id))
+                                .set((
+                                    messages::attachment_id.eq(main_attachment.id),
+                                    messages::content.eq(updated_content),
+                                ))
+                                .execute(conn);
+                            match update_result {
+                                Ok(_) => {
+                                    info!("Updated message with attachment information");
+                                    messages::table.find(message_id).first::<Message>(conn).ok()
+                                }
+                                Err(e) => {
+                                    error!("Failed to update message with attachment: {:?}", e);
+                                    None
+                                }
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to process attachments: {:?}", e);
+                        None
+                    }
                 }
-            }
+            };
+
+            let _ = tx.send(result);
         });
 
         // Wait for the attachment processing to complete
@@ -252,6 +327,4 @@ impl MessageService {
         );
         Ok(())
     }
-
-    // ... (keep all other existing methods)
 }

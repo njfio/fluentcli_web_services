@@ -36,6 +36,7 @@
                         <option value="gemini">Gemini</option>
                         <option value="grok">Grok</option>
                         <option value="leonardo">Leonardo AI</option>
+                        <option value="stability">Stability AI</option>
                     </select>
                 </div>
                 <div>
@@ -167,7 +168,6 @@ import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
 import apiClient from '../services/apiClient';
 
-
 interface LLMProvider {
     id: string;
     name: string;
@@ -297,7 +297,6 @@ const deleteLLMProvider = async (id: string) => {
         loading.value = false;
     }
 };
-
 const updateProviderDefaults = () => {
     if (newProvider.value.providerType === 'perplexity') {
         newProvider.value.apiEndpoint = 'https://api.perplexity.ai/chat/completions';
@@ -338,6 +337,18 @@ const updateProviderDefaults = () => {
             contrast: 3.5,
             alchemy: true,
             enhance_prompt: false
+        }, null, 2);
+    } else if (newProvider.value.providerType === 'stability') {
+        newProvider.value.apiEndpoint = 'https://api.stability.ai/v2beta/stable-image/generate/ultra';
+        newProvider.value.supportedModalities = 'image';
+        newProvider.value.configuration = JSON.stringify({
+            output_format: "png",
+            cfg_scale: 7,
+            height: 1024,
+            width: 1024,
+            steps: 30,
+            seed: 0,
+            style: "enhance"
         }, null, 2);
     }
 };
