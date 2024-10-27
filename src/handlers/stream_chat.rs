@@ -15,32 +15,24 @@ use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
-pub struct StreamChatQuery {
-    pub conversation_id: Uuid,
+pub struct StreamChatRequest {
+    pub user_llm_config_id: Uuid,
     pub provider_id: Uuid,
+    pub conversation_id: Uuid,
+    pub messages: Vec<LLMChatMessage>,
 }
 
 pub async fn stream_chat(
     pool: web::Data<DbPool>,
-    query: web::Query<StreamChatQuery>,
+    req: web::Json<StreamChatRequest>,
     user: AuthenticatedUser,
 ) -> Result<HttpResponse, AppError> {
-    let provider = Arc::new(ChatService::get_llm_provider(&pool, query.provider_id)?);
+    let provider = Arc::new(ChatService::get_llm_provider(&pool, req.provider_id)?);
     let user_config = Arc::new(ChatService::get_user_llm_config(
         &pool,
         user.0,
-        query.provider_id,
+        req.provider_id,
     )?);
-
-    let messages = ChatService::get_messages(&pool, query.conversation_id)?;
-
-    let llm_messages: Vec<LLMChatMessage> = messages
-        .into_iter()
-        .map(|m| LLMChatMessage {
-            role: m.role,
-            content: m.content,
-        })
-        .collect();
 
     let (tx, rx) = mpsc::channel(100);
     let full_response = Arc::new(Mutex::new(String::new()));
@@ -52,12 +44,13 @@ pub async fn stream_chat(
         let pool_arc = Arc::clone(&pool_arc);
         let provider = Arc::clone(&provider);
         let user_config = Arc::clone(&user_config);
+        let messages = req.messages.clone();
         async move {
             if let Err(e) = handle_llm_stream(
                 pool_arc,
                 provider,
                 user_config,
-                llm_messages,
+                messages,
                 tx,
                 full_response_clone,
             )
@@ -71,7 +64,7 @@ pub async fn stream_chat(
     let response_stream = create_response_stream(rx);
 
     // Use a separate task to save the full response to the database
-    let conversation_id = query.conversation_id;
+    let conversation_id = req.conversation_id;
     let provider_model = provider.name.clone();
 
     actix_web::rt::spawn({

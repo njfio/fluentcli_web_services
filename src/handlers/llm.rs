@@ -1,7 +1,7 @@
 use crate::db::db::DbPool;
 use crate::error::AppError;
 use crate::handlers::llm_chat::{llm_chat_handler, LLMChatRequest};
-use crate::handlers::stream_chat::{stream_chat, StreamChatQuery};
+use crate::handlers::stream_chat::{stream_chat, StreamChatRequest};
 use crate::utils::extractors::AuthenticatedUser;
 use actix_web::{web, HttpResponse};
 
@@ -15,10 +15,10 @@ pub async fn llm_chat(
 
 pub async fn llm_stream_chat(
     pool: web::Data<DbPool>,
-    query: web::Query<StreamChatQuery>,
+    req: web::Json<StreamChatRequest>,
     user: AuthenticatedUser,
 ) -> Result<HttpResponse, AppError> {
-    stream_chat(pool, query, user).await
+    stream_chat(pool, req, user).await
 }
 
 // Re-export functions from llm_provider
