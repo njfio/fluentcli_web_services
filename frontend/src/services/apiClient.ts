@@ -81,16 +81,13 @@ interface ApiClient {
   deletePipeline: (id: string) => Promise<AxiosResponse<any>>;
   fetchPipelines: () => Promise<AxiosResponse<any>>;
 
-
   // Docker File routes
   createDockerFile: (dockerFileData: any) => Promise<AxiosResponse<any>>;
   listDockerFiles: () => Promise<AxiosResponse<any>>;
   getDockerFile: (id: string) => Promise<AxiosResponse<any>>;
   updateDockerFile: (id: string, dockerFileData: any) => Promise<AxiosResponse<any>>;
   deleteDockerFile: (id: string) => Promise<AxiosResponse<any>>;
-
   fetchDockerFiles: () => Promise<AxiosResponse<any>>;
-
 
   // Configuration routes
   createConfiguration: (configurationData: any) => Promise<AxiosResponse<StudioConfiguration>>;
@@ -100,7 +97,6 @@ interface ApiClient {
   deleteConfiguration: (id: string) => Promise<AxiosResponse<void>>;
   fetchConfigurations: () => Promise<AxiosResponse<StudioConfiguration[]>>;
 
-
   // Amber Store routes
   createAmberStore: (amberStoreData: any) => Promise<AxiosResponse<any>>;
   listAmberStores: () => Promise<AxiosResponse<any>>;
@@ -108,7 +104,6 @@ interface ApiClient {
   updateAmberStore: (id: string, amberStoreData: any) => Promise<AxiosResponse<any>>;
   deleteAmberStore: (id: string) => Promise<AxiosResponse<any>>;
   fetchAmberStores: () => Promise<AxiosResponse<any>>;
-
 
   // Chat routes
   createConversation: (data: any) => Promise<AxiosResponse<any>>;
@@ -142,7 +137,6 @@ interface ApiClient {
   // LLM Chat routes
   llmChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
   streamChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
-
 
   // API Key routes
   createApiKey: (key_value: string, description: string) => Promise<AxiosResponse<any>>;
@@ -185,7 +179,6 @@ const apiClient: ApiClient = {
   deletePipeline: (id) => axiosInstance.delete(`/pipelines/${id}`),
   fetchPipelines: () => axiosInstance.get('/pipelines'),
 
-
   // Docker File routes
   createDockerFile: (dockerFileData) => axiosInstance.post('/docker_files', dockerFileData),
   listDockerFiles: () => axiosInstance.get('/docker_files'),
@@ -193,7 +186,6 @@ const apiClient: ApiClient = {
   updateDockerFile: (id, dockerFileData) => axiosInstance.put(`/docker_files/${id}`, dockerFileData),
   deleteDockerFile: (id) => axiosInstance.delete(`/docker_files/${id}`),
   fetchDockerFiles: () => axiosInstance.get('/docker_files'),
-
 
   // Configuration routes
   createConfiguration: (configurationData) => axiosInstance.post('/configurations', configurationData),
@@ -203,7 +195,6 @@ const apiClient: ApiClient = {
   deleteConfiguration: (id) => axiosInstance.delete(`/configurations/${id}`),
   fetchConfigurations: () => axiosInstance.get('/configurations'),
 
-
   // Amber Store routes
   createAmberStore: (amberStoreData) => axiosInstance.post('/amber_stores', amberStoreData),
   listAmberStores: () => axiosInstance.get('/amber_stores'),
@@ -211,7 +202,6 @@ const apiClient: ApiClient = {
   updateAmberStore: (id, amberStoreData) => axiosInstance.put(`/amber_stores/${id}`, amberStoreData),
   deleteAmberStore: (id) => axiosInstance.delete(`/amber_stores/${id}`),
   fetchAmberStores: () => axiosInstance.get('/amber_stores'),
-
 
   // Chat routes
   createConversation: (data) => axiosInstance.post('/chat/conversations', data),
@@ -254,8 +244,9 @@ const apiClient: ApiClient = {
 
   // LLM Chat routes
   llmChat: (providerId, messages) => axiosInstance.post('/llm/chat', { provider_id: providerId, messages }),
-  streamChat: (providerId, messages) => axiosInstance.get('/chat/stream', { params: { provider_id: providerId, messages: JSON.stringify(messages) } }),
-
+  streamChat: (providerId, messages) => axiosInstance.get('/llm/stream_chat', {
+    params: { provider_id: providerId, messages: JSON.stringify(messages) }
+  }),
 
   // API Key routes
   createApiKey: (key_value, description) => axiosInstance.post('/api_keys', { key_value, description }),

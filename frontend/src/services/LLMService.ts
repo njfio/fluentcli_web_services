@@ -52,20 +52,18 @@ class LLMService {
         // Filter out invalid messages
         const validMessages = messages.filter(msg => msg && msg.role && msg.content);
 
-        // Add query parameters
-        url.searchParams.append('user_llm_config_id', userLLMConfigId);
-        url.searchParams.append('provider_id', userLLMConfig.provider_id);
-        url.searchParams.append('conversation_id', conversationId);
-        url.searchParams.append('messages', JSON.stringify(validMessages));
-
-        console.log('LLMService streamChat - Request URL:', url.toString());
-        console.log('LLMService streamChat - Valid Messages:', JSON.stringify(validMessages, null, 2));
-
         const response = await fetch(url.toString(), {
-            method: 'GET',
+            method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json',
             },
+            body: JSON.stringify({
+                user_llm_config_id: userLLMConfigId,
+                provider_id: userLLMConfig.provider_id,
+                conversation_id: conversationId,
+                messages: validMessages
+            })
         });
 
         if (!response.ok) {

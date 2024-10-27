@@ -5,6 +5,32 @@
             <p class="text-gray-600 dark:text-gray-400">Browse and manage your image attachments</p>
         </div>
 
+        <!-- Gallery Controls -->
+        <div class="mb-6 flex flex-wrap gap-4 items-center">
+            <!-- Items per page control -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-600 dark:text-gray-400">Items per page:</label>
+                <select v-model="itemsPerPage"
+                    class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1">
+                    <option v-for="n in [12, 24, 36, 48]" :key="n" :value="n">{{ n }}</option>
+                </select>
+            </div>
+
+            <!-- Columns control -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-600 dark:text-gray-400">Columns:</label>
+                <select v-model="columnCount"
+                    class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1">
+                    <option v-for="n in [2, 3, 4, 5, 6]" :key="n" :value="n">{{ n }}</option>
+                </select>
+            </div>
+
+            <!-- Page info -->
+            <div class="text-sm text-gray-600 dark:text-gray-400 ml-auto">
+                Showing {{ paginationInfo.start }}-{{ paginationInfo.end }} of {{ attachments.length }} images
+            </div>
+        </div>
+
         <!-- Loading state -->
         <div v-if="loading" class="text-center py-12">
             <div class="text-gray-500 dark:text-gray-400">
@@ -20,9 +46,9 @@
         </div>
 
         <!-- Gallery Grid -->
-        <div v-else-if="attachments.length > 0"
-            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <div v-for="attachment in attachments" :key="attachment.id"
+        <div v-else-if="paginatedAttachments.length > 0" class="grid gap-4"
+            :style="{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }">
+            <div v-for="attachment in paginatedAttachments" :key="attachment.id"
                 class="relative group bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
                 <!-- Image Container -->
                 <div class="aspect-square w-full overflow-hidden cursor-pointer" @click="openLightbox(attachment)">
@@ -66,6 +92,27 @@
             <div class="text-gray-500 dark:text-gray-400">
                 No images found in your gallery
             </div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div v-if="attachments.length > 0" class="mt-6 flex justify-center gap-2">
+            <button @click="currentPage = 1" :disabled="currentPage === 1"
+                class="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 disabled:opacity-50">
+                First
+            </button>
+            <button @click="previousPage" :disabled="currentPage === 1"
+                class="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 disabled:opacity-50">
+                Previous
+            </button>
+            <span class="px-3 py-1">Page {{ currentPage }} of {{ totalPages }}</span>
+            <button @click="nextPage" :disabled="currentPage === totalPages"
+                class="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 disabled:opacity-50">
+                Next
+            </button>
+            <button @click="currentPage = totalPages" :disabled="currentPage === totalPages"
+                class="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800 disabled:opacity-50">
+                Last
+            </button>
         </div>
 
         <!-- Lightbox Modal -->
@@ -134,7 +181,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from 'vue'
+import { onMounted, onUnmounted, computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import { useChatLogic } from '../../components/chat/ChatLogic'
@@ -161,9 +208,28 @@ const store = useStore()
 const router = useRouter()
 const { loadMessages } = useChatLogic()
 
+// Pagination and layout state
+const currentPage = ref(1)
+const itemsPerPage = ref(24)
+const columnCount = ref(4)
+
 const attachments = computed(() => store.state.attachments.attachments as Attachment[])
 const loading = computed(() => store.state.attachments.loading)
 const error = computed(() => store.state.attachments.error)
+
+// Pagination computed properties
+const totalPages = computed(() => Math.ceil(attachments.value.length / itemsPerPage.value))
+const paginatedAttachments = computed(() => {
+    const start = (currentPage.value - 1) * itemsPerPage.value
+    const end = start + itemsPerPage.value
+    return attachments.value.slice(start, end)
+})
+
+const paginationInfo = computed(() => {
+    const start = (currentPage.value - 1) * itemsPerPage.value + 1
+    const end = Math.min(start + itemsPerPage.value - 1, attachments.value.length)
+    return { start, end }
+})
 
 // Lightbox state
 const lightboxOpen = ref(false)
@@ -171,6 +237,24 @@ const currentIndex = ref(0)
 const currentAttachment = computed(() =>
     lightboxOpen.value ? attachments.value[currentIndex.value] : null
 )
+
+// Watch for changes that should reset pagination
+watch([itemsPerPage], () => {
+    currentPage.value = 1
+})
+
+// Pagination methods
+function nextPage() {
+    if (currentPage.value < totalPages.value) {
+        currentPage.value++
+    }
+}
+
+function previousPage() {
+    if (currentPage.value > 1) {
+        currentPage.value--
+    }
+}
 
 onMounted(() => {
     store.dispatch('attachments/fetchAttachments')

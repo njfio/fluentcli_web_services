@@ -146,7 +146,7 @@ pub fn configure_routes() -> Scope {
                 .route("/providers/{id}", web::put().to(update_llm_provider))
                 .route("/providers/{id}", web::delete().to(delete_llm_provider))
                 .route("/chat", web::post().to(llm::llm_chat))
-                .route("/stream_chat", web::get().to(llm::llm_stream_chat))
+                .route("/stream_chat", web::post().to(llm::llm_stream_chat))
                 .route("/user-configs", web::post().to(create_user_llm_config))
                 .route("/user-configs", web::get().to(list_user_llm_configs))
                 .route("/user-configs/{id}", web::get().to(get_user_llm_config))
@@ -156,5 +156,5 @@ pub fn configure_routes() -> Scope {
                     web::delete().to(delete_user_llm_config),
                 ),
         )
-        .service(temp_image::get_temp_image) // Add temp_image handler
+        .service(temp_image::get_temp_image)
 }
