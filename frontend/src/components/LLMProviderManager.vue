@@ -30,6 +30,7 @@
                         <option value="">Select Provider Type</option>
                         <option value="gpt">GPT</option>
                         <option value="claude">Claude</option>
+                        <option value="claude-computer">Claude Computer</option>
                         <option value="command">Command</option>
                         <option value="dalle">DALL-E</option>
                         <option value="perplexity">Perplexity</option>
@@ -298,7 +299,32 @@ const deleteLLMProvider = async (id: string) => {
     }
 };
 const updateProviderDefaults = () => {
-    if (newProvider.value.providerType === 'perplexity') {
+    if (newProvider.value.providerType === 'claude-computer') {
+        newProvider.value.apiEndpoint = 'https://api.anthropic.com/v1/messages';
+        newProvider.value.supportedModalities = 'text,computer';
+        newProvider.value.configuration = JSON.stringify({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 1024,
+            temperature: 0.7,
+            tools: [
+                {
+                    type: "computer_20241022",
+                    name: "computer",
+                    display_width_px: 1024,
+                    display_height_px: 768,
+                    display_number: 1
+                },
+                {
+                    type: "text_editor_20241022",
+                    name: "str_replace_editor"
+                },
+                {
+                    type: "bash_20241022",
+                    name: "bash"
+                }
+            ]
+        }, null, 2);
+    } else if (newProvider.value.providerType === 'perplexity') {
         newProvider.value.apiEndpoint = 'https://api.perplexity.ai/chat/completions';
         newProvider.value.supportedModalities = 'text';
         newProvider.value.configuration = JSON.stringify({

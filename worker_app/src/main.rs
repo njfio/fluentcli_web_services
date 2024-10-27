@@ -1,6 +1,12 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use std::sync::Arc;
+
+mod computer_use;
+use computer_use::{
+    BashRequest, ComputerToolConfig, ComputerToolRequest, ComputerUseService, TextEditorRequest,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CommandRequest {
@@ -15,6 +21,7 @@ pub struct CommandResult {
     pub exit_code: i32,
 }
 
+// Original command execution endpoint
 async fn execute_command(command_request: web::Json<CommandRequest>) -> impl Responder {
     println!("Received command request: {:?}", command_request);
 
@@ -47,10 +54,60 @@ async fn execute_command(command_request: web::Json<CommandRequest>) -> impl Res
     }
 }
 
+// Computer use endpoints
+async fn handle_computer_action(
+    computer_service: web::Data<Arc<ComputerUseService>>,
+    request: web::Json<ComputerToolRequest>,
+) -> impl Responder {
+    let result = computer_service
+        .handle_computer_request(request.into_inner())
+        .await;
+    HttpResponse::Ok().json(result)
+}
+
+async fn handle_text_editor(
+    computer_service: web::Data<Arc<ComputerUseService>>,
+    request: web::Json<TextEditorRequest>,
+) -> impl Responder {
+    let result = computer_service
+        .handle_text_editor_request(request.into_inner())
+        .await;
+    HttpResponse::Ok().json(result)
+}
+
+async fn handle_bash(
+    computer_service: web::Data<Arc<ComputerUseService>>,
+    request: web::Json<BashRequest>,
+) -> impl Responder {
+    let result = computer_service
+        .handle_bash_request(request.into_inner())
+        .await;
+    HttpResponse::Ok().json(result)
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
-        App::new().service(web::resource("/execute").route(web::post().to(execute_command)))
+    env_logger::init();
+
+    // Initialize computer use service with default config
+    let computer_service = Arc::new(ComputerUseService::new(ComputerToolConfig {
+        display_width_px: 1024,
+        display_height_px: 768,
+        display_number: 1,
+    }));
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(computer_service.clone()))
+            // Original command endpoint
+            .service(web::resource("/execute").route(web::post().to(execute_command)))
+            // Computer use endpoints
+            .service(
+                web::scope("/computer-use")
+                    .route("/computer", web::post().to(handle_computer_action))
+                    .route("/text-editor", web::post().to(handle_text_editor))
+                    .route("/bash", web::post().to(handle_bash)),
+            )
     })
     .bind("0.0.0.0:8080")?
     .run()

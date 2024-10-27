@@ -5,6 +5,13 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     curl \
     git \
+    libx11-dev \
+    libxext-dev \
+    libxinerama-dev \
+    libxcursor-dev \
+    libxrandr-dev \
+    libxss-dev \
+    libxtst-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -24,16 +31,16 @@ RUN cargo install --git https://github.com/fpco/amber amber
 # Create necessary directories
 RUN mkdir -p /.fluent/state_store /.fluent/example_configurations /.fluent/example_pipelines/ /shared_tmp/state_store
 
-
 # Copy FluentCLI configuration files
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/default_config_test.json /.fluent/
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/amber.yaml /.fluent/
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/example_configurations/*.json /.fluent/example_configurations/
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/example_pipelines/*.yaml /.fluent/example_pipelines/
+
 # Final stage
 FROM debian:buster-slim
 
-# Install runtime dependencies
+# Install runtime dependencies including X11 and computer use tools
 RUN apt-get update && apt-get install -y \
     libpq5 \
     openssl \
@@ -49,6 +56,17 @@ RUN apt-get update && apt-get install -y \
     pandoc \
     git \
     procps \
+    xvfb \
+    x11vnc \
+    xdotool \
+    scrot \
+    libx11-6 \
+    libxext6 \
+    libxinerama1 \
+    libxcursor1 \
+    libxrandr2 \
+    libxss1 \
+    libxtst6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -65,8 +83,13 @@ ENV AMBER_YAML=/.fluent/amber.yaml
 ENV FLUENT_STATE_STORE=/shared_tmp/state_store
 ENV FLUENT_CLI_V2_CONFIG_PATH=/.fluent/default_config_test.json
 ENV AMBER_SECRET=
+ENV DISPLAY=:99
 
 RUN sed -i 's/"uri": "bolt:\/\/localhost:7687"/"uri": "bolt:\/\/neo4j:7687"/g' /.fluent/default_config_test.json
 RUN mkdir -p /shared_tmp
 
-CMD ["/app/worker_app"]
+# Create script to start Xvfb and the worker app
+RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1024x768x16 &\nsleep 1\nx11vnc -display :99 -forever -nopw &\n/app/worker_app' > /app/start.sh && \
+    chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]

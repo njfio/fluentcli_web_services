@@ -1,4 +1,5 @@
 pub mod anthropic;
+pub mod anthropic_computer;
 pub mod cohere;
 pub mod dalle;
 pub mod gemini;
@@ -9,6 +10,7 @@ pub mod perplexity;
 pub mod stability;
 
 pub use anthropic::AnthropicProvider;
+pub use anthropic_computer::AnthropicComputerProvider;
 pub use cohere::CohereProvider;
 pub use dalle::DalleProvider;
 pub use gemini::{default_config as gemini_default_config, GeminiProvider};
@@ -24,6 +26,7 @@ use serde_json::Value;
 pub fn get_provider(provider_type: &str) -> Box<dyn LLMProviderTrait> {
     match provider_type {
         "claude" => Box::new(AnthropicProvider),
+        "claude-computer" => Box::new(AnthropicComputerProvider),
         "command" => Box::new(CohereProvider),
         "dalle" => Box::new(DalleProvider),
         "gemini" => {

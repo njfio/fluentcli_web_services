@@ -17,6 +17,8 @@ services:
     volumes:
       - shared_tmp:/shared_tmp
       - attachment-data:/app/attachments
+      - /tmp/.X11-unix:/tmp/.X11-unix  # Mount X11 socket
+      - /dev/shm:/dev/shm  # Shared memory for X11
     environment:
       - AMBER_SECRET=${AMBER_SECRET}
       - AMBER_YAML=/.fluent/amber.yaml
@@ -32,8 +34,10 @@ services:
       - COHERE_API_KEY=${COHERE_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ATTACHMENT_DIR=/app/attachments
+      - DISPLAY=:99
     ports:
       - "8080:8080"
+      - "5900:5900"  # VNC port for debugging
     networks:
       - fws_network
     depends_on:
