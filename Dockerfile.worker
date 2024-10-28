@@ -1,95 +1,75 @@
-FROM rust:1.78-buster as builder
+FROM rust:1.75-bullseye as builder
 
-# Install dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    curl \
-    git \
+    pkg-config \
     libx11-dev \
     libxext-dev \
+    libxft-dev \
     libxinerama-dev \
     libxcursor-dev \
-    libxrandr-dev \
-    libxss-dev \
+    libxrender-dev \
+    libxfixes-dev \
     libxtst-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy the worker application code
-COPY worker_app /app/worker_app
-
-# Build the worker application
-RUN cd worker_app && cargo build --release
-
-# Install FluentCLI
-RUN cargo install --force --git https://github.com/njfio/fluent_cli --branch v.0.5.5-feature-docker-image fluent
-
-# Install Amber CLI
-RUN cargo install --git https://github.com/fpco/amber amber
-
-# Create necessary directories
-RUN mkdir -p /.fluent/state_store /.fluent/example_configurations /.fluent/example_pipelines/ /shared_tmp/state_store
-
-# Copy FluentCLI configuration files
-RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/default_config_test.json /.fluent/
-RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/amber.yaml /.fluent/
-RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/example_configurations/*.json /.fluent/example_configurations/
-RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/example_pipelines/*.yaml /.fluent/example_pipelines/
-
-# Final stage
-FROM debian:buster-slim
-
-# Install runtime dependencies including X11 and computer use tools
-RUN apt-get update && apt-get install -y \
-    libpq5 \
-    openssl \
-    python3 \
-    python3-pip \
-    curl \
-    bash \
-    ruby \
-    iputils-ping \
-    nano \
-    net-tools \
-    jq \
-    pandoc \
-    git \
-    procps \
+    libxrandr-dev \
+    libxi-dev \
+    libxss-dev \
     xvfb \
     x11vnc \
     xdotool \
-    scrot \
-    libx11-6 \
-    libxext6 \
-    libxinerama1 \
-    libxcursor1 \
-    libxrandr2 \
-    libxss1 \
-    libxtst6 \
+    python3 \
+    python3-pip \
+    firefox-esr \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy binaries and configurations from builder stage
-COPY --from=builder /usr/local/cargo/bin/fluent /usr/local/bin/fluent
-COPY --from=builder /usr/local/cargo/bin/amber /usr/local/bin/amber
-COPY --from=builder /.fluent /.fluent
-COPY --from=builder /.fluent/default_config_test.json /app/default_config_test.json
-COPY --from=builder /app/worker_app/target/release/worker_app /app/worker_app
+# Copy the worker app source code
+COPY worker_app/Cargo.toml ./
+COPY worker_app/src ./src
 
-# Set environment variables
-ENV AMBER_YAML=/.fluent/amber.yaml
-ENV FLUENT_STATE_STORE=/shared_tmp/state_store
-ENV FLUENT_CLI_V2_CONFIG_PATH=/.fluent/default_config_test.json
-ENV AMBER_SECRET=
+# Build the worker app
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libx11-6 \
+    libxext6 \
+    libxft2 \
+    libxinerama1 \
+    libxcursor1 \
+    libxrender1 \
+    libxfixes3 \
+    libxtst6 \
+    libxrandr2 \
+    libxi6 \
+    libxss1 \
+    xvfb \
+    x11vnc \
+    xdotool \
+    python3 \
+    python3-pip \
+    firefox-esr \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the built binary from the builder stage
+COPY --from=builder /app/target/release/worker_app .
+
+# Copy the start script
+COPY worker_app/start.sh .
+RUN chmod +x start.sh
+
+# Create /repo directory
+RUN mkdir -p /repo
+
+# Set up X11 virtual framebuffer
 ENV DISPLAY=:99
+ENV RESOLUTION=1024x768x24
 
-RUN sed -i 's/"uri": "bolt:\/\/localhost:7687"/"uri": "bolt:\/\/neo4j:7687"/g' /.fluent/default_config_test.json
-RUN mkdir -p /shared_tmp
-
-# Create script to start Xvfb and the worker app
-RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1024x768x16 &\nsleep 1\nx11vnc -display :99 -forever -nopw &\n/app/worker_app' > /app/start.sh && \
-    chmod +x /app/start.sh
-
-CMD ["/app/start.sh"]
+# Start Xvfb, x11vnc, and the worker app
+CMD ["./start.sh"]

@@ -36,6 +36,19 @@ pub struct LLMChatMessage {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentBlock {
+    #[serde(rename = "type")]
+    pub block_type: String,
+    pub text: Option<String>,
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub input: Option<Value>,
+    pub content: Option<Vec<Value>>,
+    pub tool_use_id: Option<String>,
+    pub is_error: Option<bool>,
+}
+
 pub trait LLMProviderTrait: Send + Sync {
     fn prepare_request(
         &self,
@@ -43,11 +56,13 @@ pub trait LLMProviderTrait: Send + Sync {
         config: &Value,
         api_key: &str,
     ) -> Result<RequestBuilder, LLMServiceError>;
+
     fn parse_response(&self, response_text: &str) -> Result<String, LLMServiceError>;
+
     fn stream_response(
         &self,
         response: reqwest::Response,
-    ) -> Pin<Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send + 'static>>;
+    ) -> Pin<Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send>>;
 }
 
 pub struct LLMService;
@@ -117,7 +132,6 @@ impl LLMService {
 
         let llm_provider = llm_providers::get_provider(&provider.provider_type);
 
-        let client = Client::new();
         let request =
             match llm_provider.prepare_request(&messages, &provider.configuration, &api_key) {
                 Ok(req) => req,
@@ -205,12 +219,8 @@ impl LLMService {
         messages: &[LLMChatMessage],
         api_key: &str,
     ) -> Result<RequestBuilder, LLMServiceError> {
-        // Implement provider-specific request preparation here
-        // For now, we'll return a placeholder implementation
-        Ok(client
-            .post(&provider.api_endpoint)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&messages))
+        let llm_provider = llm_providers::get_provider(&provider.provider_type);
+        llm_provider.prepare_request(messages, &provider.configuration, api_key)
     }
 
     fn stream_response(

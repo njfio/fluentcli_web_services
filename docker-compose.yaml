@@ -36,7 +36,8 @@ services:
       - ATTACHMENT_DIR=/app/attachments
       - DISPLAY=:99
     ports:
-      - "8080:8080"
+      - "8080:8080"  # Original command endpoint
+      - "8081:8081"  # Computer use endpoints
       - "5900:5900"  # VNC port for debugging
     networks:
       - fws_network
@@ -45,8 +46,11 @@ services:
         condition: service_healthy
       db:
         condition: service_healthy
-      backend:
-        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/computer-use/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -59,11 +63,14 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
+      worker:
+        condition: service_healthy
     volumes:
       - shared_tmp:/shared_tmp
       - attachment-data:/app/attachments
     environment:
       - WORKER_ADDRESS=http://worker:8080/execute
+      - WORKER_COMPUTER_ADDRESS=http://worker:8081/computer-use
       - DATABASE_URL=postgres://user:password@db:5432/fws_db
       - NEO4J_URL=bolt://neo4j:7687
       - NEO4J_HOST=neo4j
