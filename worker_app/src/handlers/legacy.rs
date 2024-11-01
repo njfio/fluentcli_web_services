@@ -1,7 +1,6 @@
 use actix_web::{web, Error, HttpResponse};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -19,7 +18,7 @@ pub struct TextEditorRequest {
     pub command: String,
     pub path: Option<String>,
     pub text: Option<String>,
-    pub file_text: Option<String>, // Add support for file_text field
+    pub file_text: Option<String>,
     pub pattern: Option<String>,
     pub replacement: Option<String>,
 }
@@ -114,7 +113,6 @@ pub async fn handle_text_editor_request(
         "create" => {
             if let Some(path) = &req.path {
                 info!("Creating file at path: {}", path);
-                // Create parent directories if they don't exist
                 if let Some(parent) = Path::new(path).parent() {
                     info!("Creating parent directories: {:?}", parent);
                     fs::create_dir_all(parent).map_err(|e| {
@@ -123,7 +121,6 @@ pub async fn handle_text_editor_request(
                     })?;
                 }
 
-                // Use file_text if available, fall back to text field
                 let content = req
                     .file_text
                     .as_deref()
