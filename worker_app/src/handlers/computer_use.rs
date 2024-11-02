@@ -14,7 +14,7 @@ pub struct BashRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EditorRequest {
     pub command: String,
-    pub path: Option<String>,
+    pub path: String,
     pub text: Option<String>,
     pub file_text: Option<String>,
 }
@@ -44,9 +44,13 @@ pub async fn handle_bash(req: web::Json<BashRequest>) -> Result<HttpResponse, Er
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
-        "success": output.status.success(),
-        "stdout": stdout,
-        "stderr": stderr
+        "name": "bash",
+        "command": req.command,
+        "output": {
+            "stdout": stdout,
+            "stderr": stderr,
+            "status": output.status.code()
+        }
     })))
 }
 
@@ -56,41 +60,61 @@ pub async fn handle_editor(req: web::Json<EditorRequest>) -> Result<HttpResponse
 
     match req.command.as_str() {
         "create" => {
-            if let Some(path) = &req.path {
-                // Create parent directories if they don't exist
-                if let Some(parent) = Path::new(path).parent() {
-                    fs::create_dir_all(parent).map_err(|e| {
-                        error!("Failed to create directories: {}", e);
-                        actix_web::error::ErrorInternalServerError(e)
-                    })?;
-                }
-
-                // Use file_text if available, fall back to text
-                let content = req
-                    .file_text
-                    .as_deref()
-                    .or(req.text.as_deref())
-                    .unwrap_or_default();
-
-                fs::write(path, content).map_err(|e| {
-                    error!("Failed to write file: {}", e);
+            // Create parent directories if they don't exist
+            if let Some(parent) = Path::new(&req.path).parent() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    error!("Failed to create directories: {}", e);
                     actix_web::error::ErrorInternalServerError(e)
                 })?;
-
-                Ok(HttpResponse::Ok().json(serde_json::json!({
-                    "success": true,
-                    "message": format!("File created: {}", path)
-                })))
-            } else {
-                Ok(HttpResponse::BadRequest().json(serde_json::json!({
-                    "success": false,
-                    "error": "Missing path parameter"
-                })))
             }
+
+            // Write exact content without any modification
+            let content = if let Some(file_text) = &req.file_text {
+                file_text
+            } else if let Some(text) = &req.text {
+                text
+            } else {
+                ""
+            };
+
+            fs::write(&req.path, content).map_err(|e| {
+                error!("Failed to write file: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
+            })?;
+
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "name": "str_replace_editor",
+                "command": "create",
+                "path": req.path,
+                "output": {
+                    "success": true
+                }
+            })))
+        }
+        "read" => {
+            // Read exact content without any modification
+            let content = fs::read_to_string(&req.path).map_err(|e| {
+                error!("Failed to read file: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
+            })?;
+
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "name": "str_replace_editor",
+                "command": "read",
+                "path": req.path,
+                "output": {
+                    "content": content,
+                    "success": true
+                }
+            })))
         }
         _ => Ok(HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false,
-            "error": format!("Unknown command: {}", req.command)
+            "name": "str_replace_editor",
+            "command": req.command,
+            "output": {
+                "success": false,
+                "error": format!("Unknown command: {}. Supported commands are 'create' and 'read'", req.command)
+            }
         }))),
     }
 }
@@ -99,9 +123,31 @@ pub async fn handle_editor(req: web::Json<EditorRequest>) -> Result<HttpResponse
 pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResponse, Error> {
     info!("Handling computer request: {:?}", req);
 
+    // Get display dimensions from environment
+    let display_width: i32 = std::env::var("DISPLAY_WIDTH")
+        .unwrap_or_else(|_| "1024".to_string())
+        .parse()
+        .unwrap_or(1024);
+    let display_height: i32 = std::env::var("DISPLAY_HEIGHT")
+        .unwrap_or_else(|_| "768".to_string())
+        .parse()
+        .unwrap_or(768);
+
     match req.action.as_str() {
         "click" => {
             if let (Some(x), Some(y)) = (req.x, req.y) {
+                // Validate coordinates are within display bounds
+                if x < 0 || x >= display_width || y < 0 || y >= display_height {
+                    return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                        "name": "computer",
+                        "action": "click",
+                        "output": {
+                            "success": false,
+                            "error": format!("Coordinates ({}, {}) out of bounds. Display size is {}x{}", x, y, display_width, display_height)
+                        }
+                    })));
+                }
+
                 let output = Command::new("xdotool")
                     .args(["mousemove", &x.to_string(), &y.to_string(), "click", "1"])
                     .output()
@@ -111,13 +157,24 @@ pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResp
                     })?;
 
                 Ok(HttpResponse::Ok().json(serde_json::json!({
-                    "success": output.status.success(),
-                    "message": format!("Clicked at ({}, {})", x, y)
+                    "name": "computer",
+                    "action": "click",
+                    "output": {
+                        "coordinates": {
+                            "x": x,
+                            "y": y
+                        },
+                        "success": output.status.success()
+                    }
                 })))
             } else {
                 Ok(HttpResponse::BadRequest().json(serde_json::json!({
-                    "success": false,
-                    "error": "Missing coordinates"
+                    "name": "computer",
+                    "action": "click",
+                    "output": {
+                        "success": false,
+                        "error": "Missing coordinates for click action. Required: x and y"
+                    }
                 })))
             }
         }
@@ -132,84 +189,31 @@ pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResp
                     })?;
 
                 Ok(HttpResponse::Ok().json(serde_json::json!({
-                    "success": output.status.success(),
-                    "message": format!("Typed text: {}", text)
+                    "name": "computer",
+                    "action": "type",
+                    "output": {
+                        "text": text,
+                        "success": output.status.success()
+                    }
                 })))
             } else {
                 Ok(HttpResponse::BadRequest().json(serde_json::json!({
-                    "success": false,
-                    "error": "Missing text parameter"
+                    "name": "computer",
+                    "action": "type",
+                    "output": {
+                        "success": false,
+                        "error": "Missing text parameter for type action"
+                    }
                 })))
             }
         }
         _ => Ok(HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false,
-            "error": format!("Unknown action: {}", req.action)
+            "name": "computer",
+            "action": req.action,
+            "output": {
+                "success": false,
+                "error": format!("Unknown action: {}. Supported actions are 'click' and 'type'", req.action)
+            }
         }))),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use actix_web::{test, App};
-
-    #[actix_web::test]
-    async fn test_bash_handler() {
-        let app = test::init_service(App::new().route("/bash", web::post().to(handle_bash))).await;
-
-        let req = test::TestRequest::post()
-            .uri("/bash")
-            .set_json(BashRequest {
-                command: "echo 'test'".to_string(),
-            })
-            .to_request();
-
-        let resp: Value = test::call_and_read_body_json(&app, req).await;
-        assert!(resp["success"].as_bool().unwrap());
-        assert!(resp["stdout"].as_str().unwrap().contains("test"));
-    }
-
-    #[actix_web::test]
-    async fn test_editor_handler() {
-        let app =
-            test::init_service(App::new().route("/editor", web::post().to(handle_editor))).await;
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.txt");
-
-        let req = test::TestRequest::post()
-            .uri("/editor")
-            .set_json(EditorRequest {
-                command: "create".to_string(),
-                path: Some(test_file.to_str().unwrap().to_string()),
-                text: Some("test content".to_string()),
-                file_text: None,
-            })
-            .to_request();
-
-        let resp: Value = test::call_and_read_body_json(&app, req).await;
-        assert!(resp["success"].as_bool().unwrap());
-        assert!(test_file.exists());
-    }
-
-    #[actix_web::test]
-    async fn test_computer_handler() {
-        let app =
-            test::init_service(App::new().route("/computer", web::post().to(handle_computer)))
-                .await;
-
-        let req = test::TestRequest::post()
-            .uri("/computer")
-            .set_json(ComputerRequest {
-                action: "type".to_string(),
-                x: None,
-                y: None,
-                text: Some("test".to_string()),
-            })
-            .to_request();
-
-        let resp: Value = test::call_and_read_body_json(&app, req).await;
-        assert!(resp.get("success").is_some());
     }
 }

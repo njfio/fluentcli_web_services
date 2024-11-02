@@ -19,7 +19,17 @@ services:
       - attachment-data:/app/attachments
       - /tmp/.X11-unix:/tmp/.X11-unix  # Mount X11 socket
       - /dev/shm:/dev/shm  # Shared memory for X11
+      - repo_data:/repo  # Persistent volume for /repo
+      - worker_logs:/home/worker/logs  # Persistent volume for logs
     environment:
+      # Tool configuration
+      - TOOL_VERSIONS=20241022
+      # Display configuration (must match Anthropic's tool definitions)
+      - DISPLAY_WIDTH=1024
+      - DISPLAY_HEIGHT=768
+      - DISPLAY_NUMBER=99
+      - DISPLAY=:99
+      # Service configuration
       - AMBER_SECRET=${AMBER_SECRET}
       - AMBER_YAML=/.fluent/amber.yaml
       - FLUENT_STATE_STORE=/shared_tmp/state_store
@@ -28,17 +38,20 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=system2024!
       - NEO4J_DB=neo4j
+      # Logging configuration
       - RUST_LOG=debug
+      - RUST_BACKTRACE=1
+      # Path configuration
       - SHARED_TMP_PATH=/shared_tmp
+      - ATTACHMENT_DIR=/app/attachments
+      # API keys
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - COHERE_API_KEY=${COHERE_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - ATTACHMENT_DIR=/app/attachments
-      - DISPLAY=:99
     ports:
       - "8080:8080"  # Original command endpoint
       - "8081:8081"  # Computer use endpoints
-      - "5900:5900"  # VNC port for debugging
+      - "5901:5901"  # VNC port
     networks:
       - fws_network
     depends_on:
@@ -48,9 +61,22 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/computer-use/health || exit 1"]
-      interval: 10s
-      timeout: 5s
+      interval: 30s
+      timeout: 10s
       retries: 5
+      start_period: 30s
+    init: true  # Add proper init process
+    security_opt:
+      - seccomp:unconfined  # Needed for X11 operations
+    cap_add:
+      - SYS_ADMIN  # May be needed for some operations
+    shm_size: 2gb  # Increased shared memory for X11
+    ulimits:  # Add ulimits for better process handling
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+    ipc: host  # Required for proper X11 shared memory
 
   backend:
     build:
@@ -154,6 +180,8 @@ volumes:
   neo4j_data:
   shared_tmp:
   attachment-data:
+  repo_data:  # Persistent volume for /repo
+  worker_logs:  # Persistent volume for worker logs
 
 networks:
   fws_network:

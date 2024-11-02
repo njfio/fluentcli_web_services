@@ -14,19 +14,12 @@ RUN apt-get update && apt-get install -y \
     libxrandr-dev \
     libxi-dev \
     libxss-dev \
-    xvfb \
-    x11vnc \
-    xdotool \
-    python3 \
-    python3-pip \
-    firefox-esr \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the worker app source code
-COPY worker_app/Cargo.toml ./
-COPY worker_app/src ./src
+# Copy the entire worker_app directory
+COPY worker_app/ ./
 
 # Build the worker app
 RUN cargo build --release
@@ -49,10 +42,14 @@ RUN apt-get update && apt-get install -y \
     xvfb \
     x11vnc \
     xdotool \
-    python3 \
-    python3-pip \
-    firefox-esr \
     curl \
+    xauth \
+    libxdamage1 \
+    libxcomposite1 \
+    x11-xkb-utils \
+    dbus \
+    sudo \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -64,12 +61,37 @@ COPY --from=builder /app/target/release/worker_app .
 COPY worker_app/start.sh .
 RUN chmod +x start.sh
 
-# Create /repo directory
-RUN mkdir -p /repo
+# Create necessary directories with proper permissions
+RUN mkdir -p /repo /tmp/.X11-unix /home/worker/logs && \
+    chmod 1777 /tmp/.X11-unix
 
-# Set up X11 virtual framebuffer
+# Create a non-root user and set up permissions
+RUN useradd -m -s /bin/bash worker && \
+    usermod -aG sudo worker && \
+    echo "worker ALL=(ALL) NOPASSWD: /usr/bin/mkdir, /usr/bin/chown, /usr/bin/chmod" >> /etc/sudoers && \
+    chown -R worker:worker /app /home/worker/logs && \
+    chmod -R 755 /home/worker/logs && \
+    mkdir -p /repo && \
+    chown -R worker:worker /repo && \
+    chmod -R 755 /repo && \
+    chown -R worker:worker /tmp/.X11-unix && \
+    touch /home/worker/.Xauthority && \
+    chown worker:worker /home/worker/.Xauthority
+
+# Switch to non-root user
+USER worker
+
+# Set up environment
+ENV HOME=/home/worker
+ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV RUST_LOG=debug
+ENV RUST_BACKTRACE=1
+
+# Default display configuration (can be overridden in docker-compose.yaml)
+ENV DISPLAY_WIDTH=1024
+ENV DISPLAY_HEIGHT=768
+ENV DISPLAY_NUMBER=99
 ENV DISPLAY=:99
-ENV RESOLUTION=1024x768x24
 
 # Start Xvfb, x11vnc, and the worker app
 CMD ["./start.sh"]
