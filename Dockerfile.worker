@@ -1,4 +1,4 @@
-FROM rust:1.75-bullseye as builder
+FROM rust:1.75-bullseye AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -51,10 +51,9 @@ RUN apt-get update && apt-get install -y \
     dbus \
     sudo \
     procps \
-    # Additional X11 dependencies
-    x11-utils \
+    # Screenshot tools
     x11-apps \
-    mesa-utils \
+    imagemagick \
     # Python and development tools
     python3-full \
     python3-pip \
@@ -91,74 +90,17 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-dev \
     nodejs \
     npm \
-    # Ruby 2D dependencies
-    libsdl2-dev \
-    libsdl2-image-dev \
-    libsdl2-mixer-dev \
-    libsdl2-ttf-dev \
-    libopenal-dev \
-    # Additional SDL dependencies
-    libgl1-mesa-dev \
-    libglu1-mesa-dev \
-    libgles2-mesa-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up Python virtual environment
-ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-# Install common Python packages in the virtual environment
-RUN pip3 install --no-cache-dir \
-    # Web scraping
-    requests \
-    beautifulsoup4 \
-    selenium \
-    scrapy \
-    # Data analysis
-    numpy \
-    pandas \
-    scipy \
-    matplotlib \
-    seaborn \
-    scikit-learn \
-    # Game development
-    pygame \
-    pyglet \
-    # Additional useful libraries
-    pillow \
-    lxml \
-    aiohttp \
-    jupyter \
-    ipython \
-    # Web frameworks
-    flask \
-    django \
-    fastapi \
-    # Testing
-    pytest
-
-# Install Ruby gems one by one to better handle errors
-RUN gem install bundler && \
-    gem install nokogiri -- --use-system-libraries && \
-    gem install mechanize && \
-    gem install watir && \
-    gem install gosu -- --enable-system-dependencies && \
-    gem install sinatra && \
-    gem install rspec && \
-    gem install pry && \
-    gem install rake && \
-    # Install Rails last as it has many dependencies
-    gem install rails && \
-    # Install Ruby 2D last and with system dependencies
-    gem install ruby2d -- --enable-system-dependencies
+# Configure ImageMagick to allow reading from Xwd
+RUN if [ -f /etc/ImageMagick-6/policy.xml ]; then \
+    sed -i 's/<policy domain="coder" rights="none" pattern="XWD" \/>/<policy domain="coder" rights="read|write" pattern="XWD" \/>/' /etc/ImageMagick-6/policy.xml; \
+    fi
 
 WORKDIR /app
 
-# Copy the built binary from the builder stage
+# Copy the built binary and start script
 COPY --from=builder /app/target/release/worker_app .
-
-# Copy the start script
 COPY worker_app/start.sh .
 RUN chmod +x start.sh
 
@@ -166,14 +108,14 @@ RUN chmod +x start.sh
 RUN mkdir -p /repo /tmp/.X11-unix /home/worker/logs && \
     chmod 1777 /tmp/.X11-unix && \
     mkdir -p /var/lib/xkb && \
-    chmod 1777 /var/lib/xkb
+    chmod 1777 /var/lib/xkb && \
+    mkdir -p /tmp/screenshots && \
+    chmod 1777 /tmp/screenshots
 
 # Create a non-root user and set up permissions
 RUN useradd -m -s /bin/bash worker && \
     usermod -aG sudo worker && \
-    # Allow worker to use sudo without password for specific commands
     echo "worker ALL=(ALL) NOPASSWD: /usr/bin/mkdir, /usr/bin/chown, /usr/bin/chmod, /usr/bin/rm" >> /etc/sudoers && \
-    # Set up directories and permissions
     chown -R worker:worker /app /home/worker/logs && \
     chmod -R 755 /home/worker/logs && \
     mkdir -p /repo && \
@@ -182,19 +124,14 @@ RUN useradd -m -s /bin/bash worker && \
     chown -R worker:worker /tmp/.X11-unix && \
     touch /home/worker/.Xauthority && \
     chown worker:worker /home/worker/.Xauthority && \
-    # Give access to virtual environment
-    chown -R worker:worker $VIRTUAL_ENV && \
-    # Give access to X11 lock files directory
-    mkdir -p /tmp && \
-    chmod 1777 /tmp && \
-    chown -R worker:worker /tmp
+    chown -R worker:worker /tmp/screenshots
 
 # Switch to non-root user
 USER worker
 
 # Set up environment
 ENV HOME=/home/worker
-ENV PATH="$VIRTUAL_ENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ENV RUST_LOG=debug
 ENV RUST_BACKTRACE=1
 
