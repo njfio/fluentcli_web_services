@@ -8,6 +8,9 @@ use log::{debug, error, info};
 use reqwest::Client;
 use serde_json::Value;
 use std::pin::Pin;
+use uuid::Uuid;
+use std::fs;
+use base64;
 
 pub struct AnthropicComputerProvider;
 
@@ -15,14 +18,14 @@ pub struct AnthropicComputerProvider;
 enum StreamState {
     Normal {
         buffer: String,
-        partial_line: String,  // Buffer for incomplete lines
+        partial_line: String,
     },
     CollectingJson {
         id: String,
         name: String,
         json_str: String,
         pending_text: String,
-        partial_line: String,  // Buffer for incomplete lines
+        partial_line: String,
     },
 }
 
@@ -75,6 +78,77 @@ impl StreamState {
     }
 }
 
+fn save_screenshot(image_data: &str) -> Result<String, String> {
+    // Create temp directory if it doesn't exist
+    fs::create_dir_all("/tmp/computer_use/screenshots").map_err(|e| format!("Failed to create temp directory: {}", e))?;
+
+    // Generate unique filename
+    let filename = format!("{}.png", Uuid::new_v4());
+    let filepath = format!("/tmp/computer_use/screenshots/{}", filename);
+
+    // Decode base64 and save image
+    let image_data = image_data.trim_start_matches("data:image/png;base64,");
+    let image_bytes = base64::decode(image_data).map_err(|e| format!("Failed to decode base64: {}", e))?;
+    fs::write(&filepath, &image_bytes).map_err(|e| format!("Failed to write image file: {}", e))?;
+
+    Ok(filename)
+}
+
+fn format_tool_result(response_text: &str) -> Result<Value, String> {
+    let response_json: Value = serde_json::from_str(response_text)
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    if let Some(output) = response_json.get("output") {
+        // Handle screenshot response
+        if let Some(image) = output.get("image") {
+            if let Some(image_str) = image.as_str() {
+                // Save screenshot and get filename
+                let filename = save_screenshot(image_str)?;
+                return Ok(serde_json::json!({
+                    "type": "tool_result",
+                    "content": "[Screenshot captured]",
+                    "screenshot": filename
+                }));
+            }
+        }
+
+        // Handle other responses
+        let mut text = String::new();
+
+        if let Some(text_val) = output.get("text") {
+            if let Some(text_str) = text_val.as_str() {
+                text.push_str(text_str);
+            }
+        }
+
+        // Handle success/failure messages
+        if let Some(success) = output.get("success") {
+            let action = response_json.get("action").and_then(|a| a.as_str()).unwrap_or("action");
+            if success.as_bool().unwrap_or(false) {
+                if !text.is_empty() {
+                    text.push_str("\n");
+                }
+                text.push_str(&format!("{} completed successfully", action));
+            } else if let Some(error) = output.get("error") {
+                if !text.is_empty() {
+                    text.push_str("\n");
+                }
+                text.push_str(&format!("Error: {}", error));
+            }
+        }
+
+        return Ok(serde_json::json!({
+            "type": "tool_result",
+            "content": text
+        }));
+    }
+
+    Ok(serde_json::json!({
+        "type": "tool_result",
+        "content": response_text
+    }))
+}
+
 async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<String, String> {
     let tool_input: Value =
         serde_json::from_str(json_str).map_err(|e| format!("Failed to parse tool input: {}", e))?;
@@ -119,24 +193,15 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<String, St
         return Ok(serde_json::json!({
             "type": "tool_result",
             "tool_use_id": id,
-            "content": [{
-                "type": "text",
-                "text": format!("Error: {}", response_text)
-            }],
-            "is_error": true
+            "content": format!("Error: {}", response_text)
         })
         .to_string());
     }
 
-    Ok(serde_json::json!({
-        "type": "tool_result",
-        "tool_use_id": id,
-        "content": [{
-            "type": "text",
-            "text": response_text
-        }]
-    })
-    .to_string())
+    let mut result = format_tool_result(&response_text)?;
+    result["tool_use_id"] = Value::String(id.to_string());
+
+    serde_json::to_string(&result).map_err(|e| format!("Failed to serialize result: {}", e))
 }
 
 impl LLMProviderTrait for AnthropicComputerProvider {
