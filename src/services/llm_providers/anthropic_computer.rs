@@ -13,19 +13,23 @@ pub struct AnthropicComputerProvider;
 
 #[derive(Debug)]
 enum StreamState {
-    Normal(String),
+    Normal {
+        buffer: String,
+        partial_line: String,  // Buffer for incomplete lines
+    },
     CollectingJson {
         id: String,
         name: String,
         json_str: String,
-        pending_text: String, // Buffer for text that arrives during JSON collection
+        pending_text: String,
+        partial_line: String,  // Buffer for incomplete lines
     },
 }
 
 impl StreamState {
     fn append_text(&mut self, text: &str) {
         match self {
-            StreamState::Normal(buffer) => buffer.push_str(text),
+            StreamState::Normal { buffer, .. } => buffer.push_str(text),
             StreamState::CollectingJson { pending_text, .. } => pending_text.push_str(text),
         }
     }
@@ -36,21 +40,29 @@ impl StreamState {
         }
     }
 
+    fn append_partial(&mut self, text: &str) {
+        match self {
+            StreamState::Normal { partial_line, .. } => partial_line.push_str(text),
+            StreamState::CollectingJson { partial_line, .. } => partial_line.push_str(text),
+        }
+    }
+
     fn take_text(&mut self) -> String {
         match self {
-            StreamState::Normal(buffer) => std::mem::take(buffer),
+            StreamState::Normal { buffer, .. } => std::mem::take(buffer),
             StreamState::CollectingJson { pending_text, .. } => std::mem::take(pending_text),
         }
     }
 
+    fn take_partial(&mut self) -> String {
+        match self {
+            StreamState::Normal { partial_line, .. } => std::mem::take(partial_line),
+            StreamState::CollectingJson { partial_line, .. } => std::mem::take(partial_line),
+        }
+    }
+
     fn take_json(&mut self) -> Option<(String, String, String, String)> {
-        if let StreamState::CollectingJson {
-            id,
-            name,
-            json_str,
-            pending_text,
-        } = self
-        {
+        if let StreamState::CollectingJson { id, name, json_str, pending_text, .. } = self {
             Some((
                 std::mem::take(id),
                 std::mem::take(name),
@@ -73,7 +85,10 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<String, St
     let client = Client::new();
 
     let (endpoint, payload) = match name {
-        "bash" => (format!("{}/bash_20241022", worker_url), tool_input.clone()),
+        "bash" => (
+            format!("{}/bash_20241022", worker_url),
+            tool_input.clone(),
+        ),
         "str_replace_editor" => (
             format!("{}/text_editor_20241022", worker_url),
             tool_input.clone(),
@@ -165,7 +180,7 @@ impl LLMProviderTrait for AnthropicComputerProvider {
             serde_json::json!({
                 "type": "bash_20241022",
                 "name": "bash"
-            }),
+            })
         ];
 
         let now = Local::now();
@@ -225,86 +240,105 @@ Remember to:
         response: reqwest::Response,
     ) -> Pin<Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send>> {
         Box::pin(
-            stream::unfold((response, StreamState::Normal(String::new())), move |(mut response, mut state)| {
+            stream::unfold((response, StreamState::Normal { buffer: String::new(), partial_line: String::new() }), move |(mut response, mut state)| {
                 async move {
                     match response.chunk().await {
                         Ok(Some(chunk)) => {
                             let text = String::from_utf8_lossy(&chunk);
                             let mut result = String::new();
 
-                            for line in text.lines() {
-                                if line.starts_with("data: ") {
-                                    let json_str = line.trim_start_matches("data: ");
-                                    if json_str == "[DONE]" {
-                                        let text = state.take_text();
-                                        if !text.is_empty() {
-                                            result.push_str(&text);
+                            // Get any partial line from previous chunk
+                            let mut current = state.take_partial();
+                            
+                            // Process each character to handle line breaks properly
+                            for c in text.chars() {
+                                if c == '\n' {
+                                    if current.starts_with("data: ") {
+                                        let json_str = current.trim_start_matches("data: ");
+                                        if json_str == "[DONE]" {
+                                            let text = state.take_text();
+                                            if !text.is_empty() {
+                                                result.push_str(&text);
+                                            }
+                                            return Some((Ok(result), (response, state)));
                                         }
-                                        return Some((Ok(result), (response, state)));
-                                    }
-                                    if let Ok(json) = serde_json::from_str::<Value>(json_str) {
-                                        match json["type"].as_str() {
-                                            Some("content_block_delta") => {
-                                                if let Some(delta) = json["delta"].as_object() {
-                                                    match delta["type"].as_str() {
-                                                        Some("text_delta") => {
-                                                            if let Some(text) = delta["text"].as_str() {
-                                                                state.append_text(text);
+                                        if let Ok(json) = serde_json::from_str::<Value>(json_str) {
+                                            match json["type"].as_str() {
+                                                Some("content_block_delta") => {
+                                                    if let Some(delta) = json["delta"].as_object() {
+                                                        match delta["type"].as_str() {
+                                                            Some("text_delta") => {
+                                                                if let Some(text) = delta["text"].as_str() {
+                                                                    state.append_text(text);
+                                                                }
                                                             }
-                                                        }
-                                                        Some("input_json_delta") => {
-                                                            if let Some(json) = delta["partial_json"].as_str() {
-                                                                state.append_json(json);
+                                                            Some("input_json_delta") => {
+                                                                if let Some(json) = delta["partial_json"].as_str() {
+                                                                    state.append_json(json);
+                                                                }
                                                             }
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                }
-                                            }
-                                            Some("content_block_start") => {
-                                                if let Some(content_block) = json["content_block"].as_object() {
-                                                    if content_block["type"] == "tool_use" {
-                                                        if let (Some(id), Some(name)) = (content_block["id"].as_str(), content_block["name"].as_str()) {
-                                                            let text = state.take_text();
-                                                            if !text.is_empty() {
-                                                                result.push_str(&text);
-                                                            }
-                                                            state = StreamState::CollectingJson {
-                                                                id: id.to_string(),
-                                                                name: name.to_string(),
-                                                                json_str: String::new(),
-                                                                pending_text: String::new(),
-                                                            };
+                                                            _ => {}
                                                         }
                                                     }
                                                 }
-                                            }
-                                            Some("content_block_stop") => {
-                                                if let Some((id, name, json_str, pending_text)) = state.take_json() {
-                                                    let tool_result = execute_tool(&id, &name, &json_str).await.unwrap_or_else(|e| {
-                                                        let error_result = serde_json::json!({
-                                                            "type": "tool_result",
-                                                            "tool_use_id": id,
-                                                            "content": [{
-                                                                "type": "text",
-                                                                "text": format!("Error executing tool: {}", e)
-                                                            }],
-                                                            "is_error": true
+                                                Some("content_block_start") => {
+                                                    if let Some(content_block) = json["content_block"].as_object() {
+                                                        if content_block["type"] == "tool_use" {
+                                                            if let (Some(id), Some(name)) = (content_block["id"].as_str(), content_block["name"].as_str()) {
+                                                                let text = state.take_text();
+                                                                if !text.is_empty() {
+                                                                    result.push_str(&text);
+                                                                }
+                                                                state = StreamState::CollectingJson {
+                                                                    id: id.to_string(),
+                                                                    name: name.to_string(),
+                                                                    json_str: String::new(),
+                                                                    pending_text: String::new(),
+                                                                    partial_line: String::new(),
+                                                                };
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                Some("content_block_stop") => {
+                                                    if let Some((id, name, json_str, pending_text)) = state.take_json() {
+                                                        let tool_result = execute_tool(&id, &name, &json_str).await.unwrap_or_else(|e| {
+                                                            let error_result = serde_json::json!({
+                                                                "type": "tool_result",
+                                                                "tool_use_id": id,
+                                                                "content": [{
+                                                                    "type": "text",
+                                                                    "text": format!("Error executing tool: {}", e)
+                                                                }],
+                                                                "is_error": true
+                                                            });
+                                                            error_result.to_string()
                                                         });
-                                                        error_result.to_string()
-                                                    });
-                                                    result.push_str(&tool_result);
-                                                    if !pending_text.is_empty() {
-                                                        result.push_str(&pending_text);
+                                                        result.push_str(&tool_result);
+                                                        if !pending_text.is_empty() {
+                                                            result.push_str(&pending_text);
+                                                        }
+                                                        state = StreamState::Normal {
+                                                            buffer: String::new(),
+                                                            partial_line: String::new(),
+                                                        };
                                                     }
-                                                    state = StreamState::Normal(String::new());
                                                 }
+                                                _ => {}
                                             }
-                                            _ => {}
                                         }
                                     }
+                                    current.clear();
+                                } else {
+                                    current.push(c);
                                 }
                             }
+
+                            // Save any remaining partial line
+                            if !current.is_empty() {
+                                state.append_partial(&current);
+                            }
+
                             if !result.is_empty() {
                                 Some((Ok(result), (response, state)))
                             } else {
