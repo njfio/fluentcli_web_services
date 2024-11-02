@@ -28,17 +28,32 @@ DISPLAY_HEIGHT=${DISPLAY_HEIGHT:-768}
 DISPLAY_NUMBER=${DISPLAY_NUMBER:-99}
 DISPLAY_DEPTH=24
 
+# Clean up any existing X lock files
+rm -f /tmp/.X${DISPLAY_NUMBER}-lock
+rm -f /tmp/.X11-unix/X${DISPLAY_NUMBER}
+
 echo "Starting Xvfb with display ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}..."
-Xvfb :${DISPLAY_NUMBER} -screen 0 ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}x${DISPLAY_DEPTH} &
+Xvfb :${DISPLAY_NUMBER} -screen 0 ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}x${DISPLAY_DEPTH} -ac +extension GLX +render -noreset &
 XVFB_PID=$!
 
-# Wait for Xvfb to be ready
+# Wait for Xvfb to be ready with more detailed error reporting
 max_attempts=30
 attempt=0
 while ! xdpyinfo -display :${DISPLAY_NUMBER} >/dev/null 2>&1; do
     attempt=$((attempt + 1))
     if [ $attempt -ge $max_attempts ]; then
         echo "Failed to start Xvfb after $max_attempts attempts"
+        echo "Checking Xvfb process status:"
+        ps -p $XVFB_PID || true
+        echo "Checking X11 socket:"
+        ls -la /tmp/.X11-unix/ || true
+        echo "Checking X lock files:"
+        ls -la /tmp/.X* || true
+        echo "Checking system logs:"
+        tail -n 50 /var/log/syslog 2>/dev/null || true
+        if ps -p $XVFB_PID > /dev/null; then
+            kill $XVFB_PID
+        fi
         exit 1
     fi
     echo "Waiting for Xvfb to start... (attempt $attempt/$max_attempts)"
@@ -52,6 +67,8 @@ if [ "$actual_dimensions" != "$expected_dimensions" ]; then
     echo "Error: Display dimensions mismatch"
     echo "Expected: $expected_dimensions"
     echo "Actual: $actual_dimensions"
+    echo "Full xdpyinfo output:"
+    xdpyinfo -display :${DISPLAY_NUMBER}
     if ps -p $XVFB_PID > /dev/null; then
         kill $XVFB_PID
     fi
@@ -65,8 +82,7 @@ pkill x11vnc || true
 sleep 1
 
 echo "Starting x11vnc..."
-# Use port 5901 instead of default 5900
-x11vnc -display :${DISPLAY_NUMBER} -forever -nopw -rfbport 5901 &
+x11vnc -display :${DISPLAY_NUMBER} -forever -nopw -rfbport 5901 -shared &
 X11VNC_PID=$!
 
 # Wait for x11vnc to start and verify it's running
@@ -76,6 +92,10 @@ while ! ps -p $X11VNC_PID > /dev/null 2>&1; do
     attempt=$((attempt + 1))
     if [ $attempt -ge $max_attempts ]; then
         echo "Failed to start x11vnc after $max_attempts attempts"
+        echo "Checking x11vnc process:"
+        ps aux | grep x11vnc || true
+        echo "Checking VNC port:"
+        netstat -tuln | grep 5901 || true
         if ps -p $XVFB_PID > /dev/null; then
             kill $XVFB_PID
         fi
@@ -103,6 +123,8 @@ fi
 echo "Testing xdotool with display bounds..."
 if ! xdotool mousemove 0 0; then
     echo "Error: Failed to move mouse to origin (0,0)"
+    echo "xdotool error output:"
+    DISPLAY=:${DISPLAY_NUMBER} xdotool mousemove 0 0 2>&1 || true
     if ps -p $XVFB_PID > /dev/null; then
         kill $XVFB_PID
     fi
@@ -114,6 +136,8 @@ fi
 
 if ! xdotool mousemove $((DISPLAY_WIDTH-1)) $((DISPLAY_HEIGHT-1)); then
     echo "Error: Failed to move mouse to bottom-right corner (${DISPLAY_WIDTH}-1, ${DISPLAY_HEIGHT}-1)"
+    echo "xdotool error output:"
+    DISPLAY=:${DISPLAY_NUMBER} xdotool mousemove $((DISPLAY_WIDTH-1)) $((DISPLAY_HEIGHT-1)) 2>&1 || true
     if ps -p $XVFB_PID > /dev/null; then
         kill $XVFB_PID
     fi
@@ -136,6 +160,4 @@ export RUST_LOG=${RUST_LOG:-debug}
 
 echo "Starting worker app..."
 # Start the worker app with output logging
-# Using exec to replace the shell process with the worker app
-# This ensures proper signal handling and process management
 exec ./worker_app 2>&1 | tee -a /home/worker/logs/worker.log

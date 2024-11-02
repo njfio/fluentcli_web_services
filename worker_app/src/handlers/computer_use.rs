@@ -70,9 +70,9 @@ pub async fn handle_editor(req: web::Json<EditorRequest>) -> Result<HttpResponse
 
             // Write exact content without any modification
             let content = if let Some(file_text) = &req.file_text {
-                file_text
+                file_text.as_str()
             } else if let Some(text) = &req.text {
-                text
+                text.as_str()
             } else {
                 ""
             };

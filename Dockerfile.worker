@@ -28,6 +28,7 @@ FROM debian:bookworm-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
+    # X11 and system utilities
     libx11-6 \
     libxext6 \
     libxft2 \
@@ -50,7 +51,107 @@ RUN apt-get update && apt-get install -y \
     dbus \
     sudo \
     procps \
+    # Additional X11 dependencies
+    x11-utils \
+    x11-apps \
+    mesa-utils \
+    # Python and development tools
+    python3-full \
+    python3-pip \
+    python3-dev \
+    python3-venv \
+    # Ruby and development tools
+    ruby \
+    ruby-dev \
+    # Build dependencies
+    build-essential \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    libffi-dev \
+    # Libraries for image processing
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    # Libraries for audio
+    libasound2-dev \
+    libsdl2-dev \
+    # Libraries for GUI
+    tk-dev \
+    python3-tk \
+    # Additional utilities
+    git \
+    wget \
+    # Ruby dependencies
+    libxml2-dev \
+    libxslt-dev \
+    libcurl4-openssl-dev \
+    libsqlite3-dev \
+    nodejs \
+    npm \
+    # Ruby 2D dependencies
+    libsdl2-dev \
+    libsdl2-image-dev \
+    libsdl2-mixer-dev \
+    libsdl2-ttf-dev \
+    libopenal-dev \
+    # Additional SDL dependencies
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    libgles2-mesa-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Set up Python virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Install common Python packages in the virtual environment
+RUN pip3 install --no-cache-dir \
+    # Web scraping
+    requests \
+    beautifulsoup4 \
+    selenium \
+    scrapy \
+    # Data analysis
+    numpy \
+    pandas \
+    scipy \
+    matplotlib \
+    seaborn \
+    scikit-learn \
+    # Game development
+    pygame \
+    pyglet \
+    # Additional useful libraries
+    pillow \
+    lxml \
+    aiohttp \
+    jupyter \
+    ipython \
+    # Web frameworks
+    flask \
+    django \
+    fastapi \
+    # Testing
+    pytest
+
+# Install Ruby gems one by one to better handle errors
+RUN gem install bundler && \
+    gem install nokogiri -- --use-system-libraries && \
+    gem install mechanize && \
+    gem install watir && \
+    gem install gosu -- --enable-system-dependencies && \
+    gem install sinatra && \
+    gem install rspec && \
+    gem install pry && \
+    gem install rake && \
+    # Install Rails last as it has many dependencies
+    gem install rails && \
+    # Install Ruby 2D last and with system dependencies
+    gem install ruby2d -- --enable-system-dependencies
 
 WORKDIR /app
 
@@ -63,12 +164,16 @@ RUN chmod +x start.sh
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /repo /tmp/.X11-unix /home/worker/logs && \
-    chmod 1777 /tmp/.X11-unix
+    chmod 1777 /tmp/.X11-unix && \
+    mkdir -p /var/lib/xkb && \
+    chmod 1777 /var/lib/xkb
 
 # Create a non-root user and set up permissions
 RUN useradd -m -s /bin/bash worker && \
     usermod -aG sudo worker && \
-    echo "worker ALL=(ALL) NOPASSWD: /usr/bin/mkdir, /usr/bin/chown, /usr/bin/chmod" >> /etc/sudoers && \
+    # Allow worker to use sudo without password for specific commands
+    echo "worker ALL=(ALL) NOPASSWD: /usr/bin/mkdir, /usr/bin/chown, /usr/bin/chmod, /usr/bin/rm" >> /etc/sudoers && \
+    # Set up directories and permissions
     chown -R worker:worker /app /home/worker/logs && \
     chmod -R 755 /home/worker/logs && \
     mkdir -p /repo && \
@@ -76,22 +181,29 @@ RUN useradd -m -s /bin/bash worker && \
     chmod -R 755 /repo && \
     chown -R worker:worker /tmp/.X11-unix && \
     touch /home/worker/.Xauthority && \
-    chown worker:worker /home/worker/.Xauthority
+    chown worker:worker /home/worker/.Xauthority && \
+    # Give access to virtual environment
+    chown -R worker:worker $VIRTUAL_ENV && \
+    # Give access to X11 lock files directory
+    mkdir -p /tmp && \
+    chmod 1777 /tmp && \
+    chown -R worker:worker /tmp
 
 # Switch to non-root user
 USER worker
 
 # Set up environment
 ENV HOME=/home/worker
-ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV PATH="$VIRTUAL_ENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ENV RUST_LOG=debug
 ENV RUST_BACKTRACE=1
 
-# Default display configuration (can be overridden in docker-compose.yaml)
+# X11 configuration
 ENV DISPLAY_WIDTH=1024
 ENV DISPLAY_HEIGHT=768
 ENV DISPLAY_NUMBER=99
 ENV DISPLAY=:99
+ENV XAUTHORITY=/home/worker/.Xauthority
 
 # Start Xvfb, x11vnc, and the worker app
 CMD ["./start.sh"]

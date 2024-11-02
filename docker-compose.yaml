@@ -17,10 +17,13 @@ services:
     volumes:
       - shared_tmp:/shared_tmp
       - attachment-data:/app/attachments
-      - /tmp/.X11-unix:/tmp/.X11-unix  # Mount X11 socket
-      - /dev/shm:/dev/shm  # Shared memory for X11
       - repo_data:/repo  # Persistent volume for /repo
       - worker_logs:/home/worker/logs  # Persistent volume for logs
+      - /dev/shm:/dev/shm  # Shared memory for X11
+    tmpfs:
+      - /tmp:exec,mode=1777
+      - /run:exec,mode=1777
+      - /tmp/.X11-unix:exec,mode=1777
     environment:
       # Tool configuration
       - TOOL_VERSIONS=20241022
@@ -66,6 +69,7 @@ services:
       retries: 5
       start_period: 30s
     init: true  # Add proper init process
+    privileged: true  # Required for X11 operations
     security_opt:
       - seccomp:unconfined  # Needed for X11 operations
     cap_add:

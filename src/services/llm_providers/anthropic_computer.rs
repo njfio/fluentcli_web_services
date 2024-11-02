@@ -18,7 +18,7 @@ enum StreamState {
         id: String,
         name: String,
         json_str: String,
-        text_buffer: String, // Buffer for text while collecting JSON
+        pending_text: String, // Buffer for text that arrives during JSON collection
     },
 }
 
@@ -26,7 +26,7 @@ impl StreamState {
     fn append_text(&mut self, text: &str) {
         match self {
             StreamState::Normal(buffer) => buffer.push_str(text),
-            StreamState::CollectingJson { text_buffer, .. } => text_buffer.push_str(text),
+            StreamState::CollectingJson { pending_text, .. } => pending_text.push_str(text),
         }
     }
 
@@ -39,19 +39,23 @@ impl StreamState {
     fn take_text(&mut self) -> String {
         match self {
             StreamState::Normal(buffer) => std::mem::take(buffer),
-            StreamState::CollectingJson { text_buffer, .. } => std::mem::take(text_buffer),
+            StreamState::CollectingJson { pending_text, .. } => std::mem::take(pending_text),
         }
     }
 
-    fn take_json(&mut self) -> Option<(String, String, String)> {
+    fn take_json(&mut self) -> Option<(String, String, String, String)> {
         if let StreamState::CollectingJson {
-            id, name, json_str, ..
+            id,
+            name,
+            json_str,
+            pending_text,
         } = self
         {
             Some((
                 std::mem::take(id),
                 std::mem::take(name),
                 std::mem::take(json_str),
+                std::mem::take(pending_text),
             ))
         } else {
             None
@@ -60,29 +64,32 @@ impl StreamState {
 }
 
 async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<String, String> {
-    // Parse the input JSON but don't modify it
-    let tool_input = serde_json::from_str::<Value>(json_str)
-        .map_err(|e| format!("Failed to parse tool input: {}", e))?;
+    let tool_input: Value =
+        serde_json::from_str(json_str).map_err(|e| format!("Failed to parse tool input: {}", e))?;
 
     let worker_url = std::env::var("WORKER_COMPUTER_ADDRESS")
         .unwrap_or_else(|_| "http://worker:8081/computer-use".to_string());
 
     let client = Client::new();
 
-    // Map tool names to endpoints but keep the original input
-    let endpoint = match name {
-        "bash" => format!("{}/bash_20241022", worker_url),
-        "str_replace_editor" => format!("{}/text_editor_20241022", worker_url),
-        "computer" => format!("{}/computer_20241022", worker_url),
+    let (endpoint, payload) = match name {
+        "bash" => (format!("{}/bash_20241022", worker_url), tool_input.clone()),
+        "str_replace_editor" => (
+            format!("{}/text_editor_20241022", worker_url),
+            tool_input.clone(),
+        ),
+        "computer" => (
+            format!("{}/computer_20241022", worker_url),
+            tool_input.clone(),
+        ),
         _ => return Err(format!("Unknown tool: {}", name)),
     };
 
     info!("Executing tool {} with input: {}", name, json_str);
 
-    // Send the exact input JSON to the worker
     let response = client
         .post(&endpoint)
-        .json(&tool_input)
+        .json(&payload)
         .send()
         .await
         .map_err(|e| format!("Failed to send request to worker: {}", e))?;
@@ -106,7 +113,6 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<String, St
         .to_string());
     }
 
-    // Return the exact response from the worker
     Ok(serde_json::json!({
         "type": "tool_result",
         "tool_use_id": id,
@@ -230,17 +236,28 @@ Remember to:
                                 if line.starts_with("data: ") {
                                     let json_str = line.trim_start_matches("data: ");
                                     if json_str == "[DONE]" {
-                                        result.push_str(&state.take_text());
+                                        let text = state.take_text();
+                                        if !text.is_empty() {
+                                            result.push_str(&text);
+                                        }
                                         return Some((Ok(result), (response, state)));
                                     }
                                     if let Ok(json) = serde_json::from_str::<Value>(json_str) {
                                         match json["type"].as_str() {
                                             Some("content_block_delta") => {
                                                 if let Some(delta) = json["delta"].as_object() {
-                                                    if let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
-                                                        state.append_text(text);
-                                                    } else if let Some(json) = delta.get("partial_json").and_then(|v| v.as_str()) {
-                                                        state.append_json(json);
+                                                    match delta["type"].as_str() {
+                                                        Some("text_delta") => {
+                                                            if let Some(text) = delta["text"].as_str() {
+                                                                state.append_text(text);
+                                                            }
+                                                        }
+                                                        Some("input_json_delta") => {
+                                                            if let Some(json) = delta["partial_json"].as_str() {
+                                                                state.append_json(json);
+                                                            }
+                                                        }
+                                                        _ => {}
                                                     }
                                                 }
                                             }
@@ -256,15 +273,15 @@ Remember to:
                                                                 id: id.to_string(),
                                                                 name: name.to_string(),
                                                                 json_str: String::new(),
-                                                                text_buffer: String::new(),
+                                                                pending_text: String::new(),
                                                             };
                                                         }
                                                     }
                                                 }
                                             }
                                             Some("content_block_stop") => {
-                                                if let Some((id, name, json_str)) = state.take_json() {
-                                                    result.push_str(&execute_tool(&id, &name, &json_str).await.unwrap_or_else(|e| {
+                                                if let Some((id, name, json_str, pending_text)) = state.take_json() {
+                                                    let tool_result = execute_tool(&id, &name, &json_str).await.unwrap_or_else(|e| {
                                                         let error_result = serde_json::json!({
                                                             "type": "tool_result",
                                                             "tool_use_id": id,
@@ -275,7 +292,11 @@ Remember to:
                                                             "is_error": true
                                                         });
                                                         error_result.to_string()
-                                                    }));
+                                                    });
+                                                    result.push_str(&tool_result);
+                                                    if !pending_text.is_empty() {
+                                                        result.push_str(&pending_text);
+                                                    }
                                                     state = StreamState::Normal(String::new());
                                                 }
                                             }
