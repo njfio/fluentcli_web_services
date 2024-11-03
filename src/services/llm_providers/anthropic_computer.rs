@@ -107,7 +107,8 @@ fn format_tool_result(response_text: &str) -> Result<Value, String> {
                 return Ok(serde_json::json!({
                     "type": "tool_result",
                     "content": "[Screenshot captured]",
-                    "screenshot": filename
+                    "screenshot": filename,
+                    "image": image_str  // Include the base64 image data
                 }));
             }
         }

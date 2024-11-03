@@ -118,7 +118,7 @@ pub async fn handle_editor(req: web::Json<EditorRequest>) -> Result<HttpResponse
 }
 
 /// Take a screenshot using scrot
-fn take_screenshot() -> Result<String, std::io::Error> {
+fn take_screenshot() -> Result<(String, String), std::io::Error> {
     // Create screenshots directory if it doesn't exist
     let screenshots_dir = "/app/attachments/screenshots";
     fs::create_dir_all(screenshots_dir)?;
@@ -146,6 +146,7 @@ fn take_screenshot() -> Result<String, std::io::Error> {
 
     // Read the file to verify it exists and is accessible
     let image_data = fs::read(&filepath)?;
+    let base64_data = format!("data:image/png;base64,{}", base64::encode(&image_data));
 
     info!(
         "Screenshot saved successfully: {} ({} bytes)",
@@ -153,8 +154,8 @@ fn take_screenshot() -> Result<String, std::io::Error> {
         image_data.len()
     );
 
-    // Return just the filename - the file itself is persisted in the attachments directory
-    Ok(filename)
+    // Return both the filename and base64 data
+    Ok((filename, base64_data))
 }
 
 /// Get current cursor position
@@ -416,12 +417,13 @@ pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResp
         }
         "screenshot" => {
             match take_screenshot() {
-                Ok(filename) => Ok(HttpResponse::Ok().json(serde_json::json!({
+                Ok((filename, image_data)) => Ok(HttpResponse::Ok().json(serde_json::json!({
                     "name": "computer",
                     "action": "screenshot",
                     "output": {
                         "success": true,
-                        "screenshot": filename
+                        "screenshot": filename,
+                        "image": image_data
                     }
                 }))),
                 Err(e) => {
