@@ -28,7 +28,7 @@ FROM debian:bookworm-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
-    # X11 and system utilities
+    # X11 and system utilities (including scrot from reference implementation)
     libx11-6 \
     libxext6 \
     libxft2 \
@@ -51,7 +51,8 @@ RUN apt-get update && apt-get install -y \
     dbus \
     sudo \
     procps \
-    # Screenshot tools
+    scrot \
+    # Screenshot tools (keeping both for compatibility)
     x11-apps \
     imagemagick \
     # Python and development tools
@@ -109,8 +110,8 @@ RUN mkdir -p /repo /tmp/.X11-unix /home/worker/logs && \
     chmod 1777 /tmp/.X11-unix && \
     mkdir -p /var/lib/xkb && \
     chmod 1777 /var/lib/xkb && \
-    mkdir -p /tmp/screenshots && \
-    chmod 1777 /tmp/screenshots
+    mkdir -p /app/attachments/screenshots && \
+    chmod 1777 /app/attachments/screenshots
 
 # Create a non-root user and set up permissions
 RUN useradd -m -s /bin/bash worker && \
@@ -124,7 +125,7 @@ RUN useradd -m -s /bin/bash worker && \
     chown -R worker:worker /tmp/.X11-unix && \
     touch /home/worker/.Xauthority && \
     chown worker:worker /home/worker/.Xauthority && \
-    chown -R worker:worker /tmp/screenshots
+    chown -R worker:worker /app/attachments
 
 # Switch to non-root user
 USER worker

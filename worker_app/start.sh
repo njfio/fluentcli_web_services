@@ -22,6 +22,14 @@ if [ ! -d /home/worker/logs ]; then
 fi
 chmod 755 /home/worker/logs
 
+# Ensure screenshots directory exists with correct permissions
+echo "Setting up screenshots directory..."
+if [ ! -d /app/attachments/screenshots ]; then
+    sudo mkdir -p /app/attachments/screenshots
+fi
+sudo chown -R worker:worker /app/attachments/screenshots
+sudo chmod 755 /app/attachments/screenshots
+
 # Use environment variables for display configuration
 DISPLAY_WIDTH=${DISPLAY_WIDTH:-1024}
 DISPLAY_HEIGHT=${DISPLAY_HEIGHT:-768}
@@ -148,6 +156,24 @@ if ! xdotool mousemove $((DISPLAY_WIDTH-1)) $((DISPLAY_HEIGHT-1)); then
 fi
 
 echo "xdotool verified successfully with display bounds"
+
+# Test scrot functionality
+echo "Testing scrot functionality..."
+TEST_SCREENSHOT="/app/attachments/screenshots/test.png"
+if ! scrot -z "$TEST_SCREENSHOT"; then
+    echo "Error: Failed to take test screenshot with scrot"
+    if ps -p $XVFB_PID > /dev/null; then
+        kill $XVFB_PID
+    fi
+    if ps -p $X11VNC_PID > /dev/null; then
+        kill $X11VNC_PID
+    fi
+    exit 1
+fi
+
+# Clean up test screenshot
+rm -f "$TEST_SCREENSHOT"
+echo "scrot verified successfully"
 
 # Export display variables for worker app
 export DISPLAY=:${DISPLAY_NUMBER}

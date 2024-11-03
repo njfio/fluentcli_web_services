@@ -1,10 +1,10 @@
 use actix_web::{web, Error, HttpResponse};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BashRequest {
@@ -117,53 +117,44 @@ pub async fn handle_editor(req: web::Json<EditorRequest>) -> Result<HttpResponse
     }
 }
 
-/// Take a screenshot of the Xvfb display
+/// Take a screenshot using scrot
 fn take_screenshot() -> Result<String, std::io::Error> {
-    fs::create_dir_all("/tmp/screenshots")?;
+    // Create screenshots directory if it doesn't exist
+    let screenshots_dir = "/app/attachments/screenshots";
+    fs::create_dir_all(screenshots_dir)?;
 
-    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-    let xwd_file = format!("/tmp/screenshots/screen_{}.xwd", timestamp);
-    let png_file = format!("/tmp/screenshots/screen_{}.png", timestamp);
+    // Generate unique filename using UUID
+    let filename = format!("{}.png", Uuid::new_v4());
+    let filepath = format!("{}/{}", screenshots_dir, filename);
 
-    let xwd_output = Command::new("xwd")
-        .args(["-root", "-silent", "-display", ":99"])
+    info!("Taking screenshot to path: {}", filepath);
+
+    // Use scrot to capture the screenshot
+    let output = Command::new("scrot")
+        .args(["-z", &filepath]) // -z for silent operation
         .output()?;
 
-    if !xwd_output.status.success() {
+    if !output.status.success() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!(
                 "Failed to capture screenshot: {}",
-                String::from_utf8_lossy(&xwd_output.stderr)
+                String::from_utf8_lossy(&output.stderr)
             ),
         ));
     }
 
-    fs::write(&xwd_file, &xwd_output.stdout)?;
+    // Read the file to verify it exists and is accessible
+    let image_data = fs::read(&filepath)?;
 
-    let convert_output = Command::new("convert")
-        .args([&xwd_file, &png_file])
-        .output()?;
+    info!(
+        "Screenshot saved successfully: {} ({} bytes)",
+        filename,
+        image_data.len()
+    );
 
-    if !convert_output.status.success() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!(
-                "Failed to convert screenshot: {}",
-                String::from_utf8_lossy(&convert_output.stderr)
-            ),
-        ));
-    }
-
-    let image_data = fs::read(&png_file)?;
-
-    fs::remove_file(&xwd_file)?;
-    fs::remove_file(&png_file)?;
-
-    Ok(format!(
-        "data:image/png;base64,{}",
-        base64::encode(&image_data)
-    ))
+    // Return just the filename - the file itself is persisted in the attachments directory
+    Ok(filename)
 }
 
 /// Get current cursor position
@@ -425,12 +416,12 @@ pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResp
         }
         "screenshot" => {
             match take_screenshot() {
-                Ok(image) => Ok(HttpResponse::Ok().json(serde_json::json!({
+                Ok(filename) => Ok(HttpResponse::Ok().json(serde_json::json!({
                     "name": "computer",
                     "action": "screenshot",
                     "output": {
                         "success": true,
-                        "image": image
+                        "screenshot": filename
                     }
                 }))),
                 Err(e) => {
