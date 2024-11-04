@@ -2,11 +2,11 @@
 set -ex
 
 echo "Creating required directories..."
-mkdir -p ~/.config/tint2
+mkdir -p ~/.config/openbox ~/.config/tint2
 mkdir -p ~/Desktop ~/Documents ~/Downloads
 
 echo "Starting dbus..."
-sudo service dbus start
+sudo service dbus start || true
 
 echo "Starting X virtual framebuffer..."
 Xvfb :$DISPLAY_NUM -screen 0 ${WIDTH}x${HEIGHT}x24 &
@@ -25,8 +25,8 @@ echo "Setting up X authority..."
 xauth generate :$DISPLAY_NUM . trusted
 xauth add ${HOST}:$DISPLAY_NUM . $(mcookie)
 
-echo "Starting XFCE session..."
-startxfce4 &
+echo "Starting Openbox window manager..."
+openbox --replace &
 sleep 2
 
 echo "Setting up desktop environment..."
@@ -46,7 +46,7 @@ tint2 &
 sleep 1
 
 echo "Starting VNC server..."
-x11vnc -display :$DISPLAY_NUM -forever -shared -rfbport 5901 -noxdamage -noxfixes -noxrecord -repeat -auth ~/.Xauthority &
+x11vnc -display :$DISPLAY_NUM -forever -shared -rfbport 5901 -noxdamage -noxfixes -noxrecord -repeat -auth ~/.Xauthority -debug_xdamage -debug_x11 &
 sleep 1
 
 echo "Starting noVNC websockify..."
@@ -59,8 +59,13 @@ xterm -geometry 80x24+10+10 -fa 'Monospace' -fs 10 &
 echo "Starting PCManFM file manager..."
 pcmanfm --desktop &
 
+echo "Checking X server status..."
+xwininfo -root
+echo "Listing windows..."
+xwininfo -tree -root
+
 echo "Checking running X clients..."
-xlsclients
+xlsclients -a
 
 echo "Starting Rust worker application..."
 cd $HOME/worker_app && cargo run &

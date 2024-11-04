@@ -1,0 +1,11 @@
+# Set a background color
+xsetroot -solid "#333333" &
+
+# Start panel
+tint2 &
+
+# Start file manager for desktop icons
+pcmanfm --desktop &
+
+# Start a terminal
+xterm -geometry 80x24+10+10 -fa 'Monospace' -fs 10 &

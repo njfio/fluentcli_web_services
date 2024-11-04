@@ -13,7 +13,7 @@ RUN apt-get update && \
     scrot \
     imagemagick \
     sudo \
-    mutter \
+    openbox \
     x11vnc \
     xauth \
     x11-xserver-utils \
@@ -21,7 +21,6 @@ RUN apt-get update && \
     x11-apps \
     dbus-x11 \
     xinit \
-    xfce4 \
     # Python/pyenv reqs
     build-essential \
     libssl-dev  \
@@ -66,7 +65,8 @@ RUN git clone --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
 ENV USERNAME=computeruse
 ENV HOME=/home/$USERNAME
 RUN useradd -m -s /bin/bash -d $HOME $USERNAME && \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+    echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    chown -R $USERNAME:$USERNAME /opt/noVNC
 
 # Install Rust
 ENV RUSTUP_HOME=/usr/local/rustup \
@@ -100,7 +100,7 @@ RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0
     python -m pip config set global.disable-pip-version-check true
 
 # Set up X11 and VNC
-RUN mkdir -p $HOME/.vnc $HOME/.config/tint2 && \
+RUN mkdir -p $HOME/.vnc $HOME/.config/openbox $HOME/.config/tint2 && \
     touch $HOME/.Xauthority
 
 # Set display configuration
