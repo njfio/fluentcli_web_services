@@ -64,6 +64,26 @@ const ChatIcon = defineComponent({
   },
 });
 
+const ComputerIcon = defineComponent({
+  name: 'ComputerIcon',
+  render() {
+    return h('svg', {
+      xmlns: 'http://www.w3.org/2000/svg',
+      fill: 'none',
+      viewBox: '0 0 24 24',
+      stroke: 'currentColor',
+      class: 'w-6 h-6',
+    }, [
+      h('path', {
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '2',
+        d: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+      }),
+    ]);
+  },
+});
+
 const ChatArenaIcon = defineComponent({
   name: 'ChatArenaIcon',
   render() {
@@ -184,6 +204,7 @@ const mainMenuItems = [
   { label: 'State Files', route: '/studio/statefiles', routeName: 'StateFiles', icon: DocumentIcon },
   { label: 'Chat', route: '/studio/chat', routeName: 'Chat', icon: ChatIcon },
   { label: 'Chat Arena', route: '/studio/chat/arena', routeName: 'ChatArena', icon: ChatArenaIcon },
+  { label: 'Computer Use', route: '/studio/computer', routeName: 'ComputerUse', icon: ComputerIcon },
   { label: 'Image Gallery', route: '/studio/gallery', routeName: 'Gallery', icon: GalleryIcon },
   { label: 'API Keys', route: '/studio/apikeys', routeName: 'ApiKeys', icon: ApiKeyIcon },
   { label: 'LLM Providers', route: '/studio/llmproviders', routeName: 'LLMProviders', icon: LLMProviderIcon },

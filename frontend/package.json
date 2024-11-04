@@ -12,6 +12,7 @@
   "dependencies": {
     "@heroicons/vue": "^2.1.5",
     "@monaco-editor/loader": "^1.4.0",
+    "@novnc/novnc": "^1.5.0",
     "@tauri-apps/api": "^1.5.2",
     "axios": "^1.6.2",
     "chart.js": "^4.4.4",

@@ -96,6 +96,12 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'llmproviders', name: 'LLMProviders', component: LLMProvidersView },
       { path: 'userllmconfigs', name: 'UserLLMConfigs', component: UserLLMConfigsView },
       { path: 'gallery', name: 'Gallery', component: AttachmentGallery },
+      // Add Computer Use route with lazy loading
+      {
+        path: 'computer',
+        name: 'ComputerUse',
+        component: () => import('../components/studio/computer/ComputerUseView.vue')
+      }
     ],
   }
 ];
