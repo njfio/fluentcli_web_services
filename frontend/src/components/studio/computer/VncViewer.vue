@@ -14,6 +14,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import RFB from '@novnc/novnc/lib/rfb'
 
 const props = defineProps<{
     url: string
@@ -22,7 +23,7 @@ const props = defineProps<{
 const vncDisplay = ref<HTMLElement | null>(null)
 const connected = ref(false)
 const error = ref('')
-let rfb: any = null
+let rfb: InstanceType<typeof RFB> | null = null
 
 const initVNC = async () => {
     if (!vncDisplay.value) {
@@ -40,10 +41,6 @@ const initVNC = async () => {
             rfb.disconnect()
             rfb = null
         }
-
-        // Import RFB dynamically
-        const RFB = (await import('@novnc/novnc/lib/rfb')).default
-        console.log('RFB imported:', RFB)
 
         rfb = new RFB(vncDisplay.value, props.url, {
             wsProtocols: ['binary'],
@@ -72,7 +69,6 @@ const initVNC = async () => {
             error.value = 'Security failure'
         })
 
-        // Add error handler
         rfb.addEventListener('error', (e: any) => {
             console.error('VNC error:', e)
             error.value = e ? `Error: ${e}` : 'Connection error'

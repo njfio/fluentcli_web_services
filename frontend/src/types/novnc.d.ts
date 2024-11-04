@@ -1,15 +1,25 @@
 declare module '@novnc/novnc/lib/rfb' {
-    export class RFB {
-        constructor(
-            target: HTMLCanvasElement,
-            url: string,
-            options?: {
-                credentials?: { password: string };
-                wsProtocols?: string[];
-            }
-        );
-
-        addEventListener(event: string, callback: () => void): void;
-        disconnect(): void;
+    interface RFBOptions {
+        credentials?: {
+            password?: string;
+        };
+        wsProtocols?: string[];
     }
+
+    interface RFBEvents {
+        connect: () => void;
+        disconnect: (e?: any) => void;
+        credentialsrequired: () => void;
+        securityfailure: (e?: any) => void;
+        error: (e?: any) => void;
+    }
+
+    class RFB {
+        constructor(target: HTMLElement, url: string, options?: RFBOptions);
+        disconnect(): void;
+        addEventListener<K extends keyof RFBEvents>(event: K, callback: RFBEvents[K]): void;
+        removeEventListener<K extends keyof RFBEvents>(event: K, callback: RFBEvents[K]): void;
+    }
+
+    export default RFB;
 }
