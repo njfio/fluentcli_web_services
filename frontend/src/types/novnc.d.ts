@@ -4,6 +4,9 @@ declare module '@novnc/novnc/lib/rfb' {
             password?: string;
         };
         wsProtocols?: string[];
+        scaleViewport?: boolean;
+        resizeSession?: boolean;
+        clipViewport?: boolean;
     }
 
     interface RFBEvents {
@@ -19,6 +22,9 @@ declare module '@novnc/novnc/lib/rfb' {
         disconnect(): void;
         addEventListener<K extends keyof RFBEvents>(event: K, callback: RFBEvents[K]): void;
         removeEventListener<K extends keyof RFBEvents>(event: K, callback: RFBEvents[K]): void;
+        scaleViewport: boolean;
+        resizeSession: boolean;
+        clipViewport: boolean;
     }
 
     export default RFB;

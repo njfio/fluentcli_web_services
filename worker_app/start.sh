@@ -1,8 +1,5 @@
 #!/bin/bash
-
-# Enable error handling and debugging
-set -e
-set -x
+set -ex
 
 echo "Starting worker application setup..."
 
@@ -11,6 +8,17 @@ echo "Setting up directories..."
 sudo mkdir -p /repo /app/attachments/screenshots /home/worker/logs
 sudo chown -R worker:worker /repo /app/attachments/screenshots /home/worker/logs
 sudo chmod -R 755 /repo /app/attachments/screenshots /home/worker/logs
+
+# Create desktop structure
+mkdir -p ~/Desktop ~/Documents ~/Downloads
+touch ~/Desktop/Terminal.desktop
+echo "[Desktop Entry]
+Type=Application
+Name=Terminal
+Exec=xterm
+Icon=terminal
+Categories=System;TerminalEmulator;" > ~/Desktop/Terminal.desktop
+chmod +x ~/Desktop/Terminal.desktop
 
 # Use environment variables for display configuration
 DISPLAY_WIDTH=${DISPLAY_WIDTH:-1024}
@@ -23,7 +31,7 @@ rm -f /tmp/.X${DISPLAY_NUMBER}-lock
 rm -f /tmp/.X11-unix/X${DISPLAY_NUMBER}
 
 echo "Starting Xvfb with display ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}..."
-Xvfb :${DISPLAY_NUMBER} -screen 0 ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}x${DISPLAY_DEPTH} -ac +extension GLX +render -noreset &
+Xvfb :${DISPLAY_NUMBER} -screen 0 ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}x${DISPLAY_DEPTH} -ac +extension GLX +extension RANDR +extension XINERAMA +extension RENDER +extension COMPOSITE -noreset &
 XVFB_PID=$!
 
 # Wait for Xvfb to be ready
@@ -39,6 +47,12 @@ while ! xdpyinfo -display :${DISPLAY_NUMBER} >/dev/null 2>&1; do
     sleep 1
 done
 
+echo "Setting initial resolution..."
+xrandr --display :${DISPLAY_NUMBER} --fb ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}
+
+# Set background color
+xsetroot -solid "#2E3440"
+
 echo "Starting window manager..."
 openbox --config-file /etc/xdg/openbox/rc.xml --startup /etc/xdg/openbox/autostart &
 sleep 2
@@ -48,18 +62,44 @@ tint2 -c /etc/xdg/tint2/tint2rc &
 sleep 1
 
 echo "Starting PCManFM file manager..."
-pcmanfm --desktop &
+pcmanfm --desktop --profile computer-use &
 sleep 1
 
 echo "Starting x11vnc..."
-x11vnc -display :${DISPLAY_NUMBER} -forever -shared -rfbport 5901 -nopw &
+x11vnc -display :${DISPLAY_NUMBER} \
+    -forever \
+    -shared \
+    -rfbport 5901 \
+    -nopw \
+    -repeat \
+    -noxdamage \
+    -noxrecord \
+    -noxfixes \
+    -desktop "Computer Use" \
+    -env "FD_PROG=xrandr -s %wx%h" \
+    -clear_keys \
+    -clear_mods \
+    -clear_all \
+    -nobell \
+    -nowf \
+    -noscr \
+    -threads \
+    -xkb \
+    -ncache 0 \
+    -cursor arrow \
+    -viewonly &
 X11VNC_PID=$!
 
 # Wait for x11vnc to start
 sleep 2
 
 echo "Opening a terminal..."
-xterm -geometry 80x24+10+10 -fa 'Monospace' -fs 10 &
+xterm -geometry 80x24+10+10 \
+    -fa "DejaVu Sans Mono" \
+    -fs 11 \
+    -bg "#2E3440" \
+    -fg "#D8DEE9" \
+    -title "Terminal" &
 
 # Export display variables for worker app
 export DISPLAY=:${DISPLAY_NUMBER}

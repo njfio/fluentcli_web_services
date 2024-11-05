@@ -1,8 +1,7 @@
 <template>
-    <div class="vnc-container h-full">
-        <div id="vnc-display" ref="vncDisplay" class="w-full h-full"></div>
-        <div v-if="!connected"
-            class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-75">
+    <div ref="container" class="vnc-container">
+        <div id="vnc-display" ref="vncDisplay"></div>
+        <div v-if="!connected" class="status-overlay">
             <p class="text-gray-400">{{ error || 'Connecting to virtual display...' }}</p>
             <button v-if="error" @click="reconnect"
                 class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
@@ -20,6 +19,7 @@ const props = defineProps<{
     url: string
 }>()
 
+const container = ref<HTMLElement | null>(null)
 const vncDisplay = ref<HTMLElement | null>(null)
 const connected = ref(false)
 const error = ref('')
@@ -111,5 +111,23 @@ onUnmounted(() => {
 .vnc-container {
     background: #1a1a1a;
     position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#vnc-display {
+    width: 100%;
+    height: 100%;
+}
+
+.status-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.75);
 }
 </style>

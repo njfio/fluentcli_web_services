@@ -56,10 +56,23 @@ RUN apt-get update && apt-get install -y \
     tint2 \
     pcmanfm \
     xterm \
+    nitrogen \
     # Screenshot and image tools
     scrot \
     x11-apps \
     imagemagick \
+    # Font configuration
+    fontconfig \
+    xfonts-base \
+    xfonts-75dpi \
+    xfonts-100dpi \
+    fonts-liberation \
+    fonts-dejavu \
+    # Theme and icons
+    gnome-themes-extra \
+    adwaita-icon-theme \
+    arc-theme \
+    papirus-icon-theme \
     # Python and development tools
     python3-full \
     python3-pip \
@@ -120,7 +133,10 @@ RUN mkdir -p /repo /tmp/.X11-unix /home/worker/logs && \
     mkdir -p /var/lib/xkb && \
     chmod 1777 /var/lib/xkb && \
     mkdir -p /app/attachments/screenshots && \
-    chmod 1777 /app/attachments/screenshots
+    chmod 1777 /app/attachments/screenshots && \
+    # Create font cache directories
+    mkdir -p /var/cache/fontconfig && \
+    chmod 777 /var/cache/fontconfig
 
 # Create a non-root user and set up permissions
 RUN useradd -m -s /bin/bash worker && \
@@ -137,8 +153,10 @@ RUN useradd -m -s /bin/bash worker && \
     chown -R worker:worker /app/attachments
 
 # Create desktop environment directories
-RUN mkdir -p /home/worker/.config/openbox /home/worker/.config/tint2 && \
-    chown -R worker:worker /home/worker/.config
+RUN mkdir -p /home/worker/.config/openbox /home/worker/.config/tint2 /home/worker/.cache/fontconfig && \
+    mkdir -p /home/worker/Desktop /home/worker/Documents /home/worker/Downloads && \
+    chown -R worker:worker /home/worker/.config /home/worker/.cache /home/worker/Desktop && \
+    chmod -R 755 /home/worker/.config /home/worker/.cache /home/worker/Desktop
 
 # Switch to non-root user
 USER worker
