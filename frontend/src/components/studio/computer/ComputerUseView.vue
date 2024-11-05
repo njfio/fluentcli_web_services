@@ -1,5 +1,5 @@
 <template>
-    <div class="flex flex-col h-[calc(100vh-theme(spacing.16))]"> <!-- Subtract header height -->
+    <div class="flex flex-col max-h-[calc(100vh-4rem)]"> <!-- 4rem for header -->
         <div class="flex flex-1 min-h-0"> <!-- min-h-0 prevents flex child overflow -->
             <!-- VNC Viewer section - 66% width -->
             <div class="w-2/3 h-full bg-gray-900">
@@ -46,11 +46,3 @@ const sendMessage = () => {
     message.value = ''
 }
 </script>
-
-<style scoped>
-/* Ensure the component takes exactly the remaining height */
-:deep(.vnc-container) {
-    height: 100% !important;
-    min-height: 0 !important;
-}
-</style>

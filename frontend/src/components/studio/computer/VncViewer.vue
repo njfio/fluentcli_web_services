@@ -44,13 +44,17 @@ const initVNC = async () => {
 
         rfb = new RFB(vncDisplay.value, props.url, {
             wsProtocols: ['binary'],
-            credentials: { password: '' }
+            credentials: { password: '' },
+            scaleViewport: true,
+            clipViewport: true
         })
 
         rfb.addEventListener('connect', () => {
             console.log('VNC connected successfully')
             connected.value = true
             error.value = ''
+            // Focus the VNC display for input
+            vncDisplay.value?.focus()
         })
 
         rfb.addEventListener('disconnect', (e: any) => {
@@ -119,6 +123,11 @@ onUnmounted(() => {
 #vnc-display {
     width: 100%;
     height: 100%;
+    outline: none;
+}
+
+#vnc-display:focus {
+    outline: none;
 }
 
 .status-overlay {

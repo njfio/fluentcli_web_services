@@ -86,8 +86,7 @@ x11vnc -display :${DISPLAY_NUMBER} \
     -threads \
     -xkb \
     -ncache 0 \
-    -cursor arrow \
-    -viewonly &
+    -cursor arrow &
 X11VNC_PID=$!
 
 # Wait for x11vnc to start
