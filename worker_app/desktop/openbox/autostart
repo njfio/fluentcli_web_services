@@ -1,17 +1,19 @@
-# Set a nice background
-nitrogen --set-zoom-fill /usr/share/backgrounds/default.jpg &
+#!/bin/bash
 
-# Set a solid color as fallback
+# Set a nice background
 xsetroot -solid "#2E3440" &
 
 # Start panel
-tint2 &
+(sleep 1 && tint2) &
 
 # Start file manager for desktop icons
-pcmanfm --desktop &
+(sleep 2 && pcmanfm --desktop) &
 
 # Start a terminal
-xterm -geometry 80x24+10+10 -fa "DejaVu Sans Mono" -fs 11 -bg "#2E3440" -fg "#D8DEE9" -title "Terminal" &
+(sleep 1 && xterm -geometry 80x24+10+10 -fa "DejaVu Sans Mono" -fs 11 -bg "#2E3440" -fg "#D8DEE9" -title "Terminal") &
 
 # Set cursor
 xsetroot -cursor_name left_ptr &
+
+# Update menus
+(sleep 2 && update-menus) &

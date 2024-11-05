@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu xmlns="http://openbox.org/3.4/menu">
+  <menu id="root-menu" label="Applications">
+    <menu id="internet" label="Internet">
+      <item label="Firefox">
+        <action name="Execute">
+          <command>firefox</command>
+        </action>
+      </item>
+    </menu>
+    
+    <menu id="development" label="Development">
+      <item label="Terminal">
+        <action name="Execute">
+          <command>xterm</command>
+        </action>
+      </item>
+      <item label="Text Editor">
+        <action name="Execute">
+          <command>gedit</command>
+        </action>
+      </item>
+    </menu>
+    
+    <menu id="office" label="Office">
+      <item label="LibreOffice">
+        <action name="Execute">
+          <command>libreoffice</command>
+        </action>
+      </item>
+      <item label="PDF Viewer">
+        <action name="Execute">
+          <command>xpdf</command>
+        </action>
+      </item>
+    </menu>
+    
+    <menu id="accessories" label="Accessories">
+      <item label="File Manager">
+        <action name="Execute">
+          <command>pcmanfm</command>
+        </action>
+      </item>
+      <item label="Calculator">
+        <action name="Execute">
+          <command>galculator</command>
+        </action>
+      </item>
+      <item label="Paint">
+        <action name="Execute">
+          <command>xpaint</command>
+        </action>
+      </item>
+    </menu>
+    
+    <separator/>
+    
+    <menu id="system" label="System">
+      <item label="Refresh Menu">
+        <action name="Reconfigure"/>
+      </item>
+      <item label="Log Out">
+        <action name="Exit"/>
+      </item>
+    </menu>
+  </menu>
+</openbox_menu>

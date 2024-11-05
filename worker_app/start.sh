@@ -5,9 +5,7 @@ echo "Starting worker application setup..."
 
 # Ensure directories exist with correct permissions
 echo "Setting up directories..."
-sudo mkdir -p /repo /app/attachments/screenshots /home/worker/logs
-sudo chown -R worker:worker /repo /app/attachments/screenshots /home/worker/logs
-sudo chmod -R 755 /repo /app/attachments/screenshots /home/worker/logs
+mkdir -p /repo /app/attachments/screenshots /home/worker/logs
 
 # Create desktop structure
 mkdir -p ~/Desktop ~/Documents ~/Downloads
@@ -15,14 +13,14 @@ touch ~/Desktop/Terminal.desktop
 echo "[Desktop Entry]
 Type=Application
 Name=Terminal
-Exec=xterm
+Exec=gnome-terminal
 Icon=terminal
 Categories=System;TerminalEmulator;" > ~/Desktop/Terminal.desktop
 chmod +x ~/Desktop/Terminal.desktop
 
 # Use environment variables for display configuration
-DISPLAY_WIDTH=${DISPLAY_WIDTH:-1024}
-DISPLAY_HEIGHT=${DISPLAY_HEIGHT:-768}
+DISPLAY_WIDTH=${DISPLAY_WIDTH:-1280}
+DISPLAY_HEIGHT=${DISPLAY_HEIGHT:-1024}
 DISPLAY_NUMBER=${DISPLAY_NUMBER:-99}
 DISPLAY_DEPTH=24
 
@@ -50,16 +48,33 @@ done
 echo "Setting initial resolution..."
 xrandr --display :${DISPLAY_NUMBER} --fb ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}
 
+# Start D-Bus
+echo "Starting D-Bus..."
+sudo service dbus start
+
 # Set background color
 xsetroot -solid "#2E3440"
 
+# Set up GNOME Session environment
+export XDG_SESSION_TYPE=x11
+export XDG_SESSION_CLASS=user
+export XDG_SESSION_DESKTOP=gnome-classic
+export XDG_CURRENT_DESKTOP=GNOME-Classic:GNOME
+export GNOME_SHELL_SESSION_MODE=classic
+export DESKTOP_SESSION=gnome-classic
+
+# Start GNOME Session
+echo "Starting GNOME Session..."
+dbus-launch --exit-with-session gnome-session --session=gnome-classic &
+sleep 5
+
 echo "Starting window manager..."
-openbox --config-file /etc/xdg/openbox/rc.xml --startup /etc/xdg/openbox/autostart &
+mutter --replace --sm-disable --display=:${DISPLAY_NUMBER} --wayland --no-x11 &
 sleep 2
 
-echo "Starting tint2 panel..."
-tint2 -c /etc/xdg/tint2/tint2rc &
-sleep 1
+echo "Starting GNOME Panel..."
+gnome-panel &
+sleep 2
 
 echo "Starting PCManFM file manager..."
 pcmanfm --desktop --profile computer-use &
@@ -71,34 +86,35 @@ x11vnc -display :${DISPLAY_NUMBER} \
     -shared \
     -rfbport 5901 \
     -nopw \
-    -repeat \
-    -noxdamage \
+    -xkb \
     -noxrecord \
     -noxfixes \
+    -noxdamage \
+    -wait 5 \
     -desktop "Computer Use" \
-    -env "FD_PROG=xrandr -s %wx%h" \
-    -clear_keys \
-    -clear_mods \
-    -clear_all \
-    -nobell \
-    -nowf \
-    -noscr \
-    -threads \
-    -xkb \
-    -ncache 0 \
     -cursor arrow &
 X11VNC_PID=$!
 
-# Wait for x11vnc to start
+# Wait for x11vnc to start and verify it's running
 sleep 2
+if ! ps -p $X11VNC_PID > /dev/null; then
+    echo "x11vnc failed to start or crashed"
+    exit 1
+fi
+
+# Start noVNC
+websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
+NOVNC_PID=$!
+
+# Wait for websockify to start and verify it's running
+sleep 2
+if ! ps -p $NOVNC_PID > /dev/null; then
+    echo "websockify failed to start or crashed"
+    exit 1
+fi
 
 echo "Opening a terminal..."
-xterm -geometry 80x24+10+10 \
-    -fa "DejaVu Sans Mono" \
-    -fs 11 \
-    -bg "#2E3440" \
-    -fg "#D8DEE9" \
-    -title "Terminal" &
+gnome-terminal &
 
 # Export display variables for worker app
 export DISPLAY=:${DISPLAY_NUMBER}

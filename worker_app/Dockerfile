@@ -21,6 +21,10 @@ RUN apt-get update && \
     x11-apps \
     dbus-x11 \
     xinit \
+    # Menu system
+    menu \
+    obmenu \
+    menulibre \
     # Python/pyenv reqs
     build-essential \
     libssl-dev  \
@@ -55,6 +59,10 @@ RUN apt-get update && \
     pcmanfm \
     unzip && \
     apt-get clean
+
+# Install Ruby
+RUN apt-get install -y ruby-full ruby-dev && \
+    gem install bundler rake rails rspec sinatra pygame_sdl2 gosu minitest
 
 # Install noVNC
 RUN git clone --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
@@ -97,7 +105,27 @@ ENV PATH="$HOME/.pyenv/shims:$HOME/.pyenv/bin:$PATH"
 
 # Install Python dependencies
 RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0 && \
-    python -m pip config set global.disable-pip-version-check true
+    python -m pip install \
+    numpy \
+    pandas \
+    matplotlib \
+    scikit-learn \
+    tensorflow \
+    torch \
+    pygame \
+    flask \
+    django \
+    jupyter \
+    requests \
+    beautifulsoup4 \
+    selenium \
+    pytest \
+    pylint \
+    black \
+    opencv-python \
+    pillow \
+    networkx \
+    scipy
 
 # Set up X11 and VNC
 RUN mkdir -p $HOME/.vnc $HOME/.config/openbox $HOME/.config/tint2 && \
@@ -105,8 +133,8 @@ RUN mkdir -p $HOME/.vnc $HOME/.config/openbox $HOME/.config/tint2 && \
 
 # Set display configuration
 ARG DISPLAY_NUM=99
-ARG HEIGHT=768
-ARG WIDTH=1024
+ARG HEIGHT=800
+ARG WIDTH=1280
 ENV DISPLAY_NUM=$DISPLAY_NUM
 ENV HEIGHT=$HEIGHT
 ENV WIDTH=$WIDTH

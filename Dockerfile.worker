@@ -49,14 +49,27 @@ RUN apt-get update && apt-get install -y \
     libxcomposite1 \
     x11-xkb-utils \
     dbus \
+    dbus-x11 \
     sudo \
     procps \
     # Window Manager and Desktop Environment
-    openbox \
+    mutter \
+    gnome-shell \
+    gnome-session \
+    gnome-terminal \
+    gnome-menus \
+    gnome-panel \
+    gnome-applets \
+    gnome-shell-extensions \
+    gnome-tweaks \
     tint2 \
     pcmanfm \
     xterm \
     nitrogen \
+    menu \
+    firefox-esr \
+    gedit \
+    mousepad \
     # Screenshot and image tools
     scrot \
     x11-apps \
@@ -73,14 +86,30 @@ RUN apt-get update && apt-get install -y \
     adwaita-icon-theme \
     arc-theme \
     papirus-icon-theme \
-    # Python and development tools
+    # Python packages from Debian
     python3-full \
     python3-pip \
-    python3-dev \
     python3-venv \
+    python3-numpy \
+    python3-pandas \
+    python3-matplotlib \
+    python3-sklearn \
+    python3-flask \
+    python3-django \
+    python3-requests \
+    python3-bs4 \
+    python3-pytest \
+    python3-opencv \
+    python3-pil \
+    python3-networkx \
+    python3-scipy \
     # Ruby and development tools
     ruby \
     ruby-dev \
+    ruby-bundler \
+    ruby-rails \
+    ruby-rspec \
+    ruby-sinatra \
     # Build dependencies
     build-essential \
     zlib1g-dev \
@@ -109,7 +138,29 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-dev \
     nodejs \
     npm \
+    python3-numpy \
+    novnc \
+    websockify \
     && rm -rf /var/lib/apt/lists/*
+
+# Set up Python virtual environment for additional packages
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir \
+    tensorflow \
+    torch \
+    jupyter \
+    selenium \
+    black \
+    pylint \
+    pygame
+
+# Install additional Ruby gems
+RUN gem install \
+    bundler \
+    rake \
+    minitest \
+    gosu
 
 # Configure ImageMagick to allow reading from Xwd
 RUN if [ -f /etc/ImageMagick-6/policy.xml ]; then \
@@ -122,10 +173,6 @@ WORKDIR /app
 COPY --from=builder /app/target/release/worker_app .
 COPY worker_app/start.sh .
 RUN chmod +x start.sh
-
-# Copy desktop environment configuration
-COPY worker_app/desktop/openbox /etc/xdg/openbox
-COPY worker_app/desktop/tint2 /etc/xdg/tint2
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /repo /tmp/.X11-unix /home/worker/logs && \
@@ -141,38 +188,41 @@ RUN mkdir -p /repo /tmp/.X11-unix /home/worker/logs && \
 # Create a non-root user and set up permissions
 RUN useradd -m -s /bin/bash worker && \
     usermod -aG sudo worker && \
-    echo "worker ALL=(ALL) NOPASSWD: /usr/bin/mkdir, /usr/bin/chown, /usr/bin/chmod, /usr/bin/rm" >> /etc/sudoers && \
+    echo "worker ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     chown -R worker:worker /app /home/worker/logs && \
     chmod -R 755 /home/worker/logs && \
     mkdir -p /repo && \
     chown -R worker:worker /repo && \
     chmod -R 755 /repo && \
-    chown -R worker:worker /tmp/.X11-unix && \
-    touch /home/worker/.Xauthority && \
-    chown worker:worker /home/worker/.Xauthority && \
-    chown -R worker:worker /app/attachments
+    chown -R worker:worker /tmp/.X11-unix
 
-# Create desktop environment directories
-RUN mkdir -p /home/worker/.config/openbox /home/worker/.config/tint2 /home/worker/.cache/fontconfig && \
+# Create desktop environment directories and copy config
+RUN mkdir -p /home/worker/.config/tint2 /home/worker/.cache/fontconfig && \
+    mkdir -p /home/worker/.local/share/applications && \
+    mkdir -p /home/worker/.mozilla/firefox && \
     mkdir -p /home/worker/Desktop /home/worker/Documents /home/worker/Downloads && \
-    chown -R worker:worker /home/worker/.config /home/worker/.cache /home/worker/Desktop && \
-    chmod -R 755 /home/worker/.config /home/worker/.cache /home/worker/Desktop
+    chown -R worker:worker /home/worker/.config /home/worker/.cache /home/worker/.local /home/worker/.mozilla /home/worker/Desktop && \
+    chmod -R 755 /home/worker/.config /home/worker/.cache /home/worker/.local /home/worker/.mozilla /home/worker/Desktop
+
+# Copy desktop environment configuration
+COPY worker_app/desktop/tint2 /home/worker/.config/tint2/
+RUN chown -R worker:worker /home/worker/.config && \
+    chmod -R 755 /home/worker/.config
 
 # Switch to non-root user
 USER worker
 
 # Set up environment
 ENV HOME=/home/worker
-ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV PATH="/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ENV RUST_LOG=debug
 ENV RUST_BACKTRACE=1
 
 # X11 configuration
-ENV DISPLAY_WIDTH=1024
-ENV DISPLAY_HEIGHT=768
+ENV DISPLAY_WIDTH=1280
+ENV DISPLAY_HEIGHT=1024
 ENV DISPLAY_NUMBER=99
 ENV DISPLAY=:99
-ENV XAUTHORITY=/home/worker/.Xauthority
 
 # Start Xvfb, x11vnc, and the worker app
 CMD ["./start.sh"]
