@@ -1,9 +1,61 @@
-use actix_web::{web, HttpResponse, Responder, HttpRequest, HttpMessage};
-use uuid::Uuid;
 use crate::db::DbPool;
+use crate::models::worker::{NewWorker, NewWorkerPayload, UpdateWorker};
 use crate::services::worker_service::WorkerService;
-use crate::models::worker::{NewWorker, UpdateWorker, NewWorkerPayload};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use uuid::Uuid;
 
+#[derive(Debug, Serialize)]
+pub struct FileSystemEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub size: u64,
+    pub modified: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FileSystemQuery {
+    path: String,
+}
+
+pub async fn list_filesystem(
+    query: web::Query<FileSystemQuery>,
+    req: HttpRequest,
+) -> impl Responder {
+    let path = PathBuf::from(&query.path);
+    match WorkerService::list_filesystem(path) {
+        Ok(entries) => HttpResponse::Ok().json(entries),
+        Err(e) => {
+            log::error!("Error listing filesystem: {:?}", e);
+            HttpResponse::InternalServerError().body(format!("Failed to list filesystem: {}", e))
+        }
+    }
+}
+
+pub async fn get_file_content(
+    query: web::Query<FileSystemQuery>,
+    req: HttpRequest,
+) -> impl Responder {
+    let path = PathBuf::from(&query.path);
+    match WorkerService::get_file_content(path) {
+        Ok(content) => {
+            // Detect if it's a binary file (contains null bytes or non-UTF8 characters)
+            if content.contains(&0u8) || String::from_utf8(content.clone()).is_err() {
+                HttpResponse::Ok()
+                    .content_type("application/octet-stream")
+                    .body(content)
+            } else {
+                HttpResponse::Ok().content_type("text/plain").body(content)
+            }
+        }
+        Err(e) => {
+            log::error!("Error reading file content: {:?}", e);
+            HttpResponse::InternalServerError().body(format!("Failed to read file: {}", e))
+        }
+    }
+}
 
 pub async fn create_worker(
     pool: web::Data<DbPool>,
@@ -26,7 +78,7 @@ pub async fn create_worker(
         Ok(worker) => {
             log::info!("Worker created successfully: {:?}", worker);
             HttpResponse::Created().json(worker)
-        },
+        }
         Err(e) => {
             log::error!("Error creating worker: {:?}", e);
             HttpResponse::InternalServerError().body("Failed to create worker")
@@ -67,7 +119,12 @@ pub async fn update_worker(
     req: HttpRequest,
 ) -> impl Responder {
     let user_id = req.extensions().get::<Uuid>().cloned().unwrap();
-    match WorkerService::update_worker(&pool, worker_id.into_inner(), update_data.into_inner(), user_id) {
+    match WorkerService::update_worker(
+        &pool,
+        worker_id.into_inner(),
+        update_data.into_inner(),
+        user_id,
+    ) {
         Ok(worker) => HttpResponse::Ok().json(worker),
         Err(e) => {
             log::error!("Error updating worker: {:?}", e);

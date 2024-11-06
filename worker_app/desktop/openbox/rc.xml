@@ -16,7 +16,7 @@
   </placement>
   
   <theme>
-    <name>Arc</name>
+    <name>Arc-Dark</name>
     <titleLayout>NLIMC</titleLayout>
     <keepBorder>yes</keepBorder>
     <animateIconify>yes</animateIconify>
@@ -116,6 +116,7 @@
     <application class="*">
       <decor>yes</decor>
       <focus>yes</focus>
+      <layer>normal</layer>
     </application>
   </applications>
 </openbox_config>

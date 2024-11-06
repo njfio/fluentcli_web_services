@@ -21,6 +21,17 @@ RUN apt-get update && \
     x11-apps \
     dbus-x11 \
     xinit \
+    # Theme requirements
+    arc-theme \
+    gnome-themes-extra \
+    adwaita-icon-theme \
+    gtk2-engines \
+    gtk2-engines-pixbuf \
+    gtk2-engines-murrine \
+    lxappearance \
+    breeze \
+    breeze-gtk \
+    breeze-icon-theme \
     # Menu system
     menu \
     obmenu \
@@ -130,6 +141,16 @@ RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0
 # Set up X11 and VNC
 RUN mkdir -p $HOME/.vnc $HOME/.config/openbox $HOME/.config/tint2 && \
     touch $HOME/.Xauthority
+
+# Configure GTK theme
+RUN mkdir -p $HOME/.config/gtk-2.0 $HOME/.config/gtk-3.0 && \
+    echo '[Settings]\ngtk-theme-name=Breeze-Dark\ngtk-icon-theme-name=breeze\ngtk-font-name=Sans 10' > $HOME/.config/gtk-3.0/settings.ini && \
+    echo 'gtk-theme-name="Breeze-Dark"\ngtk-icon-theme-name="breeze"\ngtk-font-name="Sans 10"' > $HOME/.gtkrc-2.0
+
+# Configure Openbox theme
+RUN mkdir -p $HOME/.themes && \
+    cp -r /usr/share/themes/Breeze-Dark $HOME/.themes/ && \
+    echo '<?xml version="1.0" encoding="UTF-8"?>\n<openbox_config><theme><name>Breeze-Dark</name></theme></openbox_config>' > $HOME/.config/openbox/rc.xml
 
 # Set display configuration
 ARG DISPLAY_NUM=99

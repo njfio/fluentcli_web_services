@@ -17,6 +17,11 @@ use actix_web::{web, Scope};
 pub fn configure_routes() -> Scope {
     web::scope("")
         .service(
+            web::scope("/filesystem")
+                .route("", web::get().to(worker::list_filesystem))
+                .route("/content", web::get().to(worker::get_file_content)),
+        )
+        .service(
             web::scope("/users")
                 .route("/validate-token", web::get().to(user::validate_token))
                 .route("/refresh", web::post().to(user::refresh_token))

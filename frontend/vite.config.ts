@@ -35,6 +35,18 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/filesystem': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      '/workers': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
     },
   },
 });

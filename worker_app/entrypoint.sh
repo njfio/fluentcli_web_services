@@ -72,16 +72,44 @@ xterm -geometry 80x24+10+10 -fa "DejaVu Sans Mono" -fs 11 -bg "#2E3440" -fg "#D8
 echo "Starting PCManFM file manager..."
 pcmanfm --desktop &
 
-echo "Checking X server status..."
-xwininfo -root
-echo "Listing windows..."
-xwininfo -tree -root
+# Create some test files
+echo "Creating test files..."
+mkdir -p ~/Documents/test_folder
+echo "Hello World" > ~/Documents/test.txt
+echo "Test file 2" > ~/Documents/test2.txt
+echo "File 1 content" > ~/Documents/test_folder/file1.txt
+echo "File 2 content" > ~/Documents/test_folder/file2.txt
 
-echo "Checking running X clients..."
-xlsclients -a
+# Create some example files in different formats
+echo "Creating example files..."
+echo '{"key": "value"}' > ~/Documents/example.json
+echo '# Markdown Example' > ~/Documents/example.md
+echo '<html><body>Hello</body></html>' > ~/Documents/example.html
+echo 'console.log("Hello");' > ~/Documents/example.js
+
+# Create some directories with content
+echo "Creating directories with content..."
+mkdir -p ~/Documents/projects
+mkdir -p ~/Documents/images
+mkdir -p ~/Documents/code
+
+# Create some more test files in subdirectories
+echo "Creating files in subdirectories..."
+echo "Project README" > ~/Documents/projects/README.md
+echo "Sample code" > ~/Documents/code/sample.py
+touch ~/Documents/images/placeholder.png
+
+# Set permissions
+echo "Setting permissions..."
+sudo chown -R computeruse:computeruse ~
+chmod -R 755 ~/Desktop ~/Documents ~/Downloads
+chmod 700 ~/.config
+
+echo "Listing created files for verification..."
+ls -la ~/Documents
 
 echo "Starting Rust worker application..."
-cd $HOME/worker_app && cargo run &
+cd ~/worker_app && RUST_LOG=debug cargo run &
 
 echo "Environment setup complete. Keeping container running..."
 # Keep the container running and log X errors
