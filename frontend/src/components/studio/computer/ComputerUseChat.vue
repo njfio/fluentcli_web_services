@@ -5,9 +5,9 @@
             <div v-for="(message, index) in messages" :key="index" class="message">
                 <div :class="[
                     'p-3 rounded-lg max-w-3xl',
-                    message.role === 'user' ? 'bg-blue-600 ml-auto' : 'bg-gray-700'
+                    message.role === 'user' ? 'bg-blue-600 ml-auto text-white' : 'bg-gray-700 text-white'
                 ]">
-                    <pre class="whitespace-pre-wrap break-words text-white">{{ message.content }}</pre>
+                    <div class="whitespace-pre-wrap break-words" v-html="message.renderedContent"></div>
                 </div>
             </div>
         </div>
@@ -30,15 +30,18 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
+import ComputerUseService, { ComputerUseMessage } from '../../../services/ComputerUseService'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
-interface ChatMessage {
-    role: 'user' | 'assistant'
-    content: string
+interface Message extends ComputerUseMessage {
+    renderedContent: string;
 }
 
-const messages = ref<ChatMessage[]>([{
+const messages = ref<Message[]>([{
     role: 'assistant',
-    content: 'Welcome to Computer Use. I can help you interact with the computer system.'
+    content: 'Welcome to Computer Use. I can help you interact with the computer system.',
+    renderedContent: 'Welcome to Computer Use. I can help you interact with the computer system.'
 }])
 const currentMessage = ref('')
 const chatContainer = ref<HTMLElement | null>(null)
@@ -51,29 +54,61 @@ const scrollToBottom = async () => {
     }
 }
 
+const renderMarkdown = (text: string): string => {
+    const rawMarkup = marked(text)
+    return DOMPurify.sanitize(rawMarkup)
+}
+
 const sendMessage = async () => {
     if (!currentMessage.value.trim() || loading.value) return
 
     const message = currentMessage.value
     loading.value = true
 
+    // Add user message
     messages.value.push({
         role: 'user',
-        content: message
+        content: message,
+        renderedContent: renderMarkdown(message)
     })
     currentMessage.value = ''
     await scrollToBottom()
 
-    // TODO: Send message to Anthropic computer provider
-    // This will be integrated with the existing chat system
+    try {
+        // Get response stream from computer use service
+        const stream = await ComputerUseService.chat(messages.value)
+        const reader = stream.getReader()
+        const decoder = new TextDecoder()
 
-    loading.value = false
+        let assistantMessage: Message = {
+            role: 'assistant',
+            content: '',
+            renderedContent: ''
+        }
+        messages.value.push(assistantMessage)
+
+        while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            const chunk = decoder.decode(value)
+            assistantMessage.content += chunk
+            assistantMessage.renderedContent = renderMarkdown(assistantMessage.content)
+            await scrollToBottom()
+        }
+
+        // Update the last message with complete response
+        messages.value[messages.value.length - 1] = assistantMessage
+    } catch (error) {
+        console.error('Error in computer use chat:', error)
+        messages.value.push({
+            role: 'assistant',
+            content: 'An error occurred while processing your message. Please try again.',
+            renderedContent: 'An error occurred while processing your message. Please try again.'
+        })
+    } finally {
+        loading.value = false
+        await scrollToBottom()
+    }
 }
 </script>
-
-<style scoped>
-.message pre {
-    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 0.9em;
-}
-</style>
