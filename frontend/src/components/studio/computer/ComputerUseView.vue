@@ -1,22 +1,26 @@
 <template>
-    <div class="flex flex-col max-h-[calc(100vh-4rem)]"> <!-- 4rem for header -->
-        <div class="flex flex-1 min-h-0"> <!-- min-h-0 prevents flex child overflow -->
-            <!-- Left section - VNC Viewer and File Browser -->
-            <div class="w-2/3 h-full flex flex-col">
-                <!-- VNC Viewer - 60% height -->
-                <div class="h-3/5 bg-gray-900">
-                    <VncViewer :url="vncUrl" />
-                </div>
-
-                <!-- File Browser - 40% height -->
-                <div class="h-2/5 bg-gray-900 border-t border-gray-700">
-                    <FileBrowser />
-                </div>
+    <div class="flex flex-col h-[calc(100vh-4rem)] overflow-hidden"> <!-- 4rem for header -->
+        <!-- Main content area -->
+        <div class="flex flex-col h-full">
+            <!-- VNC Viewer - reduced height -->
+            <div class="h-[60vh] bg-gray-900">
+                <VncViewer :url="vncUrl" />
             </div>
 
-            <!-- Chat section - 33% width -->
-            <div class="w-1/3 h-full bg-gray-800">
-                <ComputerUseChat />
+            <!-- Spacing between VNC and bottom section -->
+            <div class="h-2"></div>
+
+            <!-- Bottom section with File Browser and Chat side by side -->
+            <div class="flex space-x-2 h-[calc(100vh-60vh-6rem)]"> <!-- Remaining space minus header and spacing -->
+                <!-- File Browser with overflow handling -->
+                <div class="w-1/2 bg-gray-900 border-t border-gray-700 overflow-auto">
+                    <FileBrowser />
+                </div>
+
+                <!-- Chat section -->
+                <div class="w-1/2 bg-gray-800 overflow-auto">
+                    <ComputerUseChat />
+                </div>
             </div>
         </div>
     </div>
