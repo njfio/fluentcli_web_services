@@ -13,28 +13,26 @@ RUN apt-get update && \
     scrot \
     imagemagick \
     sudo \
-    openbox \
+    mutter \
+    gnome-session \
+    gnome-settings-daemon \
+    gnome-shell \
+    dbus-x11 \
     x11vnc \
     xauth \
     x11-xserver-utils \
     x11-utils \
     x11-apps \
-    dbus-x11 \
     xinit \
     # Theme requirements
-    arc-theme \
     gnome-themes-extra \
     adwaita-icon-theme \
     gtk2-engines \
     gtk2-engines-pixbuf \
     gtk2-engines-murrine \
     lxappearance \
-    breeze \
-    breeze-gtk \
-    breeze-icon-theme \
     # Menu system
     menu \
-    obmenu \
     menulibre \
     # Python/pyenv reqs
     build-essential \
@@ -85,7 +83,9 @@ ENV USERNAME=computeruse
 ENV HOME=/home/$USERNAME
 RUN useradd -m -s /bin/bash -d $HOME $USERNAME && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
-    chown -R $USERNAME:$USERNAME /opt/noVNC
+    chown -R $USERNAME:$USERNAME /opt/noVNC && \
+    # Add user to required groups
+    usermod -a -G audio,video,render $USERNAME
 
 # Install Rust
 ENV RUSTUP_HOME=/usr/local/rustup \
@@ -139,18 +139,17 @@ RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0
     scipy
 
 # Set up X11 and VNC
-RUN mkdir -p $HOME/.vnc $HOME/.config/openbox $HOME/.config/tint2 && \
+RUN mkdir -p $HOME/.vnc $HOME/.config/tint2 && \
     touch $HOME/.Xauthority
 
 # Configure GTK theme
 RUN mkdir -p $HOME/.config/gtk-2.0 $HOME/.config/gtk-3.0 && \
-    echo '[Settings]\ngtk-theme-name=Breeze-Dark\ngtk-icon-theme-name=breeze\ngtk-font-name=Sans 10' > $HOME/.config/gtk-3.0/settings.ini && \
-    echo 'gtk-theme-name="Breeze-Dark"\ngtk-icon-theme-name="breeze"\ngtk-font-name="Sans 10"' > $HOME/.gtkrc-2.0
+    echo '[Settings]\ngtk-theme-name=Adwaita-dark\ngtk-icon-theme-name=Adwaita\ngtk-font-name=Sans 10' > $HOME/.config/gtk-3.0/settings.ini && \
+    echo 'gtk-theme-name="Adwaita-dark"\ngtk-icon-theme-name="Adwaita"\ngtk-font-name="Sans 10"' > $HOME/.gtkrc-2.0
 
-# Configure Openbox theme
-RUN mkdir -p $HOME/.themes && \
-    cp -r /usr/share/themes/Breeze-Dark $HOME/.themes/ && \
-    echo '<?xml version="1.0" encoding="UTF-8"?>\n<openbox_config><theme><name>Breeze-Dark</name></theme></openbox_config>' > $HOME/.config/openbox/rc.xml
+# Set up GNOME session
+RUN mkdir -p $HOME/.config/autostart && \
+    mkdir -p $HOME/.local/share/gnome-session/sessions
 
 # Set display configuration
 ARG DISPLAY_NUM=99
@@ -160,6 +159,7 @@ ENV DISPLAY_NUM=$DISPLAY_NUM
 ENV HEIGHT=$HEIGHT
 ENV WIDTH=$WIDTH
 ENV DISPLAY=:$DISPLAY_NUM
+ENV DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/1000/bus"
 
 # Copy worker app
 COPY --chown=$USERNAME:$USERNAME . $HOME/worker_app/

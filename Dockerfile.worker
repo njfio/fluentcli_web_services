@@ -1,228 +1,186 @@
-FROM rust:1.75-bullseye AS builder
+FROM docker.io/ubuntu:22.04
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libx11-dev \
-    libxext-dev \
-    libxft-dev \
-    libxinerama-dev \
-    libxcursor-dev \
-    libxrender-dev \
-    libxfixes-dev \
-    libxtst-dev \
-    libxrandr-dev \
-    libxi-dev \
-    libxss-dev \
-    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_PRIORITY=high
 
-WORKDIR /app
-
-# Copy the entire worker_app directory
-COPY worker_app/ ./
-
-# Build the worker app
-RUN cargo build --release
-
-FROM debian:bookworm-slim
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    # X11 and system utilities
-    libx11-6 \
-    libxext6 \
-    libxft2 \
-    libxinerama1 \
-    libxcursor1 \
-    libxrender1 \
-    libxfixes3 \
-    libxtst6 \
-    libxrandr2 \
-    libxi6 \
-    libxss1 \
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get -y install \
+    # UI Requirements
     xvfb \
-    x11vnc \
-    xdotool \
-    curl \
-    xauth \
-    libxdamage1 \
-    libxcomposite1 \
-    x11-xkb-utils \
-    dbus \
-    dbus-x11 \
-    sudo \
-    procps \
-    # Window Manager and Desktop Environment
-    mutter \
-    gnome-shell \
-    gnome-session \
-    gnome-terminal \
-    gnome-menus \
-    gnome-panel \
-    gnome-applets \
-    gnome-shell-extensions \
-    gnome-tweaks \
-    tint2 \
-    pcmanfm \
     xterm \
-    nitrogen \
-    menu \
-    firefox-esr \
-    gedit \
-    mousepad \
-    # Screenshot and image tools
+    xdotool \
     scrot \
-    x11-apps \
     imagemagick \
-    # Font configuration
-    fontconfig \
-    xfonts-base \
-    xfonts-75dpi \
-    xfonts-100dpi \
-    fonts-liberation \
-    fonts-dejavu \
-    # Theme and icons
+    sudo \
+    metacity \
+    dbus-x11 \
+    x11vnc \
+    xauth \
+    x11-xserver-utils \
+    x11-utils \
+    x11-apps \
+    xinit \
+    # Menu and panel
+    lxpanel \
+    lxmenu-data \
+    # Theme requirements
     gnome-themes-extra \
     adwaita-icon-theme \
-    arc-theme \
-    papirus-icon-theme \
-    # Python packages from Debian
-    python3-full \
-    python3-pip \
-    python3-venv \
-    python3-numpy \
-    python3-pandas \
-    python3-matplotlib \
-    python3-sklearn \
-    python3-flask \
-    python3-django \
-    python3-requests \
-    python3-bs4 \
-    python3-pytest \
-    python3-opencv \
-    python3-pil \
-    python3-networkx \
-    python3-scipy \
-    # Ruby and development tools
-    ruby \
-    ruby-dev \
-    ruby-bundler \
-    ruby-rails \
-    ruby-rspec \
-    ruby-sinatra \
-    # Build dependencies
+    gtk2-engines \
+    gtk2-engines-pixbuf \
+    gtk2-engines-murrine \
+    lxappearance \
+    # Menu system
+    menu \
+    menulibre \
+    # Python/pyenv reqs
     build-essential \
+    libssl-dev  \
     zlib1g-dev \
     libbz2-dev \
     libreadline-dev \
     libsqlite3-dev \
-    libssl-dev \
-    libffi-dev \
-    # Libraries for image processing
-    libjpeg-dev \
-    libpng-dev \
-    libtiff-dev \
-    # Libraries for audio
-    libasound2-dev \
-    libsdl2-dev \
-    # Libraries for GUI
-    tk-dev \
-    python3-tk \
-    # Additional utilities
+    curl \
     git \
-    wget \
-    # Ruby dependencies
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
     libxml2-dev \
-    libxslt-dev \
-    libcurl4-openssl-dev \
-    libsqlite3-dev \
-    nodejs \
-    npm \
-    python3-numpy \
-    novnc \
-    websockify \
-    && rm -rf /var/lib/apt/lists/*
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
+    # SDL dependencies for gosu
+    libsdl2-dev \
+    libsdl2-ttf-dev \
+    libsdl2-image-dev \
+    libsdl2-mixer-dev \
+    libpango1.0-dev \
+    libopenal-dev \
+    libsndfile1-dev \
+    # Network tools
+    net-tools \
+    netcat \
+    # PPA req
+    software-properties-common && \
+    # Userland apps
+    sudo add-apt-repository ppa:mozillateam/ppa && \
+    sudo apt-get install -y --no-install-recommends \
+    libreoffice \
+    firefox-esr \
+    xpdf \
+    gedit \
+    xpaint \
+    galculator \
+    unzip && \
+    apt-get clean
 
-# Set up Python virtual environment for additional packages
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir \
+# Install Ruby
+RUN apt-get install -y ruby-full ruby-dev && \
+    gem install bundler rake rails rspec sinatra gosu minitest
+
+# Install noVNC
+RUN git clone --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
+    git clone --branch v0.12.0 https://github.com/novnc/websockify /opt/noVNC/utils/websockify && \
+    ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
+
+# Setup user
+ENV USERNAME=computeruse
+ENV HOME=/home/$USERNAME
+RUN useradd -m -s /bin/bash -d $HOME $USERNAME && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    chown -R $USERNAME:$USERNAME /opt/noVNC && \
+    # Add user to required groups
+    usermod -a -G audio,video $USERNAME
+
+# Install Rust
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+
+# Install Rust with proper permissions
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    rustup default stable && \
+    mkdir -p /usr/local/cargo/registry && \
+    chown -R $USERNAME:$USERNAME /usr/local/cargo/registry && \
+    chmod -R 755 /usr/local/cargo/registry
+
+# Copy worker app and build it
+COPY --chown=$USERNAME:$USERNAME worker_app /tmp/worker_app/
+WORKDIR /tmp/worker_app
+RUN cargo build --release && \
+    mkdir -p $HOME/worker_app/target/release && \
+    cp target/release/worker_app $HOME/worker_app/target/release/
+
+# Switch to computeruse user
+USER computeruse
+WORKDIR $HOME
+
+# Setup python
+RUN git clone https://github.com/pyenv/pyenv.git ~/.pyenv && \
+    cd ~/.pyenv && src/configure && make -C src && cd .. && \
+    echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc && \
+    echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc && \
+    echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+ENV PYENV_ROOT="$HOME/.pyenv"
+ENV PATH="$PYENV_ROOT/bin:$PATH"
+ENV PYENV_VERSION=3.11.6
+RUN eval "$(pyenv init -)" && \
+    pyenv install $PYENV_VERSION && \
+    pyenv global $PYENV_VERSION && \
+    pyenv rehash
+
+ENV PATH="$HOME/.pyenv/shims:$HOME/.pyenv/bin:$PATH"
+
+# Install Python dependencies
+RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0 && \
+    python -m pip install \
+    numpy \
+    pandas \
+    matplotlib \
+    scikit-learn \
     tensorflow \
     torch \
+    pygame \
+    flask \
+    django \
     jupyter \
+    requests \
+    beautifulsoup4 \
     selenium \
-    black \
+    pytest \
     pylint \
-    pygame
+    black \
+    opencv-python \
+    pillow \
+    networkx \
+    scipy
 
-# Install additional Ruby gems
-RUN gem install \
-    bundler \
-    rake \
-    minitest \
-    gosu
+# Set up X11 and VNC
+RUN mkdir -p $HOME/.vnc && \
+    touch $HOME/.Xauthority
 
-# Configure ImageMagick to allow reading from Xwd
-RUN if [ -f /etc/ImageMagick-6/policy.xml ]; then \
-    sed -i 's/<policy domain="coder" rights="none" pattern="XWD" \/>/<policy domain="coder" rights="read|write" pattern="XWD" \/>/' /etc/ImageMagick-6/policy.xml; \
-    fi
+# Configure GTK theme
+RUN mkdir -p $HOME/.config/gtk-2.0 $HOME/.config/gtk-3.0 && \
+    echo '[Settings]\ngtk-theme-name=Adwaita-dark\ngtk-icon-theme-name=Adwaita\ngtk-font-name=Sans 10' > $HOME/.config/gtk-3.0/settings.ini && \
+    echo 'gtk-theme-name="Adwaita-dark"\ngtk-icon-theme-name="Adwaita"\ngtk-font-name="Sans 10"' > $HOME/.gtkrc-2.0
 
-WORKDIR /app
+# Set display configuration
+ARG DISPLAY_NUM=99
+ARG HEIGHT=800
+ARG WIDTH=1280
+ENV DISPLAY_NUM=$DISPLAY_NUM
+ENV HEIGHT=$HEIGHT
+ENV WIDTH=$WIDTH
+ENV DISPLAY=:$DISPLAY_NUM
+ENV DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/1000/bus"
+ENV XDG_RUNTIME_DIR=/run/user/1000
 
-# Copy the built binary and start script
-COPY --from=builder /app/target/release/worker_app .
-COPY worker_app/start.sh .
-RUN chmod +x start.sh
+# Copy desktop environment files
+COPY --chown=$USERNAME:$USERNAME worker_app/desktop/ $HOME/.config/
 
-# Create necessary directories with proper permissions
-RUN mkdir -p /repo /tmp/.X11-unix /home/worker/logs && \
-    chmod 1777 /tmp/.X11-unix && \
-    mkdir -p /var/lib/xkb && \
-    chmod 1777 /var/lib/xkb && \
-    mkdir -p /app/attachments/screenshots && \
-    chmod 1777 /app/attachments/screenshots && \
-    # Create font cache directories
-    mkdir -p /var/cache/fontconfig && \
-    chmod 777 /var/cache/fontconfig
+# Copy and set up entrypoint
+COPY --chown=$USERNAME:$USERNAME worker_entrypoint.sh $HOME/entrypoint.sh
+RUN chmod +x $HOME/entrypoint.sh
 
-# Create a non-root user and set up permissions
-RUN useradd -m -s /bin/bash worker && \
-    usermod -aG sudo worker && \
-    echo "worker ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
-    chown -R worker:worker /app /home/worker/logs && \
-    chmod -R 755 /home/worker/logs && \
-    mkdir -p /repo && \
-    chown -R worker:worker /repo && \
-    chmod -R 755 /repo && \
-    chown -R worker:worker /tmp/.X11-unix
-
-# Create desktop environment directories and copy config
-RUN mkdir -p /home/worker/.config/tint2 /home/worker/.cache/fontconfig && \
-    mkdir -p /home/worker/.local/share/applications && \
-    mkdir -p /home/worker/.mozilla/firefox && \
-    mkdir -p /home/worker/Desktop /home/worker/Documents /home/worker/Downloads && \
-    chown -R worker:worker /home/worker/.config /home/worker/.cache /home/worker/.local /home/worker/.mozilla /home/worker/Desktop && \
-    chmod -R 755 /home/worker/.config /home/worker/.cache /home/worker/.local /home/worker/.mozilla /home/worker/Desktop
-
-# Copy desktop environment configuration
-COPY worker_app/desktop/tint2 /home/worker/.config/tint2/
-RUN chown -R worker:worker /home/worker/.config && \
-    chmod -R 755 /home/worker/.config
-
-# Switch to non-root user
-USER worker
-
-# Set up environment
-ENV HOME=/home/worker
-ENV PATH="/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ENV RUST_LOG=debug
-ENV RUST_BACKTRACE=1
-
-# X11 configuration
-ENV DISPLAY_WIDTH=1280
-ENV DISPLAY_HEIGHT=1024
-ENV DISPLAY_NUMBER=99
-ENV DISPLAY=:99
-
-# Start Xvfb, x11vnc, and the worker app
-CMD ["./start.sh"]
+ENTRYPOINT ["./entrypoint.sh"]
