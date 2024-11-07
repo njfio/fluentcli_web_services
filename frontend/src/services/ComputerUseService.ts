@@ -6,32 +6,21 @@ export interface ComputerUseMessage {
 }
 
 class ComputerUseService {
-    async chat(messages: ComputerUseMessage[]): Promise<ReadableStream<Uint8Array>> {
-        const baseUrl = axiosInstance.defaults.baseURL?.replace(/\/$/, '');
-        const response = await fetch(`${baseUrl}/computer-use/chat`, {
-            method: 'POST',
+    async chat(messages: ComputerUseMessage[]) {
+        const response = await axiosInstance.post('/computer-use/chat', {
+            messages: messages.map(msg => ({
+                role: msg.role,
+                content: msg.content
+            }))
+        }, {
+            responseType: 'text',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                messages: messages.map(msg => ({
-                    role: msg.role,
-                    content: msg.content
-                }))
-            })
+                'Accept': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+            }
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-        }
-
-        if (!response.body) {
-            throw new Error('No response body');
-        }
-
-        return response.body;
+        return response.data;
     }
 }
 
