@@ -2,7 +2,7 @@
     <div class="flex flex-col h-full">
         <!-- Chat messages -->
         <div class="flex-1 overflow-y-auto p-4 space-y-4" ref="chatContainer">
-            <div v-for="(message, index) in messages" :key="index" class="message">
+            <div v-for="(message, index) in visibleMessages" :key="index" class="message">
                 <div :class="[
                     'p-3 rounded-lg max-w-3xl',
                     message.role === 'user' ? 'bg-blue-600 ml-auto text-white' : 'bg-gray-700 text-white'
@@ -13,8 +13,8 @@
                     <div v-if="getImageData(message.content)" class="mt-2">
                         <img :src="getImageData(message.content)" alt="Screenshot" class="max-w-full rounded-lg" />
                     </div>
-                    <div v-if="getErrorContent(message.content)" class="mt-2 text-red-400">
-                        {{ getErrorContent(message.content) }}
+                    <div v-if="getToolError(message.content)" class="mt-2 text-red-400">
+                        {{ getToolError(message.content) }}
                     </div>
                 </div>
             </div>
@@ -27,13 +27,13 @@
         <!-- Message input -->
         <div class="border-t border-gray-700 p-4">
             <div class="flex space-x-2">
-                <input v-model="currentMessage" @keyup.enter="sendMessage" type="text" placeholder="Enter a message..."
+                <input v-model="currentMessage" @keyup.enter="handleAction" type="text" placeholder="Enter a message..."
                     class="flex-1 bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500"
-                    :disabled="loading" />
-                <button @click="sendMessage"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none disabled:opacity-50"
-                    :disabled="loading">
-                    {{ loading ? 'Sending...' : 'Send' }}
+                    :disabled="isProcessing" />
+                <button @click="handleAction"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none"
+                    :class="{ 'bg-red-600 hover:bg-red-700': isProcessing }">
+                    {{ isProcessing ? 'Cancel' : 'Send' }}
                 </button>
             </div>
         </div>
@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, onBeforeUnmount, computed } from 'vue'
 import ComputerUseService, { ComputerUseMessage } from '../../../services/ComputerUseService'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -57,97 +57,37 @@ const messages = ref<Message[]>([{
 }])
 const currentMessage = ref('')
 const chatContainer = ref<HTMLElement | null>(null)
-const loading = ref(false)
 const error = ref<string | null>(null)
+const isProcessing = ref(false)
+const currentAssistantMessage = ref<Message | null>(null)
+
+// Only show user and assistant messages
+const visibleMessages = computed(() =>
+    messages.value.filter(msg => msg.role === 'user' || msg.role === 'assistant')
+)
 
 const getTextContent = (content: string): string => {
     if (!content) return '';
 
-    // Find the last occurrence of a JSON object
-    const jsonStart = content.lastIndexOf('{');
-    if (jsonStart === -1) return content;
+    // Remove <img> tags and their content
+    content = content.replace(/<img>.*?<\/img>/g, '');
+    // Remove <continue> tags and their content
+    content = content.replace(/<continue>.*?<\/continue>/g, '');
 
-    // Return everything before the JSON
-    return content.substring(0, jsonStart).trim();
+    return content.trim();
 }
 
 const getImageData = (content: string): string | undefined => {
-    try {
-        // Find the last occurrence of a JSON object
-        const jsonStart = content.lastIndexOf('{');
-        if (jsonStart === -1) return undefined;
-
-        // Parse the JSON portion
-        const jsonStr = content.substring(jsonStart);
-        const data = JSON.parse(jsonStr);
-
-        if (data.image && typeof data.image === 'string') {
-            return data.image;
-        }
-        return undefined;
-    } catch (e) {
-        return undefined;
+    const match = content.match(/<img>(.*?)<\/img>/);
+    if (match) {
+        return match[1];
     }
+    return undefined;
 }
 
-const getErrorContent = (content: string): string | undefined => {
-    try {
-        if (!content.includes('Error:')) return undefined;
-
-        const errorStart = content.indexOf('Error:');
-        let errorContent = content.substring(errorStart);
-
-        // Try to parse as JSON if it contains JSON
-        const jsonStart = errorContent.indexOf('{');
-        if (jsonStart !== -1) {
-            try {
-                const jsonStr = errorContent.substring(jsonStart);
-                const data = JSON.parse(jsonStr);
-                if (data.error) {
-                    return `Error: ${data.error}`;
-                }
-            } catch (e) {
-                // If JSON parsing fails, return the raw error
-            }
-        }
-
-        return errorContent;
-    } catch (e) {
-        return undefined;
-    }
-}
-
-const hasImage = (message: Message): boolean => {
-    return getImageData(message.content) !== undefined;
-}
-
-const getRecentMessages = (allMessages: Message[]): Message[] => {
-    const result: Message[] = [];
-    let imageCount = 0;
-
-    // Start from the most recent messages
-    for (let i = allMessages.length - 1; i >= 0; i--) {
-        const message = allMessages[i];
-
-        // If message has image, increment counter
-        if (hasImage(message)) {
-            imageCount++;
-            // Only include up to 1 message with image to prevent token limit
-            if (imageCount > 1) {
-                continue;
-            }
-        }
-
-        // Add message to result
-        result.unshift(message);
-
-        // Keep only last 6 messages without images
-        if (result.length >= 6 && !hasImage(message)) {
-            break;
-        }
-    }
-
-    return result;
+const getToolError = (content: string): string | undefined => {
+    const toolResult = ComputerUseService.parseToolResult(content);
+    return ComputerUseService.getToolError(toolResult);
 }
 
 const scrollToBottom = async () => {
@@ -166,44 +106,125 @@ const clearError = () => {
     error.value = null;
 }
 
-const sendMessage = async () => {
-    if (!currentMessage.value.trim() || loading.value) return;
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    const message = currentMessage.value;
-    loading.value = true;
-    clearError();
-
-    // Add user message
-    messages.value.push({
-        role: 'user',
-        content: message,
-        renderedContent: renderMarkdown(message)
-    });
-    currentMessage.value = '';
-    await scrollToBottom();
+const processStream = async (stream: ReadableStream<Uint8Array>): Promise<boolean> => {
+    const reader = stream.getReader();
+    let buffer = '';
+    let shouldContinue = false;
 
     try {
-        // Get recent messages to prevent token limit
-        const recentMessages = getRecentMessages(messages.value);
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-        let assistantMessage: Message = {
-            role: 'assistant',
-            content: '',
-            renderedContent: ''
+            const text = decoder.decode(value);
+            buffer += text;
+
+            // Check if we have a complete message
+            if (ComputerUseService.isToolResult(buffer)) {
+                // Add the tool result to the current assistant message
+                if (currentAssistantMessage.value) {
+                    currentAssistantMessage.value.content += '\n\n' + buffer;
+                    currentAssistantMessage.value.renderedContent = renderMarkdown(currentAssistantMessage.value.content);
+                }
+                shouldContinue = ComputerUseService.shouldContinue(buffer);
+                break;
+            } else if (currentAssistantMessage.value) {
+                // Update the current assistant message
+                currentAssistantMessage.value.content = buffer;
+                currentAssistantMessage.value.renderedContent = renderMarkdown(buffer);
+            } else {
+                // Start a new assistant message
+                currentAssistantMessage.value = {
+                    role: 'assistant',
+                    content: buffer,
+                    renderedContent: renderMarkdown(buffer)
+                };
+                messages.value.push(currentAssistantMessage.value);
+            }
+
+            await scrollToBottom();
+        }
+    } catch (err: unknown) {
+        const error = err as Error;
+        if (error.name !== 'AbortError') {
+            console.error('Error processing stream:', error);
+            throw error;
+        }
+    } finally {
+        reader.releaseLock();
+    }
+
+    return shouldContinue;
+}
+
+const startConversationLoop = async (userMsg: Message) => {
+    if (isProcessing.value) return;
+    isProcessing.value = true;
+    currentAssistantMessage.value = null;
+
+    try {
+        let continueLoop = true;
+        while (continueLoop && !error.value && isProcessing.value) {
+            // Get messages up to the current point
+            const apiMessages = messages.value.slice();
+            if (currentAssistantMessage.value) {
+                apiMessages.push(currentAssistantMessage.value);
+            } else {
+                apiMessages.push(userMsg);
+            }
+
+            const stream = await ComputerUseService.chat(apiMessages);
+            continueLoop = await processStream(stream);
+
+            if (continueLoop) {
+                // Add continue message
+                apiMessages.push({
+                    role: 'user',
+                    content: 'continue',
+                    renderedContent: 'continue'
+                });
+                await delay(100);
+            }
+        }
+    } catch (error: any) {
+        console.error('Error in conversation loop:', error);
+        throw error;
+    } finally {
+        isProcessing.value = false;
+        currentAssistantMessage.value = null;
+    }
+}
+
+const handleAction = async () => {
+    if (isProcessing.value) {
+        // Cancel the current conversation
+        ComputerUseService.cancelRequest();
+        isProcessing.value = false;
+        currentAssistantMessage.value = null;
+        return;
+    }
+
+    if (!currentMessage.value.trim()) return;
+
+    clearError();
+
+    try {
+        // Create user message
+        const userMsg: Message = {
+            role: 'user',
+            content: currentMessage.value,
+            renderedContent: renderMarkdown(currentMessage.value)
         };
-        messages.value.push(assistantMessage);
 
-        const response = await ComputerUseService.chat(recentMessages);
-
-        // Handle the response text directly
-        assistantMessage.content = response;
-        assistantMessage.renderedContent = renderMarkdown(assistantMessage.content);
+        // Add to display messages
+        messages.value.push(userMsg);
+        currentMessage.value = '';
         await scrollToBottom();
 
-        // If we detect an error in the response, handle it
-        if (getErrorContent(assistantMessage.content)) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        // Start conversation loop with this user message
+        await startConversationLoop(userMsg);
     } catch (error: any) {
         console.error('Error in computer use chat:', error);
         const errorMessage = error?.response?.data?.message || error?.message || 'An error occurred while processing your message. Please try again.';
@@ -213,9 +234,12 @@ const sendMessage = async () => {
         if (messages.value[messages.value.length - 1].content === '') {
             messages.value.pop();
         }
-    } finally {
-        loading.value = false;
-        await scrollToBottom();
     }
 }
+
+onBeforeUnmount(() => {
+    ComputerUseService.cancelRequest();
+});
+
+const decoder = new TextDecoder();
 </script>

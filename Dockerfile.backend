@@ -14,7 +14,14 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     openssl \
     ca-certificates \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
+
+# Create same user as worker
+ENV USERNAME=computeruse
+ENV HOME=/home/$USERNAME
+RUN useradd -m -s /bin/bash -d $HOME $USERNAME && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 WORKDIR /app
 COPY --from=builder /app/target/release/fws /app/fws
@@ -23,7 +30,14 @@ ENV ATTACHMENT_DIR=/app/attachments
 ENV RUST_LOG=debug
 
 EXPOSE 8000
-RUN mkdir -p $ATTACHMENT_DIR
-RUN mkdir -p /shared_tmp
+
+# Create directories with correct ownership
+RUN mkdir -p $ATTACHMENT_DIR/screenshots && \
+    chown -R $USERNAME:$USERNAME /app && \
+    chown -R $USERNAME:$USERNAME $ATTACHMENT_DIR && \
+    chmod -R 777 $ATTACHMENT_DIR
+
+# Switch to computeruse user
+USER $USERNAME
 
 CMD ["/app/fws"]

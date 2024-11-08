@@ -2,6 +2,7 @@ use actix_web::{web, Error, HttpResponse};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 use uuid::Uuid;
@@ -123,6 +124,10 @@ fn take_screenshot() -> Result<(String, String), std::io::Error> {
     let screenshots_dir = "/app/attachments/screenshots";
     fs::create_dir_all(screenshots_dir)?;
 
+    // Set directory permissions to 777
+    let dir_perms = fs::Permissions::from_mode(0o777);
+    fs::set_permissions(screenshots_dir, dir_perms)?;
+
     // Generate unique filename using UUID
     let filename = format!("{}.png", Uuid::new_v4());
     let filepath = format!("{}/{}", screenshots_dir, filename);
@@ -143,6 +148,10 @@ fn take_screenshot() -> Result<(String, String), std::io::Error> {
             ),
         ));
     }
+
+    // Set file permissions to 666 (readable and writable by all)
+    let file_perms = fs::Permissions::from_mode(0o666);
+    fs::set_permissions(&filepath, file_perms)?;
 
     // Read the file to verify it exists and is accessible
     let image_data = fs::read(&filepath)?;

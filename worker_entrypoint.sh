@@ -6,6 +6,12 @@ mkdir -p ~/.config/lxpanel/default/panels
 mkdir -p ~/Desktop ~/Documents ~/Downloads
 mkdir -p ~/.xsession-errors.log  # Create xsession errors file
 
+# Create and set permissions for attachments directory
+echo "Setting up attachments directory..."
+sudo mkdir -p /app/attachments/screenshots
+sudo chown -R computeruse:computeruse /app/attachments
+sudo chmod -R 777 /app/attachments  # Ensure both worker and backend can write
+
 # Configure lxpanel
 cat > ~/.config/lxpanel/default/panels/panel << EOF
 # lxpanel <profile> config file

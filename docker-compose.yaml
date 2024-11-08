@@ -97,7 +97,7 @@ services:
         condition: service_healthy
     volumes:
       - shared_tmp:/shared_tmp
-      - attachment-data:/app/attachments
+      - attachment-data:/app/attachments:rw
     environment:
       - WORKER_ADDRESS=http://worker:8080/execute
       - WORKER_COMPUTER_ADDRESS=http://worker:8081/computer-use

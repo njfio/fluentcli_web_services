@@ -3,14 +3,12 @@ use crate::services::llm_service::{
     ContentBlock, LLMChatMessage, LLMProviderTrait, LLMServiceError,
 };
 use chrono::Local;
-use futures::stream::{self, Stream, StreamExt};
+use futures::stream::{self, Stream};
+use futures::StreamExt;
 use log::{debug, error, info};
 use reqwest::Client;
 use serde_json::Value;
 use std::pin::Pin;
-use uuid::Uuid;
-use std::fs;
-use base64;
 
 pub struct AnthropicComputerProvider;
 
@@ -77,80 +75,7 @@ impl StreamState {
         }
     }
 }
-
-fn save_screenshot(image_data: &str) -> Result<String, String> {
-    // Create temp directory if it doesn't exist
-    fs::create_dir_all("/tmp/computer_use/screenshots").map_err(|e| format!("Failed to create temp directory: {}", e))?;
-
-    // Generate unique filename
-    let filename = format!("{}.png", Uuid::new_v4());
-    let filepath = format!("/tmp/computer_use/screenshots/{}", filename);
-
-    // Decode base64 and save image
-    let image_data = image_data.trim_start_matches("data:image/png;base64,");
-    let image_bytes = base64::decode(image_data).map_err(|e| format!("Failed to decode base64: {}", e))?;
-    fs::write(&filepath, &image_bytes).map_err(|e| format!("Failed to write image file: {}", e))?;
-
-    Ok(filename)
-}
-
-fn format_tool_result(response_text: &str) -> Result<Value, String> {
-    let response_json: Value = serde_json::from_str(response_text)
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    if let Some(output) = response_json.get("output") {
-        // Handle screenshot response
-        if let Some(image) = output.get("image") {
-            if let Some(image_str) = image.as_str() {
-                // Save screenshot and get filename
-                let filename = save_screenshot(image_str)?;
-                return Ok(serde_json::json!({
-                    "type": "tool_result",
-                    "content": "[Screenshot captured]",
-                    "screenshot": filename,
-                    "image": image_str  // Include the base64 image data
-                }));
-            }
-        }
-
-        // Handle other responses
-        let mut text = String::new();
-
-        if let Some(text_val) = output.get("text") {
-            if let Some(text_str) = text_val.as_str() {
-                text.push_str(text_str);
-            }
-        }
-
-        // Handle success/failure messages
-        if let Some(success) = output.get("success") {
-            let action = response_json.get("action").and_then(|a| a.as_str()).unwrap_or("action");
-            if success.as_bool().unwrap_or(false) {
-                if !text.is_empty() {
-                    text.push_str("\n");
-                }
-                text.push_str(&format!("{} completed successfully", action));
-            } else if let Some(error) = output.get("error") {
-                if !text.is_empty() {
-                    text.push_str("\n");
-                }
-                text.push_str(&format!("Error: {}", error));
-            }
-        }
-
-        return Ok(serde_json::json!({
-            "type": "tool_result",
-            "content": text
-        }));
-    }
-
-    Ok(serde_json::json!({
-        "type": "tool_result",
-        "content": response_text
-    }))
-}
-
-async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<String, String> {
+async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<(String, bool), String> {
     let tool_input: Value =
         serde_json::from_str(json_str).map_err(|e| format!("Failed to parse tool input: {}", e))?;
 
@@ -191,18 +116,81 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<String, St
         .map_err(|e| format!("Failed to get response text: {}", e))?;
 
     if !response_status.is_success() {
-        return Ok(serde_json::json!({
-            "type": "tool_result",
-            "tool_use_id": id,
-            "content": format!("Error: {}", response_text)
-        })
-        .to_string());
+        return Ok((format!("\n\n<tool>{}</tool>\nError: {}", name, response_text), false));
     }
 
-    let mut result = format_tool_result(&response_text)?;
-    result["tool_use_id"] = Value::String(id.to_string());
+    let response_json: Value = serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    serde_json::to_string(&result).map_err(|e| format!("Failed to serialize result: {}", e))
+    let mut result = String::new();
+    let mut should_continue = false;
+
+    if let Some(output) = response_json.get("output") {
+        // Handle screenshot response
+        if let Some(image_data) = output.get("image").and_then(|s| s.as_str()) {
+            result = format!(
+                "\n\n<tool>{}</tool>\n[Screenshot captured]\n\n<img>{}</img>\n\n<continue>true</continue>",
+                name, image_data
+            );
+            should_continue = true;
+            return Ok((result, should_continue));
+        }
+
+        // Handle other responses
+        let mut text = String::new();
+
+        if let Some(text_val) = output.get("text") {
+            if let Some(text_str) = text_val.as_str() {
+                text.push_str(text_str);
+            }
+        }
+
+        // Handle stdout/stderr for bash commands
+        if let Some(stdout) = output.get("stdout") {
+            if let Some(stdout_str) = stdout.as_str() {
+                if !stdout_str.is_empty() {
+                    if !text.is_empty() {
+                        text.push_str("\n");
+                    }
+                    text.push_str(stdout_str);
+                }
+            }
+        }
+
+        if let Some(stderr) = output.get("stderr") {
+            if let Some(stderr_str) = stderr.as_str() {
+                if !stderr_str.is_empty() {
+                    if !text.is_empty() {
+                        text.push_str("\n");
+                    }
+                    text.push_str("Error: ");
+                    text.push_str(stderr_str);
+                }
+            }
+        }
+
+        // Handle success/failure messages
+        if let Some(success) = output.get("success") {
+            let action = response_json.get("action").and_then(|a| a.as_str()).unwrap_or("action");
+            if success.as_bool().unwrap_or(false) {
+                if !text.is_empty() {
+                    text.push_str("\n");
+                }
+                text.push_str(&format!("{} completed successfully", action));
+                should_continue = true;
+            } else if let Some(error) = output.get("error") {
+                if !text.is_empty() {
+                    text.push_str("\n");
+                }
+                text.push_str(&format!("Error: {}", error));
+            }
+        }
+
+        result = format!("\n\n<tool>{}</tool>\n{}", name, text);
+        return Ok((result, should_continue));
+    }
+
+    Ok((format!("\n\n<tool>{}</tool>\n{}", name, response_text), should_continue))
 }
 
 impl LLMProviderTrait for AnthropicComputerProvider {
@@ -221,15 +209,58 @@ impl LLMProviderTrait for AnthropicComputerProvider {
             })?
             .to_string();
 
-        let filtered_messages: Vec<Value> = messages
-            .iter()
-            .map(|msg| {
-                serde_json::json!({
-                    "role": if msg.role == "user" { "user" } else { "assistant" },
-                    "content": msg.content
-                })
-            })
-            .collect();
+        // Process messages to combine assistant messages with their tool results
+        let mut filtered_messages = Vec::new();
+        let mut current_message = String::new();
+        let mut current_role = "";
+
+        for msg in messages {
+            match msg.role.as_str() {
+                "user" => {
+                    // If we have a pending message, add it
+                    if !current_message.is_empty() {
+                        filtered_messages.push(serde_json::json!({
+                            "role": current_role,
+                            "content": current_message
+                        }));
+                        current_message.clear();
+                    }
+                    // Add user message
+                    filtered_messages.push(serde_json::json!({
+                        "role": "user",
+                        "content": msg.content
+                    }));
+                    current_role = "user";
+                }
+                "assistant" | "system" => {
+                    if msg.role == "assistant" || msg.content.contains("<tool>") {
+                        if current_role != "assistant" {
+                            if !current_message.is_empty() {
+                                filtered_messages.push(serde_json::json!({
+                                    "role": current_role,
+                                    "content": current_message
+                                }));
+                                current_message.clear();
+                            }
+                            current_role = "assistant";
+                        }
+                        if !current_message.is_empty() && !msg.content.contains("<tool>") {
+                            current_message.push_str("\n\n");
+                        }
+                        current_message.push_str(&msg.content);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Only add remaining message if it's not an assistant message
+        if !current_message.is_empty() && current_role != "assistant" {
+            filtered_messages.push(serde_json::json!({
+                "role": current_role,
+                "content": current_message
+            }));
+        }
 
         let tools = vec![
             serde_json::json!({
@@ -368,21 +399,24 @@ Remember to:
                                                 }
                                                 Some("content_block_stop") => {
                                                     if let Some((id, name, json_str, pending_text)) = state.take_json() {
-                                                        let tool_result = execute_tool(&id, &name, &json_str).await.unwrap_or_else(|e| {
-                                                            let error_result = serde_json::json!({
-                                                                "type": "tool_result",
-                                                                "tool_use_id": id,
-                                                                "content": [{
-                                                                    "type": "text",
-                                                                    "text": format!("Error executing tool: {}", e)
-                                                                }],
-                                                                "is_error": true
-                                                            });
-                                                            error_result.to_string()
-                                                        });
-                                                        result.push_str(&tool_result);
-                                                        if !pending_text.is_empty() {
-                                                            result.push_str(&pending_text);
+                                                        match execute_tool(&id, &name, &json_str).await {
+                                                            Ok((tool_result, should_continue)) => {
+                                                                result.push_str(&tool_result);
+                                                                if !pending_text.is_empty() {
+                                                                    result.push_str(&pending_text);
+                                                                }
+                                                                if should_continue {
+                                                                    result.push_str("\n\n<continue>true</continue>");
+                                                                    let text = state.take_text();
+                                                                    if !text.is_empty() {
+                                                                        result.push_str(&text);
+                                                                    }
+                                                                    return Some((Ok(result), (response, state)));
+                                                                }
+                                                            }
+                                                            Err(e) => {
+                                                                result.push_str(&format!("\n\n<tool>{}</tool>\nError: {}", name, e));
+                                                            }
                                                         }
                                                         state = StreamState::Normal {
                                                             buffer: String::new(),
@@ -424,7 +458,7 @@ Remember to:
                     }
                 }
             })
-            .filter(|result| futures::future::ready(!matches!(result, Ok(ref s) if s.is_empty()))),
+            .filter(|result: &Result<String, LLMServiceError>| futures::future::ready(!matches!(result, Ok(ref s) if s.is_empty()))),
         )
     }
 }

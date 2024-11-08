@@ -13,9 +13,23 @@ use crate::handlers::{
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, Scope};
+use log::info;
 
 pub fn configure_routes() -> Scope {
+    info!("Configuring routes");
     web::scope("")
+        .service(
+            web::scope("/computer-use") // Changed back to /computer-use since nginx handles /api
+                .wrap(Auth)
+                .route(
+                    "/chat",
+                    web::post().to(computer_use_chat::computer_use_chat),
+                )
+                .route(
+                    "/screenshots/{filename}",
+                    web::get().to(computer_use_chat::serve_screenshot),
+                ),
+        )
         .service(
             web::scope("/filesystem")
                 .route("", web::get().to(worker::list_filesystem))
@@ -161,9 +175,5 @@ pub fn configure_routes() -> Scope {
                     web::delete().to(delete_user_llm_config),
                 ),
         )
-        .service(web::scope("/computer-use").wrap(Auth).route(
-            "/chat",
-            web::post().to(computer_use_chat::computer_use_chat),
-        ))
         .service(temp_image::get_temp_image)
 }
