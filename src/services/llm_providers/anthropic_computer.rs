@@ -74,7 +74,22 @@ impl StreamState {
             None
         }
     }
+
+    fn new_message(&mut self) -> bool {
+        match self {
+            StreamState::Normal { buffer, .. } => !buffer.is_empty(),
+            StreamState::CollectingJson { pending_text, .. } => !pending_text.is_empty(),
+        }
+    }
+
+    fn is_complete(&self) -> bool {
+        match self {
+            StreamState::Normal { buffer, .. } => !buffer.is_empty(),
+            StreamState::CollectingJson { .. } => false,
+        }
+    }
 }
+
 async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<(String, bool), String> {
     let tool_input: Value =
         serde_json::from_str(json_str).map_err(|e| format!("Failed to parse tool input: {}", e))?;
@@ -152,6 +167,7 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<(String, b
                     if !text.is_empty() {
                         text.push_str("\n");
                     }
+                    text.push_str("Output:\n");
                     text.push_str(stdout_str);
                 }
             }
@@ -163,7 +179,7 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<(String, b
                     if !text.is_empty() {
                         text.push_str("\n");
                     }
-                    text.push_str("Error: ");
+                    text.push_str("Error:\n");
                     text.push_str(stderr_str);
                 }
             }
@@ -187,6 +203,9 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<(String, b
         }
 
         result = format!("\n\n<tool>{}</tool>\n{}", name, text);
+        if should_continue {
+            result.push_str("\n\n<continue>true</continue>");
+        }
         return Ok((result, should_continue));
     }
 
@@ -209,57 +228,34 @@ impl LLMProviderTrait for AnthropicComputerProvider {
             })?
             .to_string();
 
-        // Process messages to combine assistant messages with their tool results
+        // Process messages to maintain the complete conversation history
         let mut filtered_messages = Vec::new();
-        let mut current_message = String::new();
-        let mut current_role = "";
 
         for msg in messages {
             match msg.role.as_str() {
                 "user" => {
-                    // If we have a pending message, add it
-                    if !current_message.is_empty() {
-                        filtered_messages.push(serde_json::json!({
-                            "role": current_role,
-                            "content": current_message
-                        }));
-                        current_message.clear();
-                    }
-                    // Add user message
+                    // Add user message directly
                     filtered_messages.push(serde_json::json!({
                         "role": "user",
                         "content": msg.content
                     }));
-                    current_role = "user";
                 }
-                "assistant" | "system" => {
-                    if msg.role == "assistant" || msg.content.contains("<tool>") {
-                        if current_role != "assistant" {
-                            if !current_message.is_empty() {
-                                filtered_messages.push(serde_json::json!({
-                                    "role": current_role,
-                                    "content": current_message
-                                }));
-                                current_message.clear();
-                            }
-                            current_role = "assistant";
-                        }
-                        if !current_message.is_empty() && !msg.content.contains("<tool>") {
-                            current_message.push_str("\n\n");
-                        }
-                        current_message.push_str(&msg.content);
-                    }
+                "assistant" => {
+                    // Add assistant message directly
+                    filtered_messages.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": msg.content
+                    }));
+                }
+                "system" => {
+                    // Add system message directly
+                    filtered_messages.push(serde_json::json!({
+                        "role": "system",
+                        "content": msg.content
+                    }));
                 }
                 _ => {}
             }
-        }
-
-        // Only add remaining message if it's not an assistant message
-        if !current_message.is_empty() && current_role != "assistant" {
-            filtered_messages.push(serde_json::json!({
-                "role": current_role,
-                "content": current_message
-            }));
         }
 
         let tools = vec![
@@ -382,8 +378,9 @@ Remember to:
                                                     if let Some(content_block) = json["content_block"].as_object() {
                                                         if content_block["type"] == "tool_use" {
                                                             if let (Some(id), Some(name)) = (content_block["id"].as_str(), content_block["name"].as_str()) {
-                                                                let text = state.take_text();
-                                                                if !text.is_empty() {
+                                                                // Only emit text if we have accumulated some
+                                                                if state.new_message() {
+                                                                    let text = state.take_text();
                                                                     result.push_str(&text);
                                                                 }
                                                                 state = StreamState::CollectingJson {
@@ -400,29 +397,32 @@ Remember to:
                                                 Some("content_block_stop") => {
                                                     if let Some((id, name, json_str, pending_text)) = state.take_json() {
                                                         match execute_tool(&id, &name, &json_str).await {
-                                                            Ok((tool_result, should_continue)) => {
+                                                            Ok((tool_result, _)) => {
                                                                 result.push_str(&tool_result);
                                                                 if !pending_text.is_empty() {
                                                                     result.push_str(&pending_text);
                                                                 }
-                                                                if should_continue {
-                                                                    result.push_str("\n\n<continue>true</continue>");
-                                                                    let text = state.take_text();
-                                                                    if !text.is_empty() {
-                                                                        result.push_str(&text);
-                                                                    }
-                                                                    return Some((Ok(result), (response, state)));
-                                                                }
+                                                                state = StreamState::Normal {
+                                                                    buffer: String::new(),
+                                                                    partial_line: String::new(),
+                                                                };
                                                             }
                                                             Err(e) => {
                                                                 result.push_str(&format!("\n\n<tool>{}</tool>\nError: {}", name, e));
+                                                                state = StreamState::Normal {
+                                                                    buffer: String::new(),
+                                                                    partial_line: String::new(),
+                                                                };
                                                             }
                                                         }
-                                                        state = StreamState::Normal {
-                                                            buffer: String::new(),
-                                                            partial_line: String::new(),
-                                                        };
                                                     }
+                                                }
+                                                Some("message_stop") => {
+                                                    let text = state.take_text();
+                                                    if !text.is_empty() {
+                                                        result.push_str(&text);
+                                                    }
+                                                    return Some((Ok(result), (response, state)));
                                                 }
                                                 _ => {}
                                             }
@@ -439,8 +439,12 @@ Remember to:
                                 state.append_partial(&current);
                             }
 
+                            // Only emit if we have a complete message or tool result
                             if !result.is_empty() {
                                 Some((Ok(result), (response, state)))
+                            } else if state.is_complete() {
+                                let text = state.take_text();
+                                Some((Ok(text), (response, state)))
                             } else {
                                 Some((Ok(String::new()), (response, state)))
                             }

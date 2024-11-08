@@ -8,6 +8,9 @@ export interface ComputerUseMessage {
 export interface ToolOutput {
     error?: string;
     success: boolean;
+    stdout?: string;
+    stderr?: string;
+    text?: string;
     coordinate?: {
         x: number;
         y: number;
@@ -36,10 +39,18 @@ class ComputerUseService {
     private controller: AbortController | null = null;
 
     private filterMessagesForApi(messages: ComputerUseMessage[]): ComputerUseMessage[] {
-        // Remove duplicate consecutive messages
+        // Keep all messages in order, including tool results and continue messages
         return messages.filter((msg, index) => {
             if (index === 0) return true;
             const prevMsg = messages[index - 1];
+
+            // Keep all user messages
+            if (msg.role === 'user') return true;
+
+            // Keep assistant messages that are tool results
+            if (msg.role === 'assistant' && msg.content.includes('<tool>')) return true;
+
+            // Keep assistant messages that aren't duplicates
             return !(msg.role === prevMsg.role && msg.content === prevMsg.content);
         });
     }
@@ -159,11 +170,32 @@ class ComputerUseService {
     }
 
     shouldContinue(content: string): boolean {
-        return content.includes('<continue>true</continue>');
+        // Check for explicit continue flag
+        if (content.includes('<continue>true</continue>')) {
+            return true;
+        }
+
+        // Check for tool result success
+        const toolResult = this.parseToolResult(content);
+        if (toolResult?.output?.success) {
+            return true;
+        }
+
+        return false;
     }
 
     isToolResult(content: string): boolean {
-        if (this.shouldContinue(content)) return true;
+        // Check for tool tags
+        if (content.includes('<tool>') && content.includes('</tool>')) {
+            return true;
+        }
+
+        // Check for continue flag
+        if (this.shouldContinue(content)) {
+            return true;
+        }
+
+        // Check for tool result object
         const toolResult = this.parseToolResult(content);
         if (!toolResult) return false;
         return toolResult.type === 'tool_result' || !!toolResult.tool_use_id;

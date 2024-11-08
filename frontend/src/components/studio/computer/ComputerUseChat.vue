@@ -13,6 +13,9 @@
                     <div v-if="getImageData(message.content)" class="mt-2">
                         <img :src="getImageData(message.content)" alt="Screenshot" class="max-w-full rounded-lg" />
                     </div>
+                    <div v-if="getToolOutput(message.content)" class="mt-2 p-2 bg-gray-800 rounded">
+                        <pre class="whitespace-pre-wrap text-green-400">{{ getToolOutput(message.content) }}</pre>
+                    </div>
                     <div v-if="getToolError(message.content)" class="mt-2 text-red-400">
                         {{ getToolError(message.content) }}
                     </div>
@@ -73,6 +76,8 @@ const getTextContent = (content: string): string => {
     content = content.replace(/<img>.*?<\/img>/g, '');
     // Remove <continue> tags and their content
     content = content.replace(/<continue>.*?<\/continue>/g, '');
+    // Remove <tool> tags but keep content
+    content = content.replace(/<\/?tool>/g, '');
 
     return content.trim();
 }
@@ -83,6 +88,30 @@ const getImageData = (content: string): string | undefined => {
         return match[1];
     }
     return undefined;
+}
+
+const getToolOutput = (content: string): string | undefined => {
+    const toolResult = ComputerUseService.parseToolResult(content);
+    if (!toolResult) return undefined;
+
+    let output = '';
+
+    // Handle stdout/stderr for bash commands
+    if (toolResult.output?.stdout) {
+        output += toolResult.output.stdout;
+    }
+    if (toolResult.output?.stderr) {
+        if (output) output += '\n';
+        output += 'Error: ' + toolResult.output.stderr;
+    }
+
+    // Handle other tool outputs
+    if (toolResult.output?.text) {
+        if (output) output += '\n';
+        output += toolResult.output.text;
+    }
+
+    return output || undefined;
 }
 
 const getToolError = (content: string): string | undefined => {
@@ -123,15 +152,20 @@ const processStream = async (stream: ReadableStream<Uint8Array>): Promise<boolea
 
             // Check if we have a complete message
             if (ComputerUseService.isToolResult(buffer)) {
-                // Add the tool result to the current assistant message
-                if (currentAssistantMessage.value) {
-                    currentAssistantMessage.value.content += '\n\n' + buffer;
-                    currentAssistantMessage.value.renderedContent = renderMarkdown(currentAssistantMessage.value.content);
-                }
+                // Create a new message for the tool result
+                const newMessage: Message = {
+                    role: 'assistant',
+                    content: buffer,
+                    renderedContent: renderMarkdown(buffer)
+                };
+                messages.value.push(newMessage);
                 shouldContinue = ComputerUseService.shouldContinue(buffer);
+
+                // Clear current assistant message since we've added a new one
+                currentAssistantMessage.value = null;
                 break;
             } else if (currentAssistantMessage.value) {
-                // Update the current assistant message
+                // Accumulate text in current message
                 currentAssistantMessage.value.content = buffer;
                 currentAssistantMessage.value.renderedContent = renderMarkdown(buffer);
             } else {
@@ -159,7 +193,7 @@ const processStream = async (stream: ReadableStream<Uint8Array>): Promise<boolea
     return shouldContinue;
 }
 
-const startConversationLoop = async (userMsg: Message) => {
+const startConversationLoop = async () => {
     if (isProcessing.value) return;
     isProcessing.value = true;
     currentAssistantMessage.value = null;
@@ -169,22 +203,18 @@ const startConversationLoop = async (userMsg: Message) => {
         while (continueLoop && !error.value && isProcessing.value) {
             // Get messages up to the current point
             const apiMessages = messages.value.slice();
-            if (currentAssistantMessage.value) {
-                apiMessages.push(currentAssistantMessage.value);
-            } else {
-                apiMessages.push(userMsg);
-            }
 
             const stream = await ComputerUseService.chat(apiMessages);
             continueLoop = await processStream(stream);
 
             if (continueLoop) {
-                // Add continue message
-                apiMessages.push({
+                // Add continue message to both API messages and visible messages
+                const continueMsg: Message = {
                     role: 'user',
                     content: 'continue',
                     renderedContent: 'continue'
-                });
+                };
+                messages.value.push(continueMsg);
                 await delay(100);
             }
         }
@@ -223,8 +253,8 @@ const handleAction = async () => {
         currentMessage.value = '';
         await scrollToBottom();
 
-        // Start conversation loop with this user message
-        await startConversationLoop(userMsg);
+        // Start conversation loop
+        await startConversationLoop();
     } catch (error: any) {
         console.error('Error in computer use chat:', error);
         const errorMessage = error?.response?.data?.message || error?.message || 'An error occurred while processing your message. Please try again.';
