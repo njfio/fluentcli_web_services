@@ -15,6 +15,8 @@ export interface ToolOutput {
         x: number;
         y: number;
     };
+    image?: string;
+    screenshot?: string;
 }
 
 export interface ToolResult {
@@ -39,10 +41,43 @@ class ComputerUseService {
     private controller: AbortController | null = null;
 
     private filterMessagesForApi(messages: ComputerUseMessage[]): ComputerUseMessage[] {
-        // Keep all messages in order, including tool results and continue messages
-        return messages.filter((msg, index) => {
+        // Find the last screenshot message
+        let lastScreenshotIndex = -1;
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            if (msg.role === 'assistant' && msg.content.includes('<img>')) {
+                lastScreenshotIndex = i;
+                break;
+            }
+        }
+
+        // Filter and transform messages
+        return messages.map((msg, index) => {
+            // For assistant messages, handle screenshots
+            if (msg.role === 'assistant') {
+                let content = msg.content;
+                const imgMatch = content.match(/<img>(.*?)<\/img>/);
+                if (imgMatch) {
+                    // Only keep the most recent screenshot
+                    if (index !== lastScreenshotIndex) {
+                        content = content.replace(/<img>.*?<\/img>/, '');
+                    } else {
+                        // Replace base64 data with filename reference
+                        const toolResult = this.parseToolResult(content);
+                        if (toolResult?.output?.screenshot) {
+                            content = content.replace(
+                                /<img>.*?<\/img>/,
+                                `<img>screenshot:${toolResult.output.screenshot}</img>`
+                            );
+                        }
+                    }
+                }
+                return { role: msg.role, content };
+            }
+            return msg;
+        }).filter((msg, index, arr) => {
             if (index === 0) return true;
-            const prevMsg = messages[index - 1];
+            const prevMsg = arr[index - 1];
 
             // Keep all user messages
             if (msg.role === 'user') return true;
@@ -181,6 +216,11 @@ class ComputerUseService {
             return true;
         }
 
+        // Check for message_stop
+        if (content.includes('"type":"message_stop"')) {
+            return false;
+        }
+
         return false;
     }
 
@@ -192,6 +232,11 @@ class ComputerUseService {
 
         // Check for continue flag
         if (this.shouldContinue(content)) {
+            return true;
+        }
+
+        // Check for message_stop
+        if (content.includes('"type":"message_stop"')) {
             return true;
         }
 

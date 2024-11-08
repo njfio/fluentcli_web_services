@@ -11,7 +11,8 @@
                         {{ getTextContent(message.content) }}
                     </div>
                     <div v-if="getImageData(message.content)" class="mt-2">
-                        <img :src="getImageData(message.content)" alt="Screenshot" class="max-w-full rounded-lg" />
+                        <img :src="getImageData(message.content)" alt="Screenshot" class="max-w-full rounded-lg"
+                            @error="handleImageError" />
                     </div>
                     <div v-if="getToolOutput(message.content)" class="mt-2 p-2 bg-gray-800 rounded">
                         <pre class="whitespace-pre-wrap text-green-400">{{ getToolOutput(message.content) }}</pre>
@@ -48,6 +49,7 @@ import { ref, nextTick, onBeforeUnmount, computed } from 'vue'
 import ComputerUseService, { ComputerUseMessage } from '../../../services/ComputerUseService'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { axiosInstance } from '../../../services/apiClient'
 
 interface Message extends ComputerUseMessage {
     renderedContent: string;
@@ -84,10 +86,24 @@ const getTextContent = (content: string): string => {
 
 const getImageData = (content: string): string | undefined => {
     const match = content.match(/<img>(.*?)<\/img>/);
-    if (match) {
-        return match[1];
+    if (!match) return undefined;
+
+    const imageData = match[1];
+
+    // Check if it's a screenshot reference
+    if (imageData.startsWith('screenshot:')) {
+        const filename = imageData.replace('screenshot:', '');
+        const baseUrl = axiosInstance.defaults.baseURL?.replace(/\/$/, '');
+        return `${baseUrl}/computer-use/screenshots/${filename}`;
     }
-    return undefined;
+
+    // Otherwise assume it's base64 data
+    return imageData;
+}
+
+const handleImageError = (event: Event) => {
+    const img = event.target as HTMLImageElement;
+    error.value = `Failed to load image: ${img.src}`;
 }
 
 const getToolOutput = (content: string): string | undefined => {
@@ -163,7 +179,7 @@ const processStream = async (stream: ReadableStream<Uint8Array>): Promise<boolea
 
                 // Clear current assistant message since we've added a new one
                 currentAssistantMessage.value = null;
-                break;
+                buffer = '';
             } else if (currentAssistantMessage.value) {
                 // Accumulate text in current message
                 currentAssistantMessage.value.content = buffer;

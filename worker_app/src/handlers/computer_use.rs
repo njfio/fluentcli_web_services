@@ -25,6 +25,7 @@ pub struct ComputerRequest {
     pub action: String,
     pub x: Option<i32>,
     pub y: Option<i32>,
+    pub coordinate: Option<Vec<i32>>,
     pub text: Option<String>,
     pub key: Option<String>,
 }
@@ -51,7 +52,8 @@ pub async fn handle_bash(req: web::Json<BashRequest>) -> Result<HttpResponse, Er
         "output": {
             "stdout": stdout,
             "stderr": stderr,
-            "status": output.status.code()
+            "status": output.status.code(),
+            "success": output.status.success()
         }
     })))
 }
@@ -213,47 +215,49 @@ pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResp
 
     match req.action.as_str() {
         "mouse_move" => {
-            if let (Some(x), Some(y)) = (req.x, req.y) {
-                if x < 0 || x >= display_width || y < 0 || y >= display_height {
-                    return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-                        "name": "computer",
-                        "action": "mouse_move",
-                        "output": {
-                            "success": false,
-                            "error": format!("Coordinates ({}, {}) out of bounds. Display size is {}x{}", x, y, display_width, display_height)
-                        }
-                    })));
-                }
-
-                let output = Command::new("xdotool")
-                    .args(["mousemove", &x.to_string(), &y.to_string()])
-                    .output()
-                    .map_err(|e| {
-                        error!("Failed to execute xdotool: {}", e);
-                        actix_web::error::ErrorInternalServerError(e)
-                    })?;
-
-                Ok(HttpResponse::Ok().json(serde_json::json!({
-                    "name": "computer",
-                    "action": "mouse_move",
-                    "output": {
-                        "coordinates": {
-                            "x": x,
-                            "y": y
-                        },
-                        "success": output.status.success()
-                    }
-                })))
+            let (x, y) = if let Some((x, y)) = req.get_coordinates() {
+                (x, y)
             } else {
-                Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
                     "name": "computer",
                     "action": "mouse_move",
                     "output": {
                         "success": false,
-                        "error": "Missing coordinates for mouse_move action. Required: x and y"
+                        "error": "Missing coordinates for mouse_move action. Required: x and y or coordinate array"
                     }
-                })))
+                })));
+            };
+
+            if x < 0 || x >= display_width || y < 0 || y >= display_height {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "name": "computer",
+                    "action": "mouse_move",
+                    "output": {
+                        "success": false,
+                        "error": format!("Coordinates ({}, {}) out of bounds. Display size is {}x{}", x, y, display_width, display_height)
+                    }
+                })));
             }
+
+            let output = Command::new("xdotool")
+                .args(["mousemove", &x.to_string(), &y.to_string()])
+                .output()
+                .map_err(|e| {
+                    error!("Failed to execute xdotool: {}", e);
+                    actix_web::error::ErrorInternalServerError(e)
+                })?;
+
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "name": "computer",
+                "action": "mouse_move",
+                "output": {
+                    "coordinates": {
+                        "x": x,
+                        "y": y
+                    },
+                    "success": output.status.success()
+                }
+            })))
         }
         "left_click" => {
             let output = Command::new("xdotool")
@@ -324,47 +328,49 @@ pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResp
             })))
         }
         "left_click_drag" => {
-            if let (Some(x), Some(y)) = (req.x, req.y) {
-                if x < 0 || x >= display_width || y < 0 || y >= display_height {
-                    return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-                        "name": "computer",
-                        "action": "left_click_drag",
-                        "output": {
-                            "success": false,
-                            "error": format!("Coordinates ({}, {}) out of bounds. Display size is {}x{}", x, y, display_width, display_height)
-                        }
-                    })));
-                }
-
-                let output = Command::new("xdotool")
-                    .args(["mousedown", "1", "mousemove", &x.to_string(), &y.to_string(), "mouseup", "1"])
-                    .output()
-                    .map_err(|e| {
-                        error!("Failed to execute xdotool: {}", e);
-                        actix_web::error::ErrorInternalServerError(e)
-                    })?;
-
-                Ok(HttpResponse::Ok().json(serde_json::json!({
-                    "name": "computer",
-                    "action": "left_click_drag",
-                    "output": {
-                        "coordinates": {
-                            "x": x,
-                            "y": y
-                        },
-                        "success": output.status.success()
-                    }
-                })))
+            let (x, y) = if let Some((x, y)) = req.get_coordinates() {
+                (x, y)
             } else {
-                Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
                     "name": "computer",
                     "action": "left_click_drag",
                     "output": {
                         "success": false,
-                        "error": "Missing coordinates for left_click_drag action. Required: x and y"
+                        "error": "Missing coordinates for left_click_drag action. Required: x and y or coordinate array"
                     }
-                })))
+                })));
+            };
+
+            if x < 0 || x >= display_width || y < 0 || y >= display_height {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "name": "computer",
+                    "action": "left_click_drag",
+                    "output": {
+                        "success": false,
+                        "error": format!("Coordinates ({}, {}) out of bounds. Display size is {}x{}", x, y, display_width, display_height)
+                    }
+                })));
             }
+
+            let output = Command::new("xdotool")
+                .args(["mousedown", "1", "mousemove", &x.to_string(), &y.to_string(), "mouseup", "1"])
+                .output()
+                .map_err(|e| {
+                    error!("Failed to execute xdotool: {}", e);
+                    actix_web::error::ErrorInternalServerError(e)
+                })?;
+
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "name": "computer",
+                "action": "left_click_drag",
+                "output": {
+                    "coordinates": {
+                        "x": x,
+                        "y": y
+                    },
+                    "success": output.status.success()
+                }
+            })))
         }
         "type" => {
             if let Some(text) = &req.text {
@@ -410,6 +416,24 @@ pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResp
                     "action": "key",
                     "output": {
                         "key": key,
+                        "success": output.status.success()
+                    }
+                })))
+            } else if let Some(text) = &req.text {
+                // Support text field for key action as well
+                let output = Command::new("xdotool")
+                    .args(["key", text])
+                    .output()
+                    .map_err(|e| {
+                        error!("Failed to execute xdotool: {}", e);
+                        actix_web::error::ErrorInternalServerError(e)
+                    })?;
+
+                Ok(HttpResponse::Ok().json(serde_json::json!({
+                    "name": "computer",
+                    "action": "key",
+                    "output": {
+                        "key": text,
                         "success": output.status.success()
                     }
                 })))
@@ -482,5 +506,23 @@ pub async fn handle_computer(req: web::Json<ComputerRequest>) -> Result<HttpResp
                 "error": format!("Unknown action: {}. Supported actions are 'key', 'type', 'mouse_move', 'left_click', 'left_click_drag', 'right_click', 'middle_click', 'double_click', 'screenshot', 'cursor_position'", req.action)
             }
         }))),
+    }
+}
+
+impl ComputerRequest {
+    fn get_coordinates(&self) -> Option<(i32, i32)> {
+        // First try x,y fields
+        if let (Some(x), Some(y)) = (self.x, self.y) {
+            return Some((x, y));
+        }
+
+        // Then try coordinate array
+        if let Some(coord) = &self.coordinate {
+            if coord.len() >= 2 {
+                return Some((coord[0], coord[1]));
+            }
+        }
+
+        None
     }
 }

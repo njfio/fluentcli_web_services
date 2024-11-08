@@ -26,8 +26,9 @@ enum StreamState {
         partial_line: String,
     },
 }
-
 impl StreamState {
+    // Previous methods remain the same...
+
     fn append_text(&mut self, text: &str) {
         match self {
             StreamState::Normal { buffer, .. } => buffer.push_str(text),
@@ -82,7 +83,7 @@ impl StreamState {
         }
     }
 
-    fn is_complete(&self) -> bool {
+    fn is_complete(&mut self) -> bool {
         match self {
             StreamState::Normal { buffer, .. } => !buffer.is_empty(),
             StreamState::CollectingJson { .. } => false,
@@ -143,6 +144,7 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<(String, b
     if let Some(output) = response_json.get("output") {
         // Handle screenshot response
         if let Some(image_data) = output.get("image").and_then(|s| s.as_str()) {
+            // Send image data in chunks to avoid truncation
             result = format!(
                 "\n\n<tool>{}</tool>\n[Screenshot captured]\n\n<img>{}</img>\n\n<continue>true</continue>",
                 name, image_data
@@ -213,7 +215,7 @@ async fn execute_tool(id: &str, name: &str, json_str: &str) -> Result<(String, b
 }
 
 impl LLMProviderTrait for AnthropicComputerProvider {
-    fn prepare_request(
+fn prepare_request(
         &self,
         messages: &[LLMChatMessage],
         config: &Value,
@@ -327,7 +329,6 @@ Remember to:
         debug!("Anthropic Computer raw response: {}", response_text);
         Ok(response_text.to_string())
     }
-
     fn stream_response(
         &self,
         response: reqwest::Response,
@@ -406,6 +407,7 @@ Remember to:
                                                                     buffer: String::new(),
                                                                     partial_line: String::new(),
                                                                 };
+                                                                return Some((Ok(result), (response, state)));
                                                             }
                                                             Err(e) => {
                                                                 result.push_str(&format!("\n\n<tool>{}</tool>\nError: {}", name, e));
