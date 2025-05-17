@@ -43,6 +43,14 @@ impl JobService {
             .map_err(AppError::DatabaseError)
     }
 
+    pub fn fetch_scheduled_jobs(pool: &DbPool) -> Result<Vec<Job>, AppError> {
+        use crate::schema::jobs::dsl::*;
+        let conn = &mut pool.get()?;
+        jobs.filter(status.eq("scheduled"))
+            .load::<Job>(conn)
+            .map_err(AppError::DatabaseError)
+    }
+
     pub fn get_job(pool: &DbPool, job_id: Uuid, user_id: Uuid) -> Result<Job, AppError> {
         use crate::schema::jobs::dsl::*;
         let conn = &mut pool.get()?;

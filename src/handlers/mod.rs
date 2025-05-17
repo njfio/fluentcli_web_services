@@ -18,6 +18,7 @@ pub mod temp_image;
 pub mod user;
 pub mod user_llm_config;
 pub mod worker;
+pub mod metrics;
 
 // Re-export all the modules through the chat module
 pub use self::chat::*;
