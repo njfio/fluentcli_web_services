@@ -1,4 +1,4 @@
-use crate::db::db::DbPool;
+use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::attachment::{Attachment, AttachmentType};
 use crate::models::conversation::Conversation;

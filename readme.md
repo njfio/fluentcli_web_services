@@ -66,19 +66,33 @@ The platform consists of three main components:
    ```
 
 2. Set up environment variables:
-   * Copy `.env.example` to `.env`
-   * Configure required API keys and settings
-   * Set up storage paths for attachments and temporary files
+   * Run `./scripts/setup_env.sh` to create a `.env` file from `.env.example`
+   * Edit `.env` to add your API keys and any custom paths
 
 3. Build and start the application using Docker Compose:
 
    ```bash
-   docker-compose up -d
+   ./scripts/start_dev.sh
    ```
 
 4. Access the application:
    * Desktop application: The Tauri application will be launched automatically.
    * Web application: Open your browser and navigate to `http://localhost:1420`.
+
+## Development Environment
+
+The `scripts` directory contains helper scripts for local development:
+
+```bash
+./scripts/setup_env.sh  # create the .env file
+./scripts/start_dev.sh  # build and start Docker containers
+```
+
+After the containers start you can follow their logs with:
+
+```bash
+docker-compose logs -f
+```
 
 ## Usage
 
@@ -233,6 +247,12 @@ This command will execute all the test scripts, including:
 * And more...
 
 Ensure all tests pass before submitting pull requests or deploying to production.
+
+## Metrics and Environment
+
+The backend exposes a Prometheus-compatible metrics endpoint at `/metrics`.
+Set the `APP_ENV` environment variable to `development` or `production` to
+control environment-specific behavior. The current mode is printed on startup.
 
 ## Contributing
 

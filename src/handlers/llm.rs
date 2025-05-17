@@ -1,4 +1,4 @@
-use crate::db::db::DbPool;
+use crate::db::DbPool;
 use crate::error::AppError;
 use crate::handlers::llm_chat::{llm_chat_handler, LLMChatRequest};
 use crate::handlers::stream_chat::{stream_chat, StreamChatRequest};

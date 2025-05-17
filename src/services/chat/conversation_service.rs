@@ -1,4 +1,4 @@
-use crate::db::db::DbPool;
+use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::conversation::{Conversation, NewConversation};
 use crate::schema::conversations;
