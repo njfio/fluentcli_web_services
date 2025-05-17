@@ -2,9 +2,8 @@
 frontend/node_modules
 frontend/dist
 
-# Ignore debug build artifacts but allow release artifacts
-**/target/debug
-!**/target/release
+# Ignore build artifacts
+**/target
 
 # Rust/Cargo related
 **/Cargo.lock
