@@ -8,7 +8,7 @@ use crate::handlers::llm_provider::{
     update_user_llm_config,
 };
 use crate::handlers::{
-    amber_store, api_key, attachment, configuration, docker_file, fluentcli, job, llm, pipeline,
+    amber_store, api_key, agent, attachment, configuration, docker_file, fluentcli, job, llm, pipeline,
     secure_vault, stream_chat, temp_image, user, worker,
 };
 use crate::utils::auth::Auth;
@@ -155,6 +155,14 @@ pub fn configure_routes() -> Scope {
                     "/user-configs/{id}",
                     web::delete().to(delete_user_llm_config),
                 ),
+        )
+        .service(
+            web::scope("/agents")
+                .route("", web::post().to(agent::create_agent))
+                .route("", web::get().to(agent::list_agents))
+                .route("/{id}", web::get().to(agent::get_agent))
+                .route("/{id}", web::put().to(agent::update_agent))
+                .route("/{id}", web::delete().to(agent::delete_agent)),
         )
         .service(temp_image::get_temp_image)
 }
