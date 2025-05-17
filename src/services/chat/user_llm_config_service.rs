@@ -1,4 +1,4 @@
-use crate::db::db::DbPool;
+use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::user_llm_config::{NewUserLLMConfig, UserLLMConfig};
 use crate::schema::user_llm_configs;

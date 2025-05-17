@@ -1,4 +1,12 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Use runtime configuration if available, otherwise fall back to environment variables
+export const API_URL = (window as any).API_URL || import.meta.env.VITE_API_URL || 'http://localhost';
+
+// Hardcoded fallback to prevent 8001 port usage
+if (API_URL.includes('8001')) {
+  console.warn('Detected port 8001 in API_URL, replacing with default port');
+  // Replace any occurrence of 8001 with empty string (will use default port)
+  (window as any).API_URL = API_URL.replace(':8001', '');
+}
 
 export const PROVIDER_TYPES = {
     OPENAI: 'gpt',

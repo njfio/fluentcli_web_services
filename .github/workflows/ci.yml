@@ -1,0 +1,24 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+      - name: Install frontend deps
+        run: |
+          cd frontend && npm ci
+      - name: Run Rust tests
+        run: cargo test --verbose
+      - name: Build frontend
+        run: |
+          cd frontend && npm run build
