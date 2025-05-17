@@ -6,7 +6,7 @@ use mime_guess::from_path;
 use std::fs;
 use uuid::Uuid;
 
-use crate::db::db::DbPool;
+use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::attachment::Attachment;
 use crate::schema::attachments;
