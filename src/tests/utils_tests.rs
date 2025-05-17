@@ -5,6 +5,7 @@ use uuid::Uuid;
 use std::env;
 
 #[test]
+/// ```
 fn test_password_hashing_roundtrip() {
     let password = "test_password";
     let hash = hash_password(password).expect("hashing failed");
@@ -12,6 +13,17 @@ fn test_password_hashing_roundtrip() {
 }
 
 #[test]
+/// Tests that data encrypted with `encrypt_data` can be decrypted back to its original value using `decrypt_data`.
+///
+/// # Examples
+///
+/// ```
+/// env::set_var("ENCRYPTION_KEY", "00000000000000000000000000000000ffffffffffffffffffffffffffffffff");
+/// let data = "secret";
+/// let encrypted = encrypt_data(data);
+/// let decrypted = decrypt_data(&encrypted);
+/// assert_eq!(decrypted, data);
+/// ```
 fn test_encryption_roundtrip() {
     env::set_var("ENCRYPTION_KEY", "00000000000000000000000000000000ffffffffffffffffffffffffffffffff");
     let data = "secret";
@@ -21,6 +33,7 @@ fn test_encryption_roundtrip() {
 }
 
 #[test]
+/// ```
 fn test_secure_key_hashing() {
     let key = "mykey";
     let hash = hash_secure_key(key).expect("hashing failed");
