@@ -14,6 +14,7 @@ pub mod pipeline_service;
 pub mod secure_vault_service;
 pub mod user_service;
 pub mod worker_service;
+pub mod agent_service;
 
 pub use amber_store_service::AmberStoreService;
 pub use api_key_service::ApiKeyService;
@@ -31,3 +32,4 @@ pub use pipeline_service::PipelineService;
 pub use secure_vault_service::SecureVaultService;
 pub use user_service::UserService;
 pub use worker_service::WorkerService;
+pub use agent_service::AgentService;
