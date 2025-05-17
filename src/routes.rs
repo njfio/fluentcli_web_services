@@ -9,7 +9,7 @@ use crate::handlers::llm_provider::{
 };
 use crate::handlers::{
     amber_store, api_key, attachment, configuration, docker_file, fluentcli, job, llm, pipeline,
-    secure_vault, stream_chat, temp_image, user, worker,
+    metrics, secure_vault, stream_chat, temp_image, user, worker,
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, Scope};
@@ -157,4 +157,5 @@ pub fn configure_routes() -> Scope {
                 ),
         )
         .service(temp_image::get_temp_image)
+        .route("/metrics", web::get().to(metrics::metrics))
 }

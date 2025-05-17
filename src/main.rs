@@ -6,6 +6,9 @@ mod routes;
 mod schema;
 mod services;
 mod utils;
+use handlers::metrics;
+use services::job_scheduler::JobScheduler;
+use crate::config::Config;
 use dotenv::dotenv;
 
 use actix_cors::Cors;
@@ -37,11 +40,16 @@ async fn main() -> std::io::Result<()> {
     );
     dotenv().ok();
     env_logger::init();
+    metrics::init_metrics();
+    let config = Config::from_env();
+    println!("Running in {} mode", config.environment);
 
     // Set up the database
     let pool = create_db_pool().expect("Failed to create database pool");
     setup_database(&pool).expect("Failed to set up database");
     println!("Database setup complete");
+
+    JobScheduler::start(pool.clone());
 
     HttpServer::new(move || {
         let cors = Cors::permissive().supports_credentials().max_age(3600);

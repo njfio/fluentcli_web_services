@@ -234,6 +234,12 @@ This command will execute all the test scripts, including:
 
 Ensure all tests pass before submitting pull requests or deploying to production.
 
+## Metrics and Environment
+
+The backend exposes a Prometheus-compatible metrics endpoint at `/metrics`.
+Set the `APP_ENV` environment variable to `development` or `production` to
+control environment-specific behavior. The current mode is printed on startup.
+
 ## Contributing
 
 Contributions are welcome! Please follow these steps to contribute:
