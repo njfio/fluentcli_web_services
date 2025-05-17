@@ -4,7 +4,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::db::db::DbPool;
+use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::api_key::ApiKey;
 use crate::services::api_key_service::ApiKeyService;

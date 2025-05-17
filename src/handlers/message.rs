@@ -1,4 +1,4 @@
-use crate::db::db::DbPool;
+use crate::db::DbPool;
 use crate::error::AppError;
 use crate::services::chat_service::ChatService;
 use actix_web::{web, HttpResponse};
