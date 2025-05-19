@@ -3,11 +3,11 @@ use std::io;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, Error, HttpServer};
 use dotenv::dotenv;
-use fluent_web_services::config::Config;
-use fluent_web_services::db::{create_db_pool, setup_database};
-use fluent_web_services::handlers::metrics;
-use fluent_web_services::routes::configure_routes;
-use fluent_web_services::services::job_scheduler::JobScheduler;
+use fws::config::Config;
+use fws::db::{create_db_pool, setup_database};
+use fws::handlers::metrics;
+use fws::routes::configure_routes;
+use fws::services::job_scheduler::JobScheduler;
 
 fn json_error_handler(
     err: actix_web::error::JsonPayloadError,

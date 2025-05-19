@@ -16,7 +16,7 @@ pub struct SecureVault {
 }
 
 #[derive(Insertable, Debug)]
-#[table_name = "secure_vaults"]
+#[diesel(table_name = secure_vaults)]
 pub struct NewSecureVault {
     pub user_id: Uuid,
     pub name: String,
@@ -30,7 +30,7 @@ pub struct NewSecureVaultPayload {
 }
 
 #[derive(AsChangeset, Deserialize)]
-#[table_name = "secure_vaults"]
+#[diesel(table_name = secure_vaults)]
 pub struct UpdateSecureVault {
     pub name: Option<String>,
     pub encrypted_data: Option<String>,
