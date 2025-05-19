@@ -1,0 +1,43 @@
+# Rust
+/target/
+**/target/
+Cargo.lock
+**/*.rs.bk
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+**/.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+/dist/
+**/dist/
+/build/
+**/build/
+
+# Node.js
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+.cursorignore
+compiled_output.txt
