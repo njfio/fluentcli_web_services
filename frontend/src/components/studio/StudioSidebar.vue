@@ -144,6 +144,26 @@ const UserLLMConfigIcon = defineComponent({
   },
 });
 
+const UnifiedLLMConfigIcon = defineComponent({
+  name: 'UnifiedLLMConfigIcon',
+  render() {
+    return h('svg', {
+      xmlns: 'http://www.w3.org/2000/svg',
+      fill: 'none',
+      viewBox: '0 0 24 24',
+      stroke: 'currentColor',
+      class: 'w-6 h-6',
+    }, [
+      h('path', {
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '2',
+        d: 'M13 10V3L4 14h7v7l9-11h-7z',
+      }),
+    ]);
+  },
+});
+
 const GalleryIcon = defineComponent({
   name: 'GalleryIcon',
   render() {
@@ -188,6 +208,7 @@ const mainMenuItems = [
   { label: 'API Keys', route: '/studio/apikeys', routeName: 'ApiKeys', icon: ApiKeyIcon },
   { label: 'LLM Providers', route: '/studio/llmproviders', routeName: 'LLMProviders', icon: LLMProviderIcon },
   { label: 'User LLM Configs', route: '/studio/userllmconfigs', routeName: 'UserLLMConfigs', icon: UserLLMConfigIcon },
+  { label: 'Unified LLM Config', route: '/studio/unifiedllmconfig', routeName: 'UnifiedLLMConfig', icon: UnifiedLLMConfigIcon },
 ];
 
 const settingsMenuItem = { label: 'Settings', route: '/studio/settings', routeName: 'Settings', icon: CogIcon };

@@ -10,6 +10,7 @@ pub mod job;
 pub mod llm;
 pub mod llm_chat;
 pub mod llm_provider;
+pub mod llm_template;
 pub mod message;
 pub mod pipeline;
 pub mod secure_vault;

@@ -14,5 +14,6 @@ pub mod worker;
 pub mod attachment;
 pub mod conversation;
 pub mod llm_provider;
+pub mod llm_template;
 pub mod message;
 pub mod user_llm_config;

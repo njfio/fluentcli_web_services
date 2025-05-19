@@ -144,6 +144,13 @@ interface ApiClient {
   getApiKey: (id: string) => Promise<AxiosResponse<any>>;
   updateApiKey: (id: string, key_value: string, description: string) => Promise<AxiosResponse<any>>;
   deleteApiKey: (id: string) => Promise<AxiosResponse<any>>;
+
+  // LLM Templates and Unified Config routes
+  getLLMTemplates: () => Promise<AxiosResponse<any>>;
+  getLLMTemplate: (id: string) => Promise<AxiosResponse<any>>;
+  createUnifiedLLMConfig: (configData: any) => Promise<AxiosResponse<any>>;
+  listUnifiedLLMConfigs: () => Promise<AxiosResponse<any>>;
+  deleteUnifiedLLMConfig: (id: string) => Promise<AxiosResponse<any>>;
 }
 
 const apiClient: ApiClient = {
@@ -254,6 +261,13 @@ const apiClient: ApiClient = {
   getApiKey: (id) => axiosInstance.get(`/api_keys/${id}`),
   updateApiKey: (id, key_value, description) => axiosInstance.put(`/api_keys/${id}`, { key_value, description }),
   deleteApiKey: (id) => axiosInstance.delete(`/api_keys/${id}`),
+
+  // LLM Templates and Unified Config routes
+  getLLMTemplates: () => axiosInstance.get('/llm/templates'),
+  getLLMTemplate: (id) => axiosInstance.get(`/llm/templates/${id}`),
+  createUnifiedLLMConfig: (configData) => axiosInstance.post('/llm/unified-configs', configData),
+  listUnifiedLLMConfigs: () => axiosInstance.get('/llm/unified-configs'),
+  deleteUnifiedLLMConfig: (id) => axiosInstance.delete(`/llm/unified-configs/${id}`),
 };
 
 export default apiClient;
