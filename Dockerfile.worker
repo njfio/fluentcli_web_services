@@ -31,12 +31,12 @@ RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/amber.yaml /.fluent/
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/example_configurations/*.json /.fluent/example_configurations/
 RUN cp /usr/local/cargo/git/checkouts/fluent_cli-*/*/example_pipelines/*.yaml /.fluent/example_pipelines/
 # Final stage
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     libpq5 \
-    libssl1.1 \
+    libssl3 \
     python3 \
     python3-pip \
     curl \
