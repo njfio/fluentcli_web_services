@@ -5,7 +5,7 @@ use crate::models::user_llm_config::UserLLMConfig;
 use crate::services::chat_service::ChatService;
 use crate::services::llm_service::{LLMChatMessage, LLMService, LLMServiceError};
 use crate::utils::extractors::AuthenticatedUser;
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, HttpResponse};
 use futures::{Stream, StreamExt};
 use serde::Deserialize;
 use serde_json::Value;

@@ -1,7 +1,7 @@
 use crate::db::DbPool;
 use crate::error::AppError;
-use crate::models::llm_provider::{LLMProvider, NewLLMProvider};
-use crate::models::user_llm_config::{NewUserLLMConfig, UserLLMConfig};
+use crate::models::llm_provider::NewLLMProvider;
+use crate::models::user_llm_config::NewUserLLMConfig;
 use crate::services::llm_provider::LLMProviderService;
 use actix_web::{web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};

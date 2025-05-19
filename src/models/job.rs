@@ -28,7 +28,7 @@ pub struct Job {
 }
 
 #[derive(Insertable, Debug)]
-#[table_name = "jobs"]
+#[diesel(table_name = jobs)]
 pub struct NewJob {
     pub user_id: Uuid,
     pub uri: Uuid,
@@ -45,7 +45,7 @@ pub struct NewJob {
 }
 
 #[derive(AsChangeset, Deserialize)]
-#[table_name = "jobs"]
+#[diesel(table_name = jobs)]
 pub struct UpdateJob {
     pub config: Option<Uuid>,
     pub amber_id: Option<Uuid>,

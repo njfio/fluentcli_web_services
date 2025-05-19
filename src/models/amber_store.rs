@@ -18,7 +18,7 @@ pub struct AmberStore {
 }
 
 #[derive(Insertable, Debug)]
-#[table_name = "amber_store"]
+#[diesel(table_name = amber_store)]
 pub struct NewAmberStore {
     pub user_id: Uuid,
     pub name: String,
@@ -34,7 +34,7 @@ pub struct NewAmberStorePayload {
 }
 
 #[derive(AsChangeset, Deserialize, Debug)]
-#[table_name = "amber_store"]
+#[diesel(table_name = amber_store)]
 pub struct UpdateAmberStore {
     pub name: Option<String>,
     pub data: Option<String>,

@@ -1,4 +1,5 @@
 use crate::db::db::establish_connection;
+use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::attachment::Attachment;
 use crate::models::conversation::Conversation;

@@ -2,7 +2,6 @@ use crate::schema::conversations;
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Queryable, Selectable, Identifiable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = conversations)]

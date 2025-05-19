@@ -2,7 +2,6 @@ use actix_web::http::header;
 use actix_web::{delete, get, post, web, HttpResponse};
 use diesel::prelude::*;
 use log::{debug, error, info};
-use mime_guess::from_path;
 use std::fs;
 use uuid::Uuid;
 

@@ -8,7 +8,7 @@ use block_padding::Pkcs7;
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use hex;
-use log::{debug, error, warn};
+use log::{debug, warn};
 use rand::Rng;
 use uuid::Uuid;
 

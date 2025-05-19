@@ -2,7 +2,7 @@ use crate::error::AppError;
 use crate::models::user::{NewUser, UpdateUser};
 
 use crate::db::DbPool;
-use actix_web::{web, Error, HttpResponse, Responder};
+use actix_web::{web, Error, HttpResponse};
 use serde_json::json;
 use uuid::Uuid;
 

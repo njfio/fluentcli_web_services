@@ -1,12 +1,11 @@
 use crate::db::DbPool;
 use crate::models::amber_store::{
-    AmberStore, NewAmberStore, NewAmberStorePayload, UpdateAmberStore,
+    NewAmberStore, NewAmberStorePayload, UpdateAmberStore,
 };
 use crate::services::amber_store_service::AmberStoreService;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
 use uuid::Uuid;
 
-use crate::error::AppError;
 use crate::utils::encryption::hash_secure_key;
 
 pub async fn create_amber_store(

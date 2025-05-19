@@ -1,7 +1,7 @@
 use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::amber_store::{AmberStore, NewAmberStore, UpdateAmberStore};
-use diesel::{prelude::*, update};
+use diesel::prelude::*;
 use uuid::Uuid;
 
 pub struct AmberStoreService;
