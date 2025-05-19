@@ -6,13 +6,17 @@ mod routes;
 mod schema;
 mod services;
 mod utils;
+
+
+
 use handlers::metrics;
 use services::job_scheduler::JobScheduler;
 use crate::config::Config;
+
 use dotenv::dotenv;
 
 use actix_cors::Cors;
-use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer};
+use actix_web::{middleware, web, App, Error, HttpServer};
 use log::debug;
 
 use db::{create_db_pool, setup_database};
@@ -31,6 +35,7 @@ fn query_error_handler(
 ) -> Error {
     actix_web::error::ErrorBadRequest(err)
 }
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

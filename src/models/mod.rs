@@ -9,6 +9,7 @@ pub mod pipeline;
 pub mod secure_vault;
 pub mod user;
 pub mod worker;
+pub mod agent;
 
 // New chat-related models
 pub mod attachment;
