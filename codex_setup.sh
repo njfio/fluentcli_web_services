@@ -2,6 +2,7 @@
 set -e
 
 echo "Setting up development environment for Codex Service (Rust & Front-end)..."
+echo "This script will install all necessary dependencies and configure the environment."
 
 # Check for required tools
 echo "Checking for required tools..."
