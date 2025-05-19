@@ -8,8 +8,13 @@ use crate::handlers::llm_provider::{
     update_user_llm_config,
 };
 use crate::handlers::{
+
+    amber_store, api_key, agent, attachment, configuration, docker_file, fluentcli, job, llm, pipeline,
+    secure_vault, stream_chat, temp_image, user, worker,
+
     amber_store, api_key, attachment, configuration, docker_file, fluentcli, job, llm, pipeline,
     metrics, secure_vault, stream_chat, temp_image, user, worker,
+
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, Scope};
@@ -154,6 +159,23 @@ pub fn configure_routes() -> Scope {
                 .route(
                     "/user-configs/{id}",
                     web::delete().to(delete_user_llm_config),
+                ),
+        )
+        .service(
+            web::scope("/agents")
+                .wrap(Auth)
+                .route("/sessions", web::post().to(agent::create_session))
+                .route(
+                    "/sessions/{session_id}/agents",
+                    web::post().to(agent::add_agent),
+                )
+                .route(
+                    "/sessions/{session_id}/step",
+                    web::post().to(agent::run_step),
+                )
+                .route(
+                    "/sessions/{session_id}",
+                    web::delete().to(agent::end_session),
                 ),
         )
         .service(temp_image::get_temp_image)

@@ -75,6 +75,27 @@ diesel::table! {
 }
 
 diesel::table! {
+    agent_sessions (id) {
+        id -> Uuid,
+        conversation_id -> Uuid,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    agents (id) {
+        id -> Uuid,
+        session_id -> Uuid,
+        user_llm_config_id -> Uuid,
+        role_name -> Varchar,
+        tool_config -> Nullable<Jsonb>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     docker_files (id) {
         id -> Uuid,
         user_id -> Uuid,
@@ -227,6 +248,9 @@ diesel::joinable!(jobs -> users (user_id));
 diesel::joinable!(llm_providers -> users (user_id));
 diesel::joinable!(messages -> attachments (attachment_id));
 diesel::joinable!(messages -> conversations (conversation_id));
+diesel::joinable!(agent_sessions -> conversations (conversation_id));
+diesel::joinable!(agents -> agent_sessions (session_id));
+diesel::joinable!(agents -> user_llm_configs (user_llm_config_id));
 diesel::joinable!(pipelines -> users (user_id));
 diesel::joinable!(secure_vault -> users (user_id));
 diesel::joinable!(secure_vaults -> users (user_id));
@@ -246,6 +270,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     jobs,
     llm_providers,
     messages,
+    agent_sessions,
+    agents,
     pipelines,
     secure_vault,
     secure_vaults,
