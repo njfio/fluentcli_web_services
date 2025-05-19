@@ -1,22 +1,13 @@
-mod db;
-mod error;
-mod handlers;
-mod models;
-mod routes;
-mod schema;
-mod services;
-mod utils;
-use handlers::metrics;
-use services::job_scheduler::JobScheduler;
-use crate::config::Config;
-use dotenv::dotenv;
+use std::io;
 
 use actix_cors::Cors;
-use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer};
-use log::debug;
-
-use db::{create_db_pool, setup_database};
-use routes::configure_routes;
+use actix_web::{middleware, web, App, Error, HttpServer};
+use dotenv::dotenv;
+use fluent_web_services::config::Config;
+use fluent_web_services::db::{create_db_pool, setup_database};
+use fluent_web_services::handlers::metrics;
+use fluent_web_services::routes::configure_routes;
+use fluent_web_services::services::job_scheduler::JobScheduler;
 
 fn json_error_handler(
     err: actix_web::error::JsonPayloadError,
@@ -32,19 +23,17 @@ fn query_error_handler(
     actix_web::error::ErrorBadRequest(err)
 }
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    std::env::set_var(
-        "RUST_LOG",
-        "debug,actix_web=debug,actix_cors=trace,fluentcli_web_services=debug",
-    );
+#[tokio::main]
+async fn main() -> io::Result<()> {
+    println!("Starting Fluent Web Services server...");
+
     dotenv().ok();
     env_logger::init();
+
     metrics::init_metrics();
     let config = Config::from_env();
     println!("Running in {} mode", config.environment);
 
-    // Set up the database
     let pool = create_db_pool().expect("Failed to create database pool");
     setup_database(&pool).expect("Failed to set up database");
     println!("Database setup complete");
@@ -61,16 +50,12 @@ async fn main() -> std::io::Result<()> {
         } else {
             cors = Cors::permissive();
         }
-
-        debug!("CORS configuration: {:?}", cors);
-
         App::new()
             .wrap(cors)
             .wrap(middleware::Logger::default())
-            // Add configuration for maximum payload size
             .app_data(
                 web::JsonConfig::default()
-                    .limit(10485760) // 10MB json payload limit
+                    .limit(10485760)
                     .error_handler(json_error_handler),
             )
             .app_data(web::QueryConfig::default().error_handler(query_error_handler))

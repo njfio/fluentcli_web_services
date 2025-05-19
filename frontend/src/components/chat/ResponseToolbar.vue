@@ -44,8 +44,8 @@ export default defineComponent({
             required: true,
         },
     },
-    emits: ['deleteMessage'],
-    setup(props) {
+    emits: ['deleteMessage', 'regenerateMessage'],
+    setup(props, { emit }) {
         const copyContent = async () => {
             try {
                 const messageElement = document.querySelector(`[data-message-id="${props.messageId}"] .message-content`);
@@ -59,8 +59,7 @@ export default defineComponent({
         };
 
         const regenerateResponse = () => {
-            // TODO: Implement regenerate functionality
-            console.log('Regenerate response clicked');
+            emit('regenerateMessage', props.messageId);
         };
 
         return {
@@ -73,7 +72,7 @@ export default defineComponent({
 
 <style scoped>
 .toolbar-button {
-    @apply p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 relative;
+    @apply p-1.5 rounded-lg mx-1 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 relative;
     @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800;
 }
 

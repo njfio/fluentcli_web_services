@@ -113,6 +113,21 @@ impl JobService {
         Ok(exists)
     }
 
+    pub fn schedule_job(
+        pool: &DbPool,
+        job_id: Uuid,
+        user_id: Uuid,
+        run_at: String,
+    ) -> Result<Job, AppError> {
+        use crate::schema::jobs::dsl::*;
+        let conn = &mut pool.get()?;
+        let timers_json = json!({"run_at": run_at});
+        let updated_job = diesel::update(jobs.filter(id.eq(job_id).and(user_id.eq(user_id))))
+            .set((status.eq("scheduled"), timers.eq(Some(timers_json))))
+            .get_result::<Job>(conn)?;
+        Ok(updated_job)
+    }
+
     pub async fn start_job(pool: &DbPool, job_id: Uuid, user_id: Uuid) -> Result<Job, AppError> {
         use crate::schema::jobs::dsl::*;
         let conn = &mut pool.get()?;
@@ -330,7 +345,8 @@ impl JobService {
             .set((status.eq("stopped"), completed_at.eq(diesel::dsl::now)))
             .get_result::<Job>(conn)?;
 
-        // TODO: Implement actual job stopping mechanism (e.g., sending a signal to the running process)
+        // Send stop signal to worker
+        let _ = FluentCLIService::stop_command(job.id).await;
 
         Ok(updated_job)
     }

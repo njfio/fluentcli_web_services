@@ -31,4 +31,15 @@ impl FluentCLIService {
 
         Ok(result)
     }
+
+    pub async fn stop_command(run_id: Uuid) -> Result<(), AppError> {
+        let client = reqwest::Client::new();
+        client
+            .post(&format!("{}/stop", WORKER_ADDRESS))
+            .json(&serde_json::json!({"run_id": run_id}))
+            .send()
+            .await
+            .map_err(|e| AppError::ExternalServiceError(e.to_string()))?;
+        Ok(())
+    }
 }

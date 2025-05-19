@@ -88,7 +88,8 @@
                                                 {{ expandedMessages.has(groupMessage.id) ? 'Collapse' : 'Expand' }}
                                             </button>
                                             <ResponseToolbar :messageId="groupMessage.id"
-                                                @deleteMessage="handleDeleteMessage" />
+                                                @deleteMessage="handleDeleteMessage"
+                                                @regenerateMessage="handleRegenerateMessage" />
                                         </div>
                                     </div>
                                 </div>
@@ -315,6 +316,11 @@ export default defineComponent({
             expandedMessages.value.delete(messageId);
         };
 
+        const handleRegenerateMessage = async (messageId: string) => {
+            console.log('Regenerate message', messageId);
+            // Placeholder: trigger backend regenerate call
+        };
+
         return {
             chatMessages,
             handleDeleteMessage,
@@ -326,6 +332,7 @@ export default defineComponent({
             localGridLayout,
             localGridColumns,
             updateLayout,
+            handleRegenerateMessage,
             isAllExpanded,
             toggleExpandAll
         };
