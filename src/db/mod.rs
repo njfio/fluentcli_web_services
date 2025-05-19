@@ -1,3 +1,3 @@
 pub mod db;
 
-pub use db::{create_db_pool, setup_database, DbPool};
+pub use db::{create_db_pool, setup_database, establish_connection, DbPool};

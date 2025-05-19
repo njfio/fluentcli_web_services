@@ -16,7 +16,7 @@ pub struct Pipeline {
 }
 
 #[derive(Insertable, Debug)]
-#[table_name = "pipelines"]
+#[diesel(table_name = pipelines)]
 pub struct NewPipeline {
     pub user_id: Uuid,
     pub name: String,
@@ -30,7 +30,7 @@ pub struct NewPipelinePayload {
 }
 
 #[derive(AsChangeset, Deserialize)]
-#[table_name = "pipelines"]
+#[diesel(table_name = pipelines)]
 pub struct UpdatePipeline {
     pub name: Option<String>,
     pub data: Option<String>,

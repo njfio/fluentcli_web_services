@@ -16,7 +16,7 @@ pub struct DockerFile {
 }
 
 #[derive(Insertable, Debug)]
-#[table_name = "docker_files"]
+#[diesel(table_name = docker_files)]
 pub struct NewDockerFile {
     pub user_id: Uuid,
     pub name: String,

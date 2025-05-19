@@ -1,5 +1,5 @@
 use actix_web::{test, web, App};
-use fws::handlers::metrics::{metrics, init_metrics, set_scheduled_jobs, SCHEDULED_JOBS_GAUGE};
+use crate::handlers::metrics::{metrics, init_metrics, set_scheduled_jobs, SCHEDULED_JOBS_GAUGE};
 
 #[actix_web::test]
 async fn test_metrics_endpoint() {

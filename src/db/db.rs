@@ -20,3 +20,9 @@ pub fn create_db_pool() -> Result<DbPool, PoolError> {
     let manager = ConnectionManager::<PgConnection>::new(database_url);
     Pool::builder().build(manager)
 }
+
+pub fn establish_connection() -> DbPool {
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let manager = ConnectionManager::<PgConnection>::new(database_url);
+    Pool::builder().build(manager).expect("Failed to create pool")
+}

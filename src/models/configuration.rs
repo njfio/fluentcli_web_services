@@ -18,7 +18,7 @@ pub struct Configuration {
 
 
 #[derive(Insertable, Debug)]
-#[table_name = "configurations"]
+#[diesel(table_name = configurations)]
 pub struct NewConfiguration {
     pub user_id: Uuid,
     pub name: String,
