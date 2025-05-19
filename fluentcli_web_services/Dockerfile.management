@@ -1,0 +1,65 @@
+FROM rust:latest AS builder
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Diesel CLI
+RUN cargo install diesel_cli --no-default-features --features postgres
+
+WORKDIR /app
+
+# Copy the entire project
+COPY . .
+
+# Copy the generate_migrations.sh script
+#COPY generate_migrations.sh /app/generate_migrations.sh
+#RUN chmod +x /app/generate_migrations.sh
+
+# Set environment variables
+ENV POSTGRES_USER=user
+ENV POSTGRES_PASSWORD=password
+ENV POSTGRES_DB=fws_db
+ENV PG_HOST=db
+
+# Generate migrations and schema
+#RUN /bin/bash ./generate_migrations.sh
+
+# Build the application
+RUN cargo build --release
+
+# Runtime stage
+FROM ubuntu:22.04
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    openssl \
+    postgresql-client \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m appuser
+
+WORKDIR /app
+
+# Copy the binary from the builder stage
+COPY --from=builder /app/target/release/fws /app/fws
+COPY --from=builder /usr/local/cargo/bin/diesel /usr/local/bin/diesel
+
+# Copy migrations folder, diesel.toml, and src directory
+COPY --from=builder --chown=appuser:appuser /app/migrations /app/migrations
+COPY --from=builder --chown=appuser:appuser /app/diesel.toml /app/diesel.toml
+COPY --from=builder --chown=appuser:appuser /app/src /app/src
+
+# Copy the startup script
+COPY --chown=appuser:appuser start.sh /app/start.sh
+COPY  --chown=appuser:appuser generate_migrations.sh /app/generate_migrations.sh
+RUN chmod +x /app/start.sh
+
+USER appuser
+
+EXPOSE 8080
+
+#ENTRYPOINT ["/bin/bash", "wait"]

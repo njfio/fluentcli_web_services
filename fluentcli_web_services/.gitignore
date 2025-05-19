@@ -1,0 +1,12 @@
+/target
+/.idea
+.vscode/settings.json
+Cargo.lock
+.env
+.env
+/worker_app/target
+Cargo.lock
+Cargo.lock
+.cursorignore
+Cargo.lock
+compiled_output.txt

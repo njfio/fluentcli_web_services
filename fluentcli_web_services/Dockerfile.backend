@@ -1,0 +1,30 @@
+FROM rust:latest as builder
+
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    openssl \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /app/target/release/fws /app/fws
+
+ENV ATTACHMENT_DIR=/app/attachments
+ENV RUST_LOG=debug
+
+EXPOSE 8000
+RUN mkdir -p $ATTACHMENT_DIR
+RUN mkdir -p /shared_tmp
+
+CMD ["/app/fws"]

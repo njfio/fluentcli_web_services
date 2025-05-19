@@ -1,0 +1,34 @@
+FROM node:18 as build
+
+WORKDIR /app
+
+COPY package*.json ./
+
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
+# Clear npm cache
+RUN npm cache clean --force
+
+# Install dependencies
+RUN npm ci
+
+# Install Vuex (latest version compatible with Vue 3)
+RUN npm install vuex@4
+
+# Install dev dependencies including @types/node
+RUN npm install --save-dev @types/node
+
+# Copy all project files
+COPY . .
+
+# Run type checking and build
+RUN npm run build
+
+# ... (rest of the Dockerfile remains the same)
+
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY config.js /usr/share/nginx/html/config.js
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,148 @@
+/* Global styles for FluentCLI Studio */
+
+@import './theme.css';
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--neutral-100);
+    color: var(--neutral-800);
+}
+
+.studio-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--spacing-8);
+}
+
+.studio-card {
+    background-color: var(--neutral-50);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-6);
+    margin-bottom: var(--spacing-6);
+}
+
+.studio-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-2) var(--spacing-4);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    line-height: var(--font-size-lg);
+    border-radius: var(--border-radius-md);
+    transition: var(--transition-base);
+    cursor: pointer;
+}
+
+.studio-button-primary {
+    background-color: var(--primary-600);
+    color: var(--neutral-50);
+}
+
+.studio-button-primary:hover {
+    background-color: var(--primary-700);
+}
+
+.studio-button-secondary {
+    background-color: var(--neutral-50);
+    color: var(--primary-600);
+    border: 1px solid var(--primary-600);
+}
+
+.studio-button-secondary:hover {
+    background-color: var(--primary-100);
+    color: var(--primary-700);
+}
+
+.studio-input {
+    width: 100%;
+    padding: var(--spacing-2);
+    font-size: var(--font-size-sm);
+    line-height: var(--font-size-lg);
+    border: 1px solid var(--neutral-300);
+    border-radius: var(--border-radius-md);
+    transition: var(--transition-base);
+}
+
+.studio-input:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.studio-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    margin-bottom: var(--spacing-2);
+    color: var(--neutral-700);
+}
+
+.studio-error {
+    color: var(--error-500);
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-2);
+}
+
+.studio-success {
+    color: var(--success-500);
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-2);
+}
+
+.studio-warning {
+    color: var(--warning-500);
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-2);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes slideInFromRight {
+    from {
+        transform: translateX(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.slide-in-right {
+    animation: slideInFromRight 0.3s ease-in-out;
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+    .studio-container {
+        padding: var(--spacing-4);
+    }
+}
+
+@media (max-width: 768px) {
+    .studio-card {
+        padding: var(--spacing-4);
+    }
+}
+
+@media (max-width: 1024px) {
+    .studio-container {
+        max-width: 100%;
+    }
+}
