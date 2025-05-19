@@ -15,6 +15,11 @@ pub struct CommandResult {
     pub exit_code: i32,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StopRequest {
+    pub run_id: String,
+}
+
 async fn execute_command(command_request: web::Json<CommandRequest>) -> impl Responder {
     println!("Received command request: {:?}", command_request);
 
@@ -47,10 +52,17 @@ async fn execute_command(command_request: web::Json<CommandRequest>) -> impl Res
     }
 }
 
+async fn stop_command(_req: web::Json<StopRequest>) -> impl Responder {
+    println!("Received stop request: {:?}", _req);
+    HttpResponse::Ok().finish()
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
-        App::new().service(web::resource("/execute").route(web::post().to(execute_command)))
+        App::new()
+            .service(web::resource("/execute").route(web::post().to(execute_command)))
+            .service(web::resource("/stop").route(web::post().to(stop_command)))
     })
     .bind("0.0.0.0:8080")?
     .run()

@@ -7,6 +7,7 @@ pub mod leonardo;
 pub mod openai;
 pub mod perplexity;
 pub mod stability;
+pub mod mistral;
 
 pub use anthropic::AnthropicProvider;
 pub use cohere::CohereProvider;
@@ -17,6 +18,7 @@ pub use leonardo::LeonardoProvider;
 pub use openai::OpenAIProvider;
 pub use perplexity::PerplexityProvider;
 pub use stability::StabilityProvider;
+pub use mistral::MistralProvider;
 
 use crate::services::llm_service::{LLMChatMessage, LLMProviderTrait, LLMServiceError};
 use serde_json::Value;
@@ -35,6 +37,7 @@ pub fn get_provider(provider_type: &str) -> Box<dyn LLMProviderTrait> {
         "perplexity" => Box::new(PerplexityProvider),
         "grok" => Box::new(GrokProvider),
         "stability" => Box::new(StabilityProvider),
+        "mistral" => Box::new(MistralProvider),
         _ => panic!("Unknown provider type: {}", provider_type),
     }
 }

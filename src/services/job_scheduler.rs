@@ -1,6 +1,7 @@
 use crate::db::DbPool;
 use crate::models::job::Job;
 use crate::services::job_service::JobService;
+use crate::handlers::metrics::set_scheduled_jobs;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tokio::time::{sleep, Duration};
@@ -12,11 +13,14 @@ impl JobScheduler {
         tokio::spawn(async move {
             loop {
                 if let Ok(jobs) = JobService::fetch_scheduled_jobs(&pool) {
+                    set_scheduled_jobs(jobs.len() as i64);
                     for job in jobs {
                         if is_due(&job) {
                             let _ = JobService::start_job(&pool, job.id, job.user_id).await;
                         }
                     }
+                } else {
+                    set_scheduled_jobs(0);
                 }
                 sleep(Duration::from_secs(60)).await;
             }

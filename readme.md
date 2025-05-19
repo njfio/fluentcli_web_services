@@ -177,6 +177,9 @@ FluentCLI Web Services supports multiple Language Model providers, each with its
    * High-fidelity image generation
    * Fine-grained control over generation parameters
    * Multiple model support (SD-XL, SD-XL-Turbo)
+9. **Mistral:**
+   * Lightweight yet powerful open-source models
+   * Fast inference and cost effective
 
 Each provider is implemented as a separate module in the `src/services/llm_providers` directory, following the `LLMProviderTrait` interface which includes:
 
