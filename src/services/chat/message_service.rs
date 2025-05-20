@@ -235,15 +235,15 @@ impl MessageService {
 
         // Create a new message with or without attachment_id based on schema
         let new_message = match _attachment_id {
-            Some(attachment_id) => {
+            Some(attachment_id_value) => {
                 // Try to create with attachment_id
-                info!("Creating message with attachment_id: {}", attachment_id);
+                info!("Creating message with attachment_id: {:?}", attachment_id_value);
                 NewMessage {
                     conversation_id: _conversation_id,
                     role: _role,
                     content: content_string,
                     provider_model: _provider_model,
-                    attachment_id: Some(attachment_id),
+                    attachment_id: Some(attachment_id_value), // Use the Uuid value directly
                     raw_output: _raw_output,
                     usage_stats: _usage_stats,
                 }
