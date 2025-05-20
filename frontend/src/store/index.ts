@@ -23,6 +23,18 @@ export default createStore<RootState>({
       gridColumns: 3,
       sidebarOpen: true,
       selectedConversationId: null
+    },
+    tool: {
+      tools: [],
+      activeCalls: {},
+      loading: false,
+      error: null
+    },
+    agent: {
+      agents: [],
+      selectedAgentId: null,
+      loading: false,
+      error: null
     }
   },
   mutations: {

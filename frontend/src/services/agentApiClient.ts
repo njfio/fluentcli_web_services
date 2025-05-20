@@ -12,7 +12,7 @@ export const agentApiClient = {
     const response = await axiosInstance.get('/agents');
     return response.data;
   },
-  
+
   /**
    * Get details for a specific agent
    */
@@ -20,15 +20,22 @@ export const agentApiClient = {
     const response = await axiosInstance.get(`/agents/${id}`);
     return response.data;
   },
-  
+
   /**
    * Create a new agent
    */
   createAgent: async (agentData: CreateAgentRequest): Promise<Agent> => {
-    const response = await axiosInstance.post('/agents', agentData);
-    return response.data;
+    console.log('Creating agent with data:', agentData);
+    try {
+      const response = await axiosInstance.post('/agents', agentData);
+      console.log('Agent created successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating agent:', error);
+      throw error;
+    }
   },
-  
+
   /**
    * Update an existing agent
    */
@@ -36,7 +43,7 @@ export const agentApiClient = {
     const response = await axiosInstance.put(`/agents/${id}`, agentData);
     return response.data;
   },
-  
+
   /**
    * Delete an agent
    */

@@ -936,6 +936,7 @@ dependencies = [
  "actix-web",
  "aes",
  "async-stream",
+ "async-trait",
  "base64 0.22.1",
  "bcrypt",
  "block-modes",

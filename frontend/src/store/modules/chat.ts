@@ -308,7 +308,7 @@ const chatModule: Module<ChatState, RootState> = {
             }
         },
 
-        async sendMessageWithTools({ commit }, {
+        async sendMessageWithTools({}, {
             conversationId,
             userLLMConfigId,
             messages,

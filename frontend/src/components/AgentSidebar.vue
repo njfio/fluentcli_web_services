@@ -7,22 +7,22 @@
         New Agent
       </button>
     </div>
-    
+
     <div v-if="loading" class="loading-indicator">
       <i class="fas fa-spinner fa-spin"></i>
       Loading agents...
     </div>
-    
+
     <div v-else-if="error" class="error-message">
       {{ error }}
     </div>
-    
+
     <div v-else-if="agents.length === 0" class="empty-state">
       <i class="fas fa-robot"></i>
       <p>No agents found</p>
       <p>Create an agent to get started</p>
     </div>
-    
+
     <div v-else class="agent-list">
       <div
         v-for="agent in agents"
@@ -48,20 +48,20 @@
         </div>
       </div>
     </div>
-    
+
     <agent-config-panel
       v-if="showCreateAgentPanel"
       @save="createAgent"
       @cancel="showCreateAgentPanel = false"
     />
-    
+
     <agent-config-panel
       v-if="showEditAgentPanel"
       :agent="editingAgent"
       @save="updateAgent"
       @cancel="showEditAgentPanel = false"
     />
-    
+
     <div v-if="showDeleteConfirmation" class="confirmation-dialog">
       <div class="confirmation-dialog-content">
         <h3>Delete {{ deletingAgent?.name }}?</h3>
@@ -88,38 +88,38 @@ export default defineComponent({
   },
   setup() {
     const store = useStore();
-    
+
     const showCreateAgentPanel = ref(false);
     const showEditAgentPanel = ref(false);
     const showDeleteConfirmation = ref(false);
-    const editingAgent = ref<Agent | null>(null);
+    const editingAgent = ref<Agent | undefined>(undefined);
     const deletingAgent = ref<Agent | null>(null);
-    
+
     const agents = computed(() => store.state.agent.agents);
     const selectedAgentId = computed(() => store.state.agent.selectedAgentId);
     const loading = computed(() => store.state.agent.loading);
     const error = computed(() => store.state.agent.error);
-    
+
     // Load agents when component is mounted
     store.dispatch('agent/fetchAgents');
-    
+
     // Initialize from localStorage
     store.dispatch('agent/initializeFromLocalStorage');
-    
+
     const selectAgent = (id: string) => {
       store.dispatch('agent/selectAgent', id);
     };
-    
+
     const editAgent = (agent: Agent) => {
       editingAgent.value = agent;
       showEditAgentPanel.value = true;
     };
-    
+
     const confirmDeleteAgent = (agent: Agent) => {
       deletingAgent.value = agent;
       showDeleteConfirmation.value = true;
     };
-    
+
     const createAgent = async (agentData: any) => {
       try {
         await store.dispatch('agent/createAgent', agentData);
@@ -128,25 +128,25 @@ export default defineComponent({
         console.error('Error creating agent:', error);
       }
     };
-    
+
     const updateAgent = async (agentData: any) => {
       if (!editingAgent.value) return;
-      
+
       try {
         await store.dispatch('agent/updateAgent', {
           id: editingAgent.value.id,
           agentData
         });
         showEditAgentPanel.value = false;
-        editingAgent.value = null;
+        editingAgent.value = undefined;
       } catch (error) {
         console.error('Error updating agent:', error);
       }
     };
-    
+
     const deleteAgent = async () => {
       if (!deletingAgent.value) return;
-      
+
       try {
         await store.dispatch('agent/deleteAgent', deletingAgent.value.id);
         showDeleteConfirmation.value = false;
@@ -155,7 +155,7 @@ export default defineComponent({
         console.error('Error deleting agent:', error);
       }
     };
-    
+
     const getAgentIcon = (agent: Agent) => {
       const iconMap: Record<string, string> = {
         'robot': 'fas fa-robot',
@@ -164,10 +164,10 @@ export default defineComponent({
         'code': 'fas fa-code',
         'database': 'fas fa-database'
       };
-      
+
       return agent.icon && iconMap[agent.icon] ? iconMap[agent.icon] : 'fas fa-robot';
     };
-    
+
     return {
       agents,
       selectedAgentId,

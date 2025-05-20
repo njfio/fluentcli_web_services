@@ -1,5 +1,5 @@
 import { Module } from 'vuex';
-import { RootState } from '../index';
+import { RootState } from '../types';
 import { Agent, CreateAgentRequest, UpdateAgentRequest } from '../../types/agent';
 import { agentApiClient } from '../../services/agentApiClient';
 
@@ -12,22 +12,22 @@ export interface AgentState {
 
 const agentModule: Module<AgentState, RootState> = {
   namespaced: true,
-  
+
   state: {
     agents: [],
     selectedAgentId: null,
     loading: false,
     error: null
   },
-  
+
   mutations: {
     setAgents(state, agents: Agent[]) {
       state.agents = agents;
     },
-    
+
     setSelectedAgentId(state, id: string | null) {
       state.selectedAgentId = id;
-      
+
       // Save to localStorage for persistence
       if (id) {
         localStorage.setItem('selectedAgentId', id);
@@ -35,26 +35,26 @@ const agentModule: Module<AgentState, RootState> = {
         localStorage.removeItem('selectedAgentId');
       }
     },
-    
+
     setLoading(state, loading: boolean) {
       state.loading = loading;
     },
-    
+
     setError(state, error: string | null) {
       state.error = error;
     },
-    
+
     addAgent(state, agent: Agent) {
       state.agents.push(agent);
     },
-    
+
     updateAgent(state, updatedAgent: Agent) {
       const index = state.agents.findIndex(agent => agent.id === updatedAgent.id);
       if (index !== -1) {
         state.agents[index] = updatedAgent;
       }
     },
-    
+
     removeAgent(state, id: string) {
       state.agents = state.agents.filter(agent => agent.id !== id);
       if (state.selectedAgentId === id) {
@@ -63,12 +63,12 @@ const agentModule: Module<AgentState, RootState> = {
       }
     }
   },
-  
+
   actions: {
     async fetchAgents({ commit }) {
       commit('setLoading', true);
       commit('setError', null);
-      
+
       try {
         const agents = await agentApiClient.listAgents();
         commit('setAgents', agents);
@@ -79,32 +79,34 @@ const agentModule: Module<AgentState, RootState> = {
         commit('setLoading', false);
       }
     },
-    
+
     selectAgent({ commit }, id: string | null) {
       commit('setSelectedAgentId', id);
     },
-    
+
     async createAgent({ commit }, agentData: CreateAgentRequest) {
       commit('setLoading', true);
       commit('setError', null);
-      
+
       try {
+        console.log('Agent store: Creating agent with data:', agentData);
         const agent = await agentApiClient.createAgent(agentData);
+        console.log('Agent store: Agent created successfully:', agent);
         commit('addAgent', agent);
         return agent;
       } catch (error) {
-        console.error('Error creating agent:', error);
+        console.error('Agent store: Error creating agent:', error);
         commit('setError', 'Failed to create agent');
         throw error;
       } finally {
         commit('setLoading', false);
       }
     },
-    
+
     async updateAgent({ commit }, { id, agentData }: { id: string, agentData: UpdateAgentRequest }) {
       commit('setLoading', true);
       commit('setError', null);
-      
+
       try {
         const agent = await agentApiClient.updateAgent(id, agentData);
         commit('updateAgent', agent);
@@ -117,11 +119,11 @@ const agentModule: Module<AgentState, RootState> = {
         commit('setLoading', false);
       }
     },
-    
+
     async deleteAgent({ commit }, id: string) {
       commit('setLoading', true);
       commit('setError', null);
-      
+
       try {
         await agentApiClient.deleteAgent(id);
         commit('removeAgent', id);
@@ -133,7 +135,7 @@ const agentModule: Module<AgentState, RootState> = {
         commit('setLoading', false);
       }
     },
-    
+
     initializeFromLocalStorage({ commit }) {
       const selectedAgentId = localStorage.getItem('selectedAgentId');
       if (selectedAgentId) {
@@ -141,11 +143,11 @@ const agentModule: Module<AgentState, RootState> = {
       }
     }
   },
-  
+
   getters: {
     selectedAgent: (state) => {
-      return state.selectedAgentId 
-        ? state.agents.find(agent => agent.id === state.selectedAgentId) 
+      return state.selectedAgentId
+        ? state.agents.find(agent => agent.id === state.selectedAgentId)
         : null;
     }
   }

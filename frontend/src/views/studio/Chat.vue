@@ -159,7 +159,7 @@ export default defineComponent({
         });
 
         // Function to send a message with function calling
-        const sendMessageWithTools = async (agentId: string) => {
+        const sendMessageWithTools = async () => {
             try {
                 if (!currentConversation.value || !selectedConfigId.value || userInput.value.trim() === '') {
                     return;

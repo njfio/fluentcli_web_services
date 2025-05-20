@@ -1,4 +1,5 @@
 pub mod active_worker;
+pub mod agent;
 pub mod amber_store;
 pub mod api_key;
 pub mod configuration;

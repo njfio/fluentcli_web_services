@@ -15,8 +15,8 @@ RUN npm ci
 # Install Vuex (latest version compatible with Vue 3)
 RUN npm install vuex@4
 
-# Install dev dependencies including @types/node
-RUN npm install --save-dev @types/node
+# Install dev dependencies including @types/node and other type definitions
+RUN npm install --save-dev @types/node @types/markdown-it @types/highlight.js
 
 # Copy all project files
 COPY . .

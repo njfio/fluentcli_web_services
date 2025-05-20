@@ -6,20 +6,20 @@
         <i class="fas fa-times"></i>
       </button>
     </div>
-    
+
     <div class="panel-body">
       <div class="form-group">
         <label for="agent-name">Name</label>
         <input id="agent-name" v-model="agentName" type="text" />
         <div v-if="nameError" class="error-message">{{ nameError }}</div>
       </div>
-      
+
       <div class="form-group">
         <label for="agent-description">Description</label>
         <textarea id="agent-description" v-model="agentDescription"></textarea>
         <div v-if="descriptionError" class="error-message">{{ descriptionError }}</div>
       </div>
-      
+
       <div class="form-group">
         <label for="agent-icon">Icon</label>
         <select id="agent-icon" v-model="agentIcon">
@@ -30,20 +30,20 @@
           <option value="database">Database</option>
         </select>
       </div>
-      
+
       <div class="form-group">
         <label for="agent-system-prompt">System Prompt</label>
         <textarea id="agent-system-prompt" v-model="systemPrompt" rows="4"></textarea>
         <div class="help-text">Instructions for the agent's behavior</div>
       </div>
-      
+
       <div class="form-group">
         <label>Tools</label>
         <tool-selector v-model="selectedTools" />
         <div v-if="toolsError" class="error-message">{{ toolsError }}</div>
       </div>
     </div>
-    
+
     <div class="panel-footer">
       <button @click="saveAgent" :disabled="!isValid" class="save-button">
         Save
@@ -57,7 +57,6 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, PropType, onMounted } from 'vue';
-import { useStore } from 'vuex';
 import { Agent } from '../types/agent';
 import ToolSelector from './ToolSelector.vue';
 
@@ -74,19 +73,17 @@ export default defineComponent({
   },
   emits: ['save', 'cancel'],
   setup(props, { emit }) {
-    const store = useStore();
-    
     const agentName = ref('');
     const agentDescription = ref('');
     const agentIcon = ref('robot');
     const systemPrompt = ref('');
     const selectedTools = ref<string[]>([]);
-    
+
     // Validation errors
     const nameError = ref('');
     const descriptionError = ref('');
     const toolsError = ref('');
-    
+
     // Initialize form with agent data if editing
     onMounted(() => {
       if (props.agent) {
@@ -97,11 +94,11 @@ export default defineComponent({
         selectedTools.value = [...props.agent.tools];
       }
     });
-    
+
     // Validate form
     const validateForm = () => {
       let isValid = true;
-      
+
       // Validate name
       if (!agentName.value.trim()) {
         nameError.value = 'Name is required';
@@ -109,7 +106,7 @@ export default defineComponent({
       } else {
         nameError.value = '';
       }
-      
+
       // Validate description
       if (!agentDescription.value.trim()) {
         descriptionError.value = 'Description is required';
@@ -117,7 +114,7 @@ export default defineComponent({
       } else {
         descriptionError.value = '';
       }
-      
+
       // Validate tools
       if (selectedTools.value.length === 0) {
         toolsError.value = 'At least one tool is required';
@@ -125,19 +122,19 @@ export default defineComponent({
       } else {
         toolsError.value = '';
       }
-      
+
       return isValid;
     };
-    
+
     const isValid = computed(() => {
-      return agentName.value.trim() !== '' && 
-             agentDescription.value.trim() !== '' && 
+      return agentName.value.trim() !== '' &&
+             agentDescription.value.trim() !== '' &&
              selectedTools.value.length > 0;
     });
-    
+
     const saveAgent = () => {
       if (!validateForm()) return;
-      
+
       const agentData = {
         name: agentName.value.trim(),
         description: agentDescription.value.trim(),
@@ -145,10 +142,11 @@ export default defineComponent({
         system_prompt: systemPrompt.value.trim(),
         tools: selectedTools.value
       };
-      
+
+      console.log('AgentConfigPanel: Saving agent with data:', agentData);
       emit('save', agentData);
     };
-    
+
     return {
       agentName,
       agentDescription,

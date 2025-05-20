@@ -1,3 +1,4 @@
+pub mod agent_service;
 pub mod amber_store_service;
 pub mod api_key_service;
 pub mod attachment_service;
@@ -18,6 +19,7 @@ pub mod user_service;
 pub mod worker_service;
 pub mod job_scheduler;
 
+pub use agent_service::AgentService;
 pub use amber_store_service::AmberStoreService;
 pub use api_key_service::ApiKeyService;
 pub use attachment_service::AttachmentService;

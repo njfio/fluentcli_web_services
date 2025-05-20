@@ -13,6 +13,21 @@ diesel::table! {
 }
 
 diesel::table! {
+    agents (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 255]
+        name -> Varchar,
+        description -> Text,
+        tools -> Jsonb,
+        icon -> Nullable<Varchar>,
+        system_prompt -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     amber_store (id) {
         id -> Uuid,
         user_id -> Uuid,
@@ -215,6 +230,7 @@ diesel::table! {
 }
 
 diesel::joinable!(active_workers -> users (user_id));
+diesel::joinable!(agents -> users (user_id));
 diesel::joinable!(amber_store -> users (user_id));
 diesel::joinable!(api_keys -> users (user_id));
 diesel::joinable!(configurations -> users (user_id));
@@ -237,6 +253,7 @@ diesel::joinable!(workers -> docker_files (worker_type));
 
 diesel::allow_tables_to_appear_in_same_query!(
     active_workers,
+    agents,
     amber_store,
     api_keys,
     attachments,

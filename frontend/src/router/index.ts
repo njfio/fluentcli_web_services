@@ -23,6 +23,7 @@ import LLMProvidersView from '../views/studio/LLMProvidersView.vue';
 import UserLLMConfigsView from '../views/studio/UserLLMConfigsView.vue';
 import UnifiedLLMConfigView from '../views/studio/UnifiedLLMConfigView.vue';
 import AttachmentGallery from '../views/studio/AttachmentGallery.vue';
+import Agents from '../views/studio/Agents.vue';
 
 const routes: Array<RouteRecordRaw> = [
   { path: '/', redirect: '/studio/dashboard' },
@@ -98,6 +99,7 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'userllmconfigs', name: 'UserLLMConfigs', component: UserLLMConfigsView },
       { path: 'unifiedllmconfig', name: 'UnifiedLLMConfig', component: UnifiedLLMConfigView },
       { path: 'gallery', name: 'Gallery', component: AttachmentGallery },
+      { path: 'agents', name: 'Agents', component: Agents },
     ],
   }
 ];
