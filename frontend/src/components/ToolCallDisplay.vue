@@ -6,32 +6,55 @@
       </div>
       <div class="tool-info">
         <div class="tool-name">{{ toolCall.name }}</div>
-        <div class="tool-status" :class="statusClass">{{ statusText }}</div>
+        <div class="tool-status" :class="statusClass">
+          <span v-if="toolCall.status === 'running'" class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+          </span>
+          {{ statusText }}
+        </div>
       </div>
       <div class="tool-actions">
-        <button v-if="hasError" @click="$emit('retry')" class="retry-button">
+        <button v-if="hasError" @click="$emit('retry')" class="retry-button" title="Retry tool execution">
           <i class="fas fa-redo"></i>
           Retry
         </button>
-        <button @click="expanded = !expanded" class="expand-button">
+        <button v-if="toolCall.result" @click="copyResult" class="copy-button" title="Copy result to clipboard">
+          <i class="fas fa-copy"></i>
+        </button>
+        <button @click="expanded = !expanded" class="expand-button" :title="expanded ? 'Collapse' : 'Expand'">
           <i :class="expanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
         </button>
       </div>
     </div>
-    
+
     <div v-if="expanded" class="tool-call-details">
       <div class="tool-call-arguments">
-        <h4>Arguments</h4>
+        <div class="section-header">
+          <h4>Arguments</h4>
+          <button @click="copyArguments" class="copy-button" title="Copy arguments to clipboard">
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
         <pre><code>{{ formattedArguments }}</code></pre>
       </div>
-      
+
       <div v-if="toolCall.result" class="tool-call-result">
-        <h4>Result</h4>
+        <div class="section-header">
+          <h4>Result</h4>
+          <button @click="copyResult" class="copy-button" title="Copy result to clipboard">
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
         <tool-result-display :result="toolCall.result" />
       </div>
-      
+
       <div v-if="hasError" class="tool-call-error">
-        <h4>Error</h4>
+        <div class="section-header">
+          <h4>Error</h4>
+          <button @click="copyError" class="copy-button" title="Copy error to clipboard">
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
         <div class="error-message">{{ toolCall.error }}</div>
       </div>
     </div>
@@ -63,9 +86,10 @@ export default defineComponent({
   emits: ['retry'],
   setup(props) {
     const expanded = ref(true);
-    
+    const copySuccess = ref(false);
+
     const hasError = computed(() => props.toolCall.status === 'error');
-    
+
     const statusClass = computed(() => {
       return {
         'status-pending': props.toolCall.status === 'pending',
@@ -74,7 +98,7 @@ export default defineComponent({
         'status-error': props.toolCall.status === 'error'
       };
     });
-    
+
     const statusText = computed(() => {
       switch (props.toolCall.status) {
         case 'pending': return 'Pending';
@@ -84,7 +108,7 @@ export default defineComponent({
         default: return 'Unknown';
       }
     });
-    
+
     const toolIconClass = computed(() => {
       // Map tool names to Font Awesome icons
       const iconMap: Record<string, string> = {
@@ -92,23 +116,66 @@ export default defineComponent({
         'search_web': 'fas fa-search',
         'calculate': 'fas fa-calculator',
         'get_stock_price': 'fas fa-chart-line',
-        'generate_image': 'fas fa-image'
+        'generate_image': 'fas fa-image',
+        'code_interpreter': 'fas fa-code',
+        'database_query': 'fas fa-database',
+        'file_browser': 'fas fa-folder-open',
+        'api_request': 'fas fa-globe'
       };
-      
+
       return iconMap[props.toolCall.name] || 'fas fa-tools';
     });
-    
+
     const formattedArguments = computed(() => {
       return JSON.stringify(props.toolCall.arguments, null, 2);
     });
-    
+
+    const formattedResult = computed(() => {
+      if (typeof props.toolCall.result === 'object' && props.toolCall.result !== null) {
+        return JSON.stringify(props.toolCall.result, null, 2);
+      }
+      return String(props.toolCall.result);
+    });
+
+    // Copy functions
+    const copyToClipboard = async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        copySuccess.value = true;
+        setTimeout(() => {
+          copySuccess.value = false;
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy text: ', err);
+      }
+    };
+
+    const copyArguments = () => {
+      copyToClipboard(formattedArguments.value);
+    };
+
+    const copyResult = () => {
+      copyToClipboard(formattedResult.value);
+    };
+
+    const copyError = () => {
+      if (props.toolCall.error) {
+        copyToClipboard(props.toolCall.error);
+      }
+    };
+
     return {
       expanded,
+      copySuccess,
       hasError,
       statusClass,
       statusText,
       toolIconClass,
-      formattedArguments
+      formattedArguments,
+      formattedResult,
+      copyArguments,
+      copyResult,
+      copyError
     };
   }
 });
@@ -121,6 +188,12 @@ export default defineComponent({
   margin: 8px 0;
   overflow: hidden;
   border: 1px solid #e1e4e8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.tool-call:hover {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .tool-call.has-error {
@@ -139,20 +212,30 @@ export default defineComponent({
   margin-right: 12px;
   font-size: 18px;
   color: #4a5568;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tool-info {
   flex: 1;
+  min-width: 0;
 }
 
 .tool-name {
   font-weight: 600;
   color: #2d3748;
+  margin-bottom: 2px;
 }
 
 .tool-status {
   font-size: 0.875rem;
   color: #718096;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .tool-status.status-pending {
@@ -171,12 +254,17 @@ export default defineComponent({
   color: #e53e3e;
 }
 
+.loading-spinner {
+  display: inline-block;
+  margin-right: 4px;
+}
+
 .tool-actions {
   display: flex;
   gap: 8px;
 }
 
-.retry-button, .expand-button {
+.retry-button, .copy-button, .expand-button {
   background: none;
   border: none;
   cursor: pointer;
@@ -186,6 +274,7 @@ export default defineComponent({
   align-items: center;
   gap: 4px;
   font-size: 0.875rem;
+  transition: background-color 0.2s ease-in-out;
 }
 
 .retry-button {
@@ -194,6 +283,14 @@ export default defineComponent({
 
 .retry-button:hover {
   background-color: #ebf8ff;
+}
+
+.copy-button {
+  color: #4a5568;
+}
+
+.copy-button:hover {
+  background-color: #edf2f7;
 }
 
 .expand-button {
@@ -212,9 +309,15 @@ export default defineComponent({
   margin-bottom: 16px;
 }
 
-.tool-call-arguments h4, .tool-call-result h4, .tool-call-error h4 {
-  margin-top: 0;
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 8px;
+}
+
+.section-header h4 {
+  margin: 0;
   font-size: 0.875rem;
   color: #4a5568;
 }
@@ -226,6 +329,7 @@ export default defineComponent({
   overflow-x: auto;
   font-size: 0.875rem;
   margin: 0;
+  border: 1px solid #e2e8f0;
 }
 
 .error-message {
@@ -234,5 +338,40 @@ export default defineComponent({
   padding: 12px;
   border-radius: 4px;
   border-left: 3px solid #e53e3e;
+  font-size: 0.875rem;
+}
+
+/* Dark mode styles */
+.dark .tool-call {
+  background-color: #2d3748;
+  border-color: #4a5568;
+}
+
+.dark .tool-call-header {
+  background-color: #1a202c;
+  border-color: #4a5568;
+}
+
+.dark .tool-name {
+  color: #e2e8f0;
+}
+
+.dark .tool-icon {
+  color: #a0aec0;
+}
+
+.dark .tool-call-arguments pre, .dark .tool-call-result pre {
+  background-color: #1a202c;
+  border-color: #4a5568;
+  color: #e2e8f0;
+}
+
+.dark .error-message {
+  background-color: rgba(229, 62, 62, 0.1);
+  border-color: #e53e3e;
+}
+
+.dark .retry-button:hover, .dark .copy-button:hover, .dark .expand-button:hover {
+  background-color: #2d3748;
 }
 </style>

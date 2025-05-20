@@ -53,6 +53,25 @@
                             {{ agent.name }}
                         </option>
                     </select>
+
+                    <div class="quick-tools-container mt-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Tools</label>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">Click to insert tool prompt</span>
+                        </div>
+                        <div class="quick-tools-grid">
+                            <button
+                                v-for="tool in quickTools"
+                                :key="tool.id"
+                                @click="addToolPrompt(tool)"
+                                class="quick-tool-button"
+                                :title="tool.description"
+                            >
+                                <i :class="getToolIcon(tool.name)"></i>
+                                <span>{{ formatToolName(tool.name) }}</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -133,15 +152,74 @@ export default defineComponent({
         // Get agents from store
         const agents = computed(() => store.state.agent.agents);
 
+        // Get tools from store
+        const tools = computed(() => store.state.tool.tools);
+
+        // Quick tools for the toolbar
+        const quickTools = computed(() => {
+            // Get the first 6 tools or fewer if there are less than 6
+            return tools.value.slice(0, 6);
+        });
+
         // Load agents if not already loaded
         if (agents.value.length === 0) {
             store.dispatch('agent/fetchAgents');
         }
 
         // Load tools if not already loaded
-        if (store.state.tool.tools.length === 0) {
+        if (tools.value.length === 0) {
             store.dispatch('tool/fetchTools');
         }
+
+        // Format tool name for display (convert snake_case to Title Case)
+        const formatToolName = (name: string) => {
+            return name
+                .split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        };
+
+        // Get icon for tool
+        const getToolIcon = (toolName: string) => {
+            const iconMap: Record<string, string> = {
+                'get_weather': 'fas fa-cloud',
+                'search_web': 'fas fa-search',
+                'calculate': 'fas fa-calculator',
+                'get_stock_price': 'fas fa-chart-line',
+                'generate_image': 'fas fa-image',
+                'code_interpreter': 'fas fa-code',
+                'database_query': 'fas fa-database',
+                'file_browser': 'fas fa-folder-open',
+                'api_request': 'fas fa-globe'
+            };
+
+            return iconMap[toolName] || 'fas fa-tools';
+        };
+
+        // Add tool prompt to the user input
+        const addToolPrompt = (tool: any) => {
+            const currentInput = userInputComputed.value;
+            const toolPrompt = `Use the ${formatToolName(tool.name)} tool to `;
+
+            // If the input is empty or ends with a period, add the prompt directly
+            if (currentInput.trim() === '' || currentInput.trim().endsWith('.')) {
+                userInputComputed.value = currentInput.trim() + (currentInput.trim() ? ' ' : '') + toolPrompt;
+            } else {
+                // Otherwise, add a period and then the prompt
+                userInputComputed.value = currentInput.trim() + '. ' + toolPrompt;
+            }
+
+            // Focus the textarea
+            nextTick(() => {
+                const textarea = document.querySelector('textarea');
+                if (textarea) {
+                    textarea.focus();
+                    // Place cursor at the end
+                    const length = textarea.value.length;
+                    textarea.setSelectionRange(length, length);
+                }
+            });
+        };
 
         const selectedConfigIdComputed = computed({
             get: () => props.selectedConfigId,
@@ -201,6 +279,11 @@ export default defineComponent({
             selectedAgentId,
             showAgentSidebar,
             agents,
+            tools,
+            quickTools,
+            formatToolName,
+            getToolIcon,
+            addToolPrompt
         };
     },
 });
@@ -285,5 +368,58 @@ select:focus {
     bottom: 0;
     z-index: 50;
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.quick-tools-container {
+    margin-top: 12px;
+}
+
+.quick-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.quick-tool-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background-color: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-size: 0.75rem;
+    color: #4b5563;
+}
+
+.quick-tool-button i {
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.quick-tool-button span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-align: center;
+}
+
+.quick-tool-button:hover {
+    background-color: #e5e7eb;
+    transform: translateY(-1px);
+}
+
+.dark .quick-tool-button {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: #d1d5db;
+}
+
+.dark .quick-tool-button:hover {
+    background-color: #4b5563;
 }
 </style>
