@@ -81,12 +81,38 @@ impl MessageService {
                     usage_stats: usage_stats.clone(),
                 };
 
-                let message: Message = diesel::insert_into(messages::table)
+                // Try to insert the message, handling potential schema issues
+                let insert_result = diesel::insert_into(messages::table)
                     .values(&new_message)
-                    .get_result(conn)?;
+                    .get_result(conn);
 
-                info!("Message created: {:?}", message);
-                Ok(message)
+                match insert_result {
+                    Ok(message) => {
+                        info!("Message created: {:?}", message);
+                        Ok(message)
+                    }
+                    Err(e) => {
+                        // Check if the error is related to the attachment_id column
+                        if e.to_string().contains("attachment_id") {
+                            error!("Error with attachment_id column: {:?}", e);
+                            // Try inserting without the attachment_id field
+                            let simplified_message = (
+                                messages::conversation_id.eq(conversation_id),
+                                messages::role.eq(role.clone()),
+                                messages::content.eq(content.clone()),
+                                messages::provider_model.eq(provider_model.clone()),
+                                messages::raw_output.eq(raw_output.clone()),
+                                messages::usage_stats.eq(usage_stats.clone()),
+                            );
+
+                            diesel::insert_into(messages::table)
+                                .values(simplified_message)
+                                .get_result(conn)
+                        } else {
+                            Err(e)
+                        }
+                    }
+                }
             })
             .map_err(AppError::DatabaseError)?;
 
@@ -207,14 +233,34 @@ impl MessageService {
 
         info!("Content to be stored: {:?}", content_string);
 
-        let new_message = NewMessage {
-            conversation_id: _conversation_id,
-            role: _role,
-            content: content_string,
-            provider_model: _provider_model,
-            attachment_id: _attachment_id,
-            raw_output: _raw_output,
-            usage_stats: _usage_stats,
+        // Create a new message with or without attachment_id based on schema
+        let new_message = match _attachment_id {
+            Some(attachment_id_value) => {
+                // Try to create with attachment_id
+                info!("Creating message with attachment_id: {:?}", attachment_id_value);
+                NewMessage {
+                    conversation_id: _conversation_id,
+                    role: _role,
+                    content: content_string,
+                    provider_model: _provider_model,
+                    attachment_id: Some(attachment_id_value), // Use the Uuid value directly
+                    raw_output: _raw_output,
+                    usage_stats: _usage_stats,
+                }
+            }
+            None => {
+                // Create without attachment_id
+                info!("Creating message without attachment_id");
+                NewMessage {
+                    conversation_id: _conversation_id,
+                    role: _role,
+                    content: content_string,
+                    provider_model: _provider_model,
+                    attachment_id: None,
+                    raw_output: _raw_output,
+                    usage_stats: _usage_stats,
+                }
+            }
         };
 
         let mut conn = pool.get()?;

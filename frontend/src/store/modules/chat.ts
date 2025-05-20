@@ -11,6 +11,15 @@ export interface Conversation {
     updatedAt: string;
 }
 
+export interface ToolCall {
+    id: string;
+    name: string;
+    arguments: any;
+    status: 'pending' | 'running' | 'completed' | 'error';
+    result?: any;
+    error?: string;
+}
+
 export interface Message {
     id: string;
     conversationId: string;
@@ -22,6 +31,7 @@ export interface Message {
     attachmentId?: string;
     rawOutput?: string;
     usageStats?: any;
+    tool_calls?: ToolCall[];
 }
 
 export interface Attachment {
@@ -294,6 +304,37 @@ const chatModule: Module<ChatState, RootState> = {
                 return attachment;
             } catch (error) {
                 console.error('Error creating attachment:', error);
+                throw error;
+            }
+        },
+
+        async sendMessageWithTools({}, {
+            conversationId,
+            userLLMConfigId,
+            messages,
+            tools
+        }: {
+            conversationId: string;
+            userLLMConfigId: string;
+            messages: any[];
+            tools: any[];
+        }) {
+            try {
+                // Get the user LLM config
+                const userLLMConfig = await apiClient.getUserLLMConfig(userLLMConfigId);
+                const providerId = userLLMConfig.data.providerId;
+
+                // Send the message to the LLM with tools
+                const response = await apiClient.post('/llm/chat_with_tools', {
+                    conversation_id: conversationId,
+                    provider_id: providerId,
+                    messages,
+                    tools
+                });
+
+                return response;
+            } catch (error) {
+                console.error('Error sending message with tools:', error);
                 throw error;
             }
         },

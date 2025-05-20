@@ -7,9 +7,12 @@ use crate::handlers::llm_provider::{
     get_llm_provider, get_user_llm_config, list_user_llm_configs, update_llm_provider,
     update_user_llm_config,
 };
+use crate::handlers::llm_template::{
+    create_unified_config, delete_unified_config, get_templates, get_template, get_unified_configs,
+};
 use crate::handlers::{
-    amber_store, api_key, attachment, configuration, docker_file, fluentcli, job, llm, pipeline,
-    metrics, secure_vault, stream_chat, temp_image, user, worker,
+    agent, amber_store, api_key, attachment, configuration, docker_file, fluentcli, function_calling,
+    job, llm, pipeline, metrics, secure_vault, stream_chat, temp_image, user, worker,
 };
 use crate::utils::auth::Auth;
 use actix_web::{web, Scope};
@@ -154,7 +157,32 @@ pub fn configure_routes() -> Scope {
                 .route(
                     "/user-configs/{id}",
                     web::delete().to(delete_user_llm_config),
-                ),
+                )
+                // New unified LLM configuration routes
+                .route("/templates", web::get().to(get_templates))
+                .route("/templates/{id}", web::get().to(get_template))
+                .route("/unified-configs", web::post().to(create_unified_config))
+                .route("/unified-configs", web::get().to(get_unified_configs))
+                .route("/unified-configs/{id}", web::delete().to(delete_unified_config)),
+        )
+        .service(
+            web::scope("/agents")
+                .wrap(Auth)
+                .route("", web::post().to(agent::create_agent))
+                .route("", web::get().to(agent::list_agents))
+                .route("/{id}", web::get().to(agent::get_agent))
+                .route("/{id}", web::put().to(agent::update_agent))
+                .route("/{id}", web::delete().to(agent::delete_agent))
+                // Add OPTIONS method for CORS preflight requests
+                .route("", web::method(actix_web::http::Method::OPTIONS).to(agent::options_handler))
+                .route("/{id}", web::method(actix_web::http::Method::OPTIONS).to(agent::options_handler)),
+        )
+        .service(
+            web::scope("/function-calling")
+                .wrap(Auth)
+                .route("/tools", web::get().to(function_calling::list_tools))
+                .route("/tools/{id}", web::get().to(function_calling::get_tool))
+                .route("/execute", web::post().to(function_calling::execute_tool)),
         )
         .service(temp_image::get_temp_image)
         .route("/metrics", web::get().to(metrics::metrics))

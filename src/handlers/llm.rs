@@ -22,7 +22,8 @@ pub async fn llm_stream_chat(
 }
 
 // Re-export functions from llm_provider
-pub use crate::handlers::llm_provider::{create_llm_provider, get_llm_provider};
+// Commented out unused imports
+// pub use crate::handlers::llm_provider::{create_llm_provider, get_llm_provider};
 
 // Implement get_llm_providers function
 pub async fn get_llm_providers(pool: web::Data<DbPool>) -> Result<HttpResponse, AppError> {

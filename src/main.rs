@@ -1,3 +1,4 @@
+mod config;
 mod db;
 mod error;
 mod handlers;
@@ -53,7 +54,12 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let allowed_origins = std::env::var("ALLOWED_ORIGINS").unwrap_or_else(|_| "*".into());
-        let mut cors = Cors::default().supports_credentials().max_age(3600);
+        let mut cors = Cors::default()
+            .supports_credentials()
+            .max_age(3600)
+            .allow_any_method() // Allow all HTTP methods
+            .allow_any_header(); // Allow all headers
+
         if allowed_origins != "*" {
             for origin in allowed_origins.split(',') {
                 cors = cors.allowed_origin(origin.trim());

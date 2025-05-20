@@ -4,6 +4,8 @@ import themeModule from './modules/theme';
 import chatModule from './modules/chat';
 import chatUIModule from './modules/chatUI';
 import attachmentsModule from './modules/attachments';
+import toolModule from './modules/tool';
+import agentModule from './modules/agent';
 import { RootState, User } from './types';
 
 export default createStore<RootState>({
@@ -21,6 +23,18 @@ export default createStore<RootState>({
       gridColumns: 3,
       sidebarOpen: true,
       selectedConversationId: null
+    },
+    tool: {
+      tools: [],
+      activeCalls: {},
+      loading: false,
+      error: null
+    },
+    agent: {
+      agents: [],
+      selectedAgentId: null,
+      loading: false,
+      error: null
     }
   },
   mutations: {
@@ -68,5 +82,7 @@ export default createStore<RootState>({
     chat: chatModule,
     chatUI: chatUIModule,
     attachments: attachmentsModule,
+    tool: toolModule,
+    agent: agentModule,
   },
 });

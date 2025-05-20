@@ -30,7 +30,7 @@ pub struct NewDockerFilePayload {
 }
 
 #[derive(AsChangeset, Deserialize)]
-#[table_name = "docker_files"]
+#[diesel(table_name = docker_files)]
 pub struct UpdateDockerFile {
     pub name: Option<String>,
     pub content: Option<String>,

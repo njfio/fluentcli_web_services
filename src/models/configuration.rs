@@ -32,7 +32,7 @@ pub struct NewConfigurationPayload {
 }
 
 #[derive(AsChangeset, Deserialize)]
-#[table_name = "configurations"]
+#[diesel(table_name = configurations)]
 pub struct UpdateConfiguration {
     pub name: Option<String>,
     pub data: Option<serde_json::Value>,

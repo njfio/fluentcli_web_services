@@ -1,4 +1,5 @@
 pub mod active_worker;
+pub mod agent;
 pub mod amber_store;
 pub mod api_key;
 pub mod configuration;
@@ -14,5 +15,6 @@ pub mod worker;
 pub mod attachment;
 pub mod conversation;
 pub mod llm_provider;
+pub mod llm_template;
 pub mod message;
 pub mod user_llm_config;

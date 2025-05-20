@@ -138,12 +138,22 @@ interface ApiClient {
   llmChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
   streamChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
 
+  // Function calling routes
+  post: (url: string, data: any) => Promise<AxiosResponse<any>>;
+
   // API Key routes
   createApiKey: (key_value: string, description: string) => Promise<AxiosResponse<any>>;
   listApiKeys: () => Promise<AxiosResponse<any>>;
   getApiKey: (id: string) => Promise<AxiosResponse<any>>;
   updateApiKey: (id: string, key_value: string, description: string) => Promise<AxiosResponse<any>>;
   deleteApiKey: (id: string) => Promise<AxiosResponse<any>>;
+
+  // LLM Templates and Unified Config routes
+  getLLMTemplates: () => Promise<AxiosResponse<any>>;
+  getLLMTemplate: (id: string) => Promise<AxiosResponse<any>>;
+  createUnifiedLLMConfig: (configData: any) => Promise<AxiosResponse<any>>;
+  listUnifiedLLMConfigs: () => Promise<AxiosResponse<any>>;
+  deleteUnifiedLLMConfig: (id: string) => Promise<AxiosResponse<any>>;
 }
 
 const apiClient: ApiClient = {
@@ -208,16 +218,25 @@ const apiClient: ApiClient = {
   listConversations: () => axiosInstance.get('/chat/conversations'),
   getConversation: (id) => axiosInstance.get(`/chat/conversations/${id}`),
   deleteConversation: (id) => axiosInstance.delete(`/chat/conversations/${id}`),
-  createMessage: (conversationId, role, content, providerModel, attachmentId, rawOutput, usageStats) =>
-    axiosInstance.post('/chat/messages', {
+  createMessage: (conversationId, role, content, providerModel, attachmentId, rawOutput, usageStats) => {
+    // Create the request payload without the attachment_id field if it's undefined
+    const payload: any = {
       conversation_id: conversationId,
       role,
       content,
       provider_model: providerModel,
-      attachment_id: attachmentId,
       raw_output: rawOutput,
       usage_stats: usageStats,
-    }),
+    };
+
+    // Only add attachment_id if it's defined
+    if (attachmentId !== undefined) {
+      payload.attachment_id = attachmentId;
+    }
+
+    console.log('Creating message with payload:', payload);
+    return axiosInstance.post('/chat/messages', payload);
+  },
   getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
   deleteMessage: (conversationId, messageId) => axiosInstance.delete(`/chat/conversations/${conversationId}/messages/${messageId}`),
 
@@ -248,12 +267,22 @@ const apiClient: ApiClient = {
     params: { provider_id: providerId, messages: JSON.stringify(messages) }
   }),
 
+  // Function calling routes
+  post: (url, data) => axiosInstance.post(url, data),
+
   // API Key routes
   createApiKey: (key_value, description) => axiosInstance.post('/api_keys', { key_value, description }),
   listApiKeys: () => axiosInstance.get('/api_keys'),
   getApiKey: (id) => axiosInstance.get(`/api_keys/${id}`),
   updateApiKey: (id, key_value, description) => axiosInstance.put(`/api_keys/${id}`, { key_value, description }),
   deleteApiKey: (id) => axiosInstance.delete(`/api_keys/${id}`),
+
+  // LLM Templates and Unified Config routes
+  getLLMTemplates: () => axiosInstance.get('/llm/templates'),
+  getLLMTemplate: (id) => axiosInstance.get(`/llm/templates/${id}`),
+  createUnifiedLLMConfig: (configData) => axiosInstance.post('/llm/unified-configs', configData),
+  listUnifiedLLMConfigs: () => axiosInstance.get('/llm/unified-configs'),
+  deleteUnifiedLLMConfig: (id) => axiosInstance.delete(`/llm/unified-configs/${id}`),
 };
 
 export default apiClient;
