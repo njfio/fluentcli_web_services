@@ -287,7 +287,11 @@ import apiClient from '../services/apiClient';
 
 // Store
 const store = useStore();
-const userId = computed(() => store.state.auth.user?.id);
+const userId = computed(() => {
+  const id = store.state.auth.user?.id || store.getters.userId;
+  console.log('User ID for LLM config:', id);
+  return id;
+});
 
 // Define types
 interface Template {
@@ -358,7 +362,7 @@ const templates: Template[] = [
   {
     id: 'openai-gpt4',
     name: 'OpenAI GPT-4',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/1024px-ChatGPT_logo.svg.png',
+    logo: '/assets/openai-logo.svg',
     description: 'OpenAI\'s most advanced model for text generation and understanding',
     providerType: 'gpt',
     apiEndpoint: 'https://api.openai.com/v1/chat/completions',
@@ -381,7 +385,7 @@ const templates: Template[] = [
   {
     id: 'anthropic-claude',
     name: 'Anthropic Claude',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Anthropic_logo.svg/1200px-Anthropic_logo.svg.png',
+    logo: '/assets/anthropic-logo.svg',
     description: 'Claude is a family of AI assistants created by Anthropic',
     providerType: 'claude',
     apiEndpoint: 'https://api.anthropic.com/v1/messages',
@@ -403,7 +407,7 @@ const templates: Template[] = [
   {
     id: 'google-gemini',
     name: 'Google Gemini',
-    logo: 'https://storage.googleapis.com/gweb-uniblog-publish-prod/images/gemini_1.max-1000x1000.png',
+    logo: '/assets/gemini-logo.svg',
     description: 'Google\'s most capable and general model, with improved instruction following',
     providerType: 'gemini',
     apiEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
@@ -426,7 +430,7 @@ const templates: Template[] = [
   {
     id: 'perplexity',
     name: 'Perplexity',
-    logo: 'https://cdn.icon-icons.com/icons2/3914/PNG/512/perplexity_logo_icon_248863.png',
+    logo: '/assets/perplexity-logo.svg',
     description: 'Perplexity AI offers online LLMs with real-time information access',
     providerType: 'perplexity',
     apiEndpoint: 'https://api.perplexity.ai/chat/completions',
@@ -539,8 +543,12 @@ const saveConfiguration = async (): Promise<void> => {
   error.value = '';
 
   try {
-    if (!userId.value) {
-      throw new Error('User ID not found');
+    // Get user ID from store
+    const currentUserId = userId.value;
+    console.log('Current user ID:', currentUserId);
+
+    if (!currentUserId) {
+      throw new Error('User ID not found. Please refresh the page and try again.');
     }
 
     // 1. Create or get API key
@@ -551,11 +559,13 @@ const saveConfiguration = async (): Promise<void> => {
       apiKeyId = editingConfig.value.api_key_id;
     } else {
       // Create new API key
+      console.log('Creating API key with name:', configData.value.apiKeyName);
       const apiKeyResponse = await apiClient.createApiKey(
         configData.value.apiKey,
         configData.value.apiKeyName
       );
       apiKeyId = apiKeyResponse.data.id;
+      console.log('Created API key with ID:', apiKeyId);
     }
 
     // 2. Create or update LLM provider
@@ -565,32 +575,40 @@ const saveConfiguration = async (): Promise<void> => {
       api_endpoint: configData.value.apiEndpoint,
       supported_modalities: configData.value.supportedModalities.split(',').map(s => s.trim()),
       configuration: JSON.parse(configData.value.configuration),
-      user_id: userId.value
+      user_id: currentUserId
     };
 
+    console.log('Provider data:', providerData);
     let providerId: string;
 
     if (editingConfig.value && editingConfig.value.provider_id) {
       // Update existing provider
+      console.log('Updating provider:', editingConfig.value.provider_id);
       await apiClient.updateLLMProvider(editingConfig.value.provider_id, providerData);
       providerId = editingConfig.value.provider_id;
     } else {
       // Create new provider
+      console.log('Creating new provider');
       const providerResponse = await apiClient.createLLMProvider(providerData);
       providerId = providerResponse.data.id;
+      console.log('Created provider with ID:', providerId);
     }
 
     // 3. Create or update user LLM config
     const configDataToSave = {
-      user_id: userId.value,
+      user_id: currentUserId,
       provider_id: providerId,
       api_key_id: apiKeyId,
       description: configData.value.name,
     };
 
+    console.log('Config data to save:', configDataToSave);
+
     if (editingConfig.value) {
+      console.log('Updating config:', editingConfig.value.id);
       await apiClient.updateUserLLMConfig(editingConfig.value.id, configDataToSave);
     } else {
+      console.log('Creating new config');
       await apiClient.createUserLLMConfig(configDataToSave);
     }
 
@@ -612,17 +630,34 @@ const fetchUserConfigs = async (): Promise<void> => {
   error.value = '';
 
   try {
+    // Check if user ID is available
+    const currentUserId = userId.value;
+    console.log('Fetching configs for user ID:', currentUserId);
+
+    if (!currentUserId) {
+      console.warn('No user ID available when fetching configs');
+      // Don't throw error here, just log warning and continue
+    }
+
     // Fetch user LLM configs with provider and API key details
+    console.log('Fetching user LLM configs');
     const configsResponse = await apiClient.listUserLLMConfigs();
     userConfigs.value = configsResponse.data;
+    console.log('Fetched user configs:', userConfigs.value.length);
 
     // Fetch API keys for reference
+    console.log('Fetching API keys');
     const apiKeysResponse = await apiClient.listApiKeys();
     apiKeys.value = apiKeysResponse.data;
+    console.log('Fetched API keys:', apiKeys.value.length);
 
   } catch (err) {
     console.error('Error fetching configurations:', err);
-    error.value = 'Failed to fetch configurations. Please try again.';
+    if (err instanceof Error) {
+      error.value = `Failed to fetch configurations: ${err.message}`;
+    } else {
+      error.value = 'Failed to fetch configurations. Please try again.';
+    }
   } finally {
     loading.value = false;
   }
@@ -685,8 +720,20 @@ const getApiKeyName = (apiKeyId: string): string => {
 };
 
 const getProviderLogo = (providerType: string): string => {
-  const template = templates.find(t => t.providerType === providerType);
-  return template ? template.logo : 'https://via.placeholder.com/150';
+  // Use local assets to avoid 404 errors
+  const logoMap: Record<string, string> = {
+    'gpt': '/assets/openai-logo.svg',
+    'claude': '/assets/anthropic-logo.svg',
+    'gemini': '/assets/gemini-logo.svg',
+    'perplexity': '/assets/perplexity-logo.svg',
+    'grok': '/assets/grok-logo.svg',
+    'dalle': '/assets/dalle-logo.svg',
+    'leonardo': '/assets/leonardo-logo.svg',
+    'stability': '/assets/stability-logo.svg',
+    'custom': '/assets/custom-logo.svg'
+  };
+
+  return logoMap[providerType] || '/assets/default-logo.svg';
 };
 
 // Initialize
