@@ -11,17 +11,17 @@ use crate::services::function_calling::examples::weather_tool::WeatherTool;
 pub async fn run_example(api_key: &str) -> Result<(), Box<dyn std::error::Error>> {
     // 1. Create the tool registry
     let tool_registry = Arc::new(ToolRegistry::new());
-    
+
     // 2. Register tools
     let weather_tool = WeatherTool::new();
     tool_registry.register(weather_tool).await;
-    
+
     // 3. Create the provider adapter
     let provider_adapter = Arc::new(OpenAIAdapter);
-    
+
     // 4. Create the function calling manager
     let function_calling_manager = FunctionCallingManager::new(provider_adapter, tool_registry);
-    
+
     // 5. Define the tools for the request
     let weather_tool_def = Tool::new(
         "get_weather",
@@ -45,7 +45,7 @@ pub async fn run_example(api_key: &str) -> Result<(), Box<dyn std::error::Error>
             ).with_description("Temperature units: 'celsius' or 'fahrenheit'"),
         ],
     );
-    
+
     // 6. Prepare the request
     let mut request = json!({
         "model": "gpt-4",
@@ -60,11 +60,11 @@ pub async fn run_example(api_key: &str) -> Result<(), Box<dyn std::error::Error>
             }
         ],
     });
-    
-    function_calling_manager.prepare_request(&mut request, &[weather_tool_def], ToolChoice::Auto);
-    
+
+    function_calling_manager.prepare_request(&mut request, &[weather_tool_def.clone()], ToolChoice::Auto);
+
     println!("Prepared request: {}", serde_json::to_string_pretty(&request)?);
-    
+
     // 7. In a real application, you would send this request to the OpenAI API
     // For demonstration, we'll create a mock response
     let mock_response = json!({
@@ -92,12 +92,12 @@ pub async fn run_example(api_key: &str) -> Result<(), Box<dyn std::error::Error>
             }
         ]
     });
-    
+
     // 8. Handle the response
     let tool_results = function_calling_manager.handle_response(&mock_response).await?;
-    
+
     println!("Tool results: {}", serde_json::to_string_pretty(&tool_results)?);
-    
+
     // 9. In a real application, you would send these results back to the LLM
     // For demonstration, we'll create a mock follow-up request
     let mut follow_up_request = json!({
@@ -132,11 +132,11 @@ pub async fn run_example(api_key: &str) -> Result<(), Box<dyn std::error::Error>
             }
         ],
     });
-    
+
     function_calling_manager.prepare_request(&mut follow_up_request, &[weather_tool_def], ToolChoice::Auto);
-    
+
     println!("Follow-up request: {}", serde_json::to_string_pretty(&follow_up_request)?);
-    
+
     // 10. In a real application, you would send this request to the OpenAI API
     // For demonstration, we'll create a mock final response
     let mock_final_response = json!({
@@ -154,11 +154,11 @@ pub async fn run_example(api_key: &str) -> Result<(), Box<dyn std::error::Error>
             }
         ]
     });
-    
+
     // 11. Extract the final response
     let final_response = mock_final_response["choices"][0]["message"]["content"].as_str().unwrap();
-    
+
     println!("Final response: {}", final_response);
-    
+
     Ok(())
 }
