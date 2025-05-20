@@ -12,7 +12,9 @@
             <div class="flex-shrink-0">
                 <ChatInput :isSidebarOpen="isSidebarOpen" :userLLMConfigs="userLLMConfigs"
                     v-model:selectedConfigId="selectedConfigId" v-model:userInput="userInput"
-                    :currentConversation="currentConversation" :isLoading="isLoading" @send-message="sendMessage" />
+                    :currentConversation="currentConversation" :isLoading="isLoading"
+                    @send-message="sendMessage"
+                    @send-message-with-tools="sendMessageWithTools" />
             </div>
         </div>
     </div>
@@ -27,6 +29,7 @@ import { RootState } from '../../store/types';
 import Sidebar from '../../components/chat/Sidebar.vue';
 import ChatArea from '../../components/chat/ChatArea.vue';
 import ChatInput from '../../components/chat/ChatInput.vue';
+import { renderMarkdown } from '../../utils/markdown';
 
 export default defineComponent({
     name: 'Chat',
@@ -155,6 +158,101 @@ export default defineComponent({
             }
         });
 
+        // Function to send a message with function calling
+        const sendMessageWithTools = async (agentId: string) => {
+            try {
+                if (!currentConversation.value || !selectedConfigId.value || userInput.value.trim() === '') {
+                    return;
+                }
+
+                isLoading.value = true;
+
+                // Get the agent from the store
+                const agent = store.getters['agent/selectedAgent'];
+                if (!agent) {
+                    console.error('No agent selected');
+                    return;
+                }
+
+                // Get the tools for the agent
+                const tools = agent.tools.map((toolId: string) => {
+                    return store.state.tool.tools.find((tool: any) => tool.id === toolId);
+                }).filter(Boolean);
+
+                // Create a user message
+                const userMessageResponse = await store.dispatch('chat/createMessage', {
+                    conversationId: currentConversation.value.id,
+                    role: 'user',
+                    content: userInput.value,
+                    sender: 'User',
+                });
+
+                // Add the user message to the current messages
+                const userMessage = userMessageResponse.data;
+                userMessage.renderedContent = await renderMarkdown(userMessage.content);
+                store.commit('chat/addMessage', userMessage);
+
+                // Clear the user input
+                userInput.value = '';
+
+                // Prepare the messages for the LLM
+                const messages = currentMessages.value
+                    .filter(m => m && typeof m === 'object' && 'role' in m && 'content' in m)
+                    .map(m => ({
+                        role: m.role,
+                        content: m.content,
+                    }));
+
+                // Add the system prompt from the agent if available
+                if (agent.system_prompt) {
+                    messages.unshift({
+                        role: 'system',
+                        content: agent.system_prompt,
+                    });
+                }
+
+                // Send the message to the backend with tools
+                const response = await store.dispatch('chat/sendMessageWithTools', {
+                    conversationId: currentConversation.value.id,
+                    userLLMConfigId: selectedConfigId.value,
+                    messages,
+                    tools,
+                });
+
+                // Process the response
+                if (response && response.data) {
+                    // Add the assistant message to the current messages
+                    const assistantMessage = response.data;
+                    assistantMessage.renderedContent = await renderMarkdown(assistantMessage.content || '');
+                    store.commit('chat/addMessage', assistantMessage);
+
+                    // Process tool calls if any
+                    if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+                        for (const toolCall of assistantMessage.tool_calls) {
+                            // Execute the tool call
+                            await store.dispatch('tool/executeToolCall', toolCall);
+
+                            // Update the tool call in the message with the result
+                            const updatedToolCall = store.getters['tool/getToolCallById'](toolCall.id);
+                            if (updatedToolCall) {
+                                const toolCallIndex = assistantMessage.tool_calls.findIndex((tc: any) => tc.id === toolCall.id);
+                                if (toolCallIndex !== -1) {
+                                    assistantMessage.tool_calls[toolCallIndex] = updatedToolCall;
+                                }
+                            }
+                        }
+
+                        // Update the message in the store
+                        store.commit('chat/updateMessage', assistantMessage);
+                    }
+                }
+            } catch (error) {
+                console.error('Error sending message with tools:', error);
+            } finally {
+                isLoading.value = false;
+            }
+        };
+
         return {
             isLoading,
             error,
@@ -169,6 +267,7 @@ export default defineComponent({
             handleSelectConversation,
             createNewConversation,
             sendMessage,
+            sendMessageWithTools,
             retryLastMessage,
             deleteConversation,
             toggleSidebar,

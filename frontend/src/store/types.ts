@@ -1,5 +1,7 @@
 import { Message, Conversation, UserLLMConfig, LLMProvider } from './modules/chat';
 import { ChatUIState } from './modules/chatUI';
+import { ToolState } from './modules/tool';
+import { AgentState } from './modules/agent';
 
 export interface User {
   user_id: string;
@@ -29,6 +31,8 @@ export interface RootState {
   auth: AuthState;
   chat: ChatUIOptions;
   chatUI: ChatUIState;
+  tool: ToolState;
+  agent: AgentState;
 }
 
 export interface State extends RootState {

@@ -138,6 +138,9 @@ interface ApiClient {
   llmChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
   streamChat: (providerId: string, messages: any[]) => Promise<AxiosResponse<any>>;
 
+  // Function calling routes
+  post: (url: string, data: any) => Promise<AxiosResponse<any>>;
+
   // API Key routes
   createApiKey: (key_value: string, description: string) => Promise<AxiosResponse<any>>;
   listApiKeys: () => Promise<AxiosResponse<any>>;
@@ -263,6 +266,9 @@ const apiClient: ApiClient = {
   streamChat: (providerId, messages) => axiosInstance.get('/llm/stream_chat', {
     params: { provider_id: providerId, messages: JSON.stringify(messages) }
   }),
+
+  // Function calling routes
+  post: (url, data) => axiosInstance.post(url, data),
 
   // API Key routes
   createApiKey: (key_value, description) => axiosInstance.post('/api_keys', { key_value, description }),

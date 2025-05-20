@@ -1,4 +1,5 @@
 import { axiosInstance } from './apiClient';
+import { Tool, ToolCall } from '../types/tool';
 
 export interface LLMProvider {
     id: string;
@@ -15,8 +16,9 @@ export interface UserLLMConfig {
 }
 
 export interface LLMMessage {
-    role: 'system' | 'user' | 'assistant';
+    role: 'system' | 'user' | 'assistant' | 'tool';
     content: string;
+    tool_call_id?: string;
 }
 
 class LLMService {
@@ -87,6 +89,72 @@ class LLMService {
         });
 
         return response.body.pipeThrough(transformStream);
+    }
+
+    /**
+     * Stream chat with function calling support
+     * @param userLLMConfigId User LLM config ID
+     * @param conversationId Conversation ID
+     * @param messages Messages to send
+     * @param tools Tools to make available to the LLM
+     * @returns Readable stream of response chunks
+     */
+    async streamChatWithTools(
+        userLLMConfigId: string,
+        conversationId: string,
+        messages: LLMMessage[],
+        tools: Tool[]
+    ): Promise<ReadableStream<Uint8Array>> {
+        const userLLMConfig = await this.getUserLLMConfig(userLLMConfigId);
+        console.log('User LLM Config:', JSON.stringify(userLLMConfig, null, 2));
+
+        if (!userLLMConfig.provider_id) {
+            console.error('Provider ID is missing from the user LLM config');
+            throw new Error('Provider ID is missing from the user LLM config');
+        }
+
+        const url = new URL('/llm/stream_chat_with_tools', axiosInstance.defaults.baseURL);
+
+        // Filter out invalid messages
+        const validMessages = messages.filter(msg => msg && msg.role && msg.content);
+
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_llm_config_id: userLLMConfigId,
+                provider_id: userLLMConfig.provider_id,
+                conversation_id: conversationId,
+                messages: validMessages,
+                tools: tools
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('LLMService streamChatWithTools - Error response:', errorText);
+            console.error('LLMService streamChatWithTools - Response status:', response.status);
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+
+        if (!response.body) {
+            throw new Error('No response body');
+        }
+
+        return response.body;
+    }
+
+    /**
+     * Execute a tool call
+     * @param toolCall Tool call to execute
+     * @returns Tool result
+     */
+    async executeToolCall(toolCall: ToolCall): Promise<any> {
+        const response = await axiosInstance.post('/function-calling/execute', toolCall);
+        return response.data;
     }
 }
 

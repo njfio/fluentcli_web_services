@@ -76,6 +76,18 @@
                                                         :altText="'Generated image'" />
                                                 </div>
                                             </template>
+                                            <template v-else-if="groupMessage.tool_calls && groupMessage.tool_calls.length > 0">
+                                                <div v-if="groupMessage.content" class="mb-4" v-html="groupMessage.renderedContent || groupMessage.content">
+                                                </div>
+                                                <div class="tool-calls">
+                                                    <div v-for="toolCall in groupMessage.tool_calls" :key="toolCall.id" class="mb-3">
+                                                        <tool-call-display
+                                                            :tool-call="toolCall"
+                                                            @retry="handleRetryToolCall(groupMessage.id, toolCall.id)"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </template>
                                             <template v-else>
                                                 <div v-html="groupMessage.renderedContent || groupMessage.content">
                                                 </div>
@@ -134,7 +146,17 @@ import { useStore } from 'vuex';
 import ResponseToolbar from './ResponseToolbar.vue';
 import ResponseTopToolbar from './ResponseTopToolbar.vue';
 import ImageRenderer from './ImageRenderer.vue';
+import ToolCallDisplay from '../ToolCallDisplay.vue';
 import { useChatLogic } from './ChatLogic';
+
+interface ToolCall {
+    id: string;
+    name: string;
+    arguments: any;
+    status: 'pending' | 'running' | 'completed' | 'error';
+    result?: any;
+    error?: string;
+}
 
 interface Message {
     id: string;
@@ -144,6 +166,7 @@ interface Message {
     provider_model?: string;
     attachment_id?: string;
     createdAt: string;
+    tool_calls?: ToolCall[];
 }
 
 interface Conversation {
@@ -157,6 +180,7 @@ export default defineComponent({
         ResponseToolbar,
         ResponseTopToolbar,
         ImageRenderer,
+        ToolCallDisplay,
     },
     props: {
         isSidebarOpen: {
@@ -321,6 +345,36 @@ export default defineComponent({
             // Placeholder: trigger backend regenerate call
         };
 
+        const handleRetryToolCall = async (messageId: string, toolCallId: string) => {
+            console.log('Retry tool call', messageId, toolCallId);
+            try {
+                // Find the message and tool call
+                const message = displayMessages.value.find(m => m.id === messageId);
+                if (!message || !message.tool_calls) return;
+
+                const toolCall = message.tool_calls.find(tc => tc.id === toolCallId);
+                if (!toolCall) return;
+
+                // Dispatch the retry action to the store
+                await store.dispatch('tool/executeToolCall', {
+                    id: toolCall.id,
+                    name: toolCall.name,
+                    arguments: toolCall.arguments
+                });
+
+                // Update the message with the new tool call result
+                const updatedToolCall = store.getters['tool/getToolCallById'](toolCallId);
+                if (updatedToolCall) {
+                    const toolCallIndex = message.tool_calls.findIndex(tc => tc.id === toolCallId);
+                    if (toolCallIndex !== -1) {
+                        message.tool_calls[toolCallIndex] = updatedToolCall;
+                    }
+                }
+            } catch (error) {
+                console.error('Error retrying tool call:', error);
+            }
+        };
+
         return {
             chatMessages,
             handleDeleteMessage,
@@ -333,6 +387,7 @@ export default defineComponent({
             localGridColumns,
             updateLayout,
             handleRegenerateMessage,
+            handleRetryToolCall,
             isAllExpanded,
             toggleExpandAll
         };
@@ -477,6 +532,16 @@ export default defineComponent({
 
 .dark .markdown-body h2 {
     border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.tool-calls {
+    margin-top: 1rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding-top: 1rem;
+}
+
+.dark .tool-calls {
+    border-top-color: rgba(255, 255, 255, 0.1);
 }
 
 .markdown-body h3 {

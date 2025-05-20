@@ -4,6 +4,8 @@ import themeModule from './modules/theme';
 import chatModule from './modules/chat';
 import chatUIModule from './modules/chatUI';
 import attachmentsModule from './modules/attachments';
+import toolModule from './modules/tool';
+import agentModule from './modules/agent';
 import { RootState, User } from './types';
 
 export default createStore<RootState>({
@@ -68,5 +70,7 @@ export default createStore<RootState>({
     chat: chatModule,
     chatUI: chatUIModule,
     attachments: attachmentsModule,
+    tool: toolModule,
+    agent: agentModule,
   },
 });
