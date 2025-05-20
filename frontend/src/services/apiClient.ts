@@ -215,16 +215,25 @@ const apiClient: ApiClient = {
   listConversations: () => axiosInstance.get('/chat/conversations'),
   getConversation: (id) => axiosInstance.get(`/chat/conversations/${id}`),
   deleteConversation: (id) => axiosInstance.delete(`/chat/conversations/${id}`),
-  createMessage: (conversationId, role, content, providerModel, attachmentId, rawOutput, usageStats) =>
-    axiosInstance.post('/chat/messages', {
+  createMessage: (conversationId, role, content, providerModel, attachmentId, rawOutput, usageStats) => {
+    // Create the request payload without the attachment_id field if it's undefined
+    const payload: any = {
       conversation_id: conversationId,
       role,
       content,
       provider_model: providerModel,
-      attachment_id: attachmentId,
       raw_output: rawOutput,
       usage_stats: usageStats,
-    }),
+    };
+
+    // Only add attachment_id if it's defined
+    if (attachmentId !== undefined) {
+      payload.attachment_id = attachmentId;
+    }
+
+    console.log('Creating message with payload:', payload);
+    return axiosInstance.post('/chat/messages', payload);
+  },
   getMessages: (conversationId) => axiosInstance.get(`/chat/conversations/${conversationId}/messages`),
   deleteMessage: (conversationId, messageId) => axiosInstance.delete(`/chat/conversations/${conversationId}/messages/${messageId}`),
 

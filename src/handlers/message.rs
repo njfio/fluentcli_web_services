@@ -2,17 +2,22 @@ use crate::db::DbPool;
 use crate::error::AppError;
 use crate::services::chat_service::ChatService;
 use actix_web::{web, HttpResponse};
+use log::{debug, error, info};
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct CreateMessageRequest {
     conversation_id: Uuid,
     role: String,
     content: String,
     provider_model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    attachment_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     raw_output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     usage_stats: Option<Value>,
 }
 
@@ -20,6 +25,34 @@ pub async fn create_message(
     pool: web::Data<DbPool>,
     req: web::Json<CreateMessageRequest>,
 ) -> Result<HttpResponse, AppError> {
+    info!("Creating message: {:?}", req);
+
+    // Check if attachment_id is provided
+    if let Some(attachment_id) = req.attachment_id {
+        debug!("Message has attachment_id: {}", attachment_id);
+        // Use the regular create_message method that supports attachment_id
+        let message = web::block(move || {
+            ChatService::create_message(
+                &pool,
+                req.conversation_id,
+                req.role.clone(),
+                serde_json::Value::String(req.content.clone()),
+                req.provider_model.clone(),
+                Some(attachment_id),
+                req.raw_output.clone(),
+                req.usage_stats.clone(),
+            )
+        })
+        .await
+        .map_err(|e| {
+            error!("Error creating message with attachment: {:?}", e);
+            AppError::GenericError(Box::new(e))
+        })??;
+
+        return Ok(HttpResponse::Created().json(message));
+    }
+
+    // If no attachment_id, use the create_message_with_attachments method
     let message = ChatService::create_message_with_attachments(
         &pool,
         req.conversation_id,
