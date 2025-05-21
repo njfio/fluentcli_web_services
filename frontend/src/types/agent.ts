@@ -8,6 +8,7 @@ export interface Agent {
   tools: string[]; // Array of tool IDs
   icon?: string;
   system_prompt?: string;
+  reasoning_patterns?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +22,7 @@ export interface CreateAgentRequest {
   tools: string[];
   icon?: string;
   system_prompt?: string;
+  reasoning_patterns?: string[];
 }
 
 /**
@@ -32,4 +34,5 @@ export interface UpdateAgentRequest {
   tools?: string[];
   icon?: string;
   system_prompt?: string;
+  reasoning_patterns?: string[];
 }

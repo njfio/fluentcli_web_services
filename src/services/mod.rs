@@ -18,6 +18,7 @@ pub mod secure_vault_service;
 pub mod user_service;
 pub mod worker_service;
 pub mod job_scheduler;
+pub mod reasoning_patterns;
 
 pub use agent_service::AgentService;
 pub use amber_store_service::AmberStoreService;
@@ -39,3 +40,4 @@ pub use secure_vault_service::SecureVaultService;
 pub use user_service::UserService;
 pub use worker_service::WorkerService;
 pub use job_scheduler::JobScheduler;
+pub use reasoning_patterns::*;

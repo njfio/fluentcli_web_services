@@ -38,6 +38,20 @@
       </div>
 
       <div class="form-group">
+        <label>Reasoning Patterns</label>
+        <div class="flex flex-wrap gap-2">
+          <label v-for="pattern in availablePatterns" :key="pattern" class="flex items-center gap-1">
+            <input
+              type="checkbox"
+              :value="pattern"
+              v-model="selectedPatterns"
+            />
+            {{ pattern }}
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
         <label>Tools</label>
         <tool-selector v-model="selectedTools" />
         <div v-if="toolsError" class="error-message">{{ toolsError }}</div>
@@ -58,6 +72,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, PropType, onMounted } from 'vue';
 import { Agent } from '../types/agent';
+import { ReasoningPattern } from '../types/reasoning';
 import ToolSelector from './ToolSelector.vue';
 
 export default defineComponent({
@@ -78,6 +93,13 @@ export default defineComponent({
     const agentIcon = ref('robot');
     const systemPrompt = ref('');
     const selectedTools = ref<string[]>([]);
+    const availablePatterns: ReasoningPattern[] = [
+      'Planning',
+      'ReAct',
+      'Reflection',
+      'ToolUse'
+    ];
+    const selectedPatterns = ref<ReasoningPattern[]>([]);
 
     // Validation errors
     const nameError = ref('');
@@ -92,6 +114,9 @@ export default defineComponent({
         agentIcon.value = props.agent.icon || 'robot';
         systemPrompt.value = props.agent.system_prompt || '';
         selectedTools.value = [...props.agent.tools];
+        selectedPatterns.value = props.agent.reasoning_patterns
+          ? [...props.agent.reasoning_patterns]
+          : [];
       }
     });
 
@@ -140,7 +165,8 @@ export default defineComponent({
         description: agentDescription.value.trim(),
         icon: agentIcon.value,
         system_prompt: systemPrompt.value.trim(),
-        tools: selectedTools.value
+        tools: selectedTools.value,
+        reasoning_patterns: selectedPatterns.value
       };
 
       console.log('AgentConfigPanel: Saving agent with data:', agentData);
@@ -153,6 +179,8 @@ export default defineComponent({
       agentIcon,
       systemPrompt,
       selectedTools,
+      availablePatterns,
+      selectedPatterns,
       nameError,
       descriptionError,
       toolsError,

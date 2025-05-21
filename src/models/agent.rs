@@ -1,9 +1,9 @@
+use crate::schema::agents;
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use uuid::Uuid;
-use crate::schema::agents;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Serialize, Deserialize)]
 #[diesel(table_name = agents)]
@@ -15,6 +15,7 @@ pub struct Agent {
     pub tools: Value, // JSON array of tool IDs
     pub icon: Option<String>,
     pub system_prompt: Option<String>,
+    pub reasoning_patterns: Option<Value>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -29,6 +30,7 @@ pub struct NewAgent {
     pub tools: Value, // JSON array of tool IDs
     pub icon: Option<String>,
     pub system_prompt: Option<String>,
+    pub reasoning_patterns: Option<Value>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -40,6 +42,7 @@ pub struct CreateAgentRequest {
     pub tools: Vec<String>, // Array of tool IDs
     pub icon: Option<String>,
     pub system_prompt: Option<String>,
+    pub reasoning_patterns: Option<Vec<String>>,
 }
 
 // Convert CreateAgentRequest to NewAgent for database insertion
@@ -53,6 +56,7 @@ impl From<CreateAgentRequest> for NewAgent {
             tools: json!(req.tools),
             icon: req.icon,
             system_prompt: req.system_prompt,
+            reasoning_patterns: req.reasoning_patterns.map(|v| json!(v)),
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -68,6 +72,8 @@ pub struct UpdateAgentRequest {
     pub tools: Option<Value>, // JSON array of tool IDs
     pub icon: Option<String>,
     pub system_prompt: Option<String>,
+    #[serde(deserialize_with = "deserialize_tools")]
+    pub reasoning_patterns: Option<Value>,
 }
 
 // Custom deserializer for tools field
@@ -90,6 +96,7 @@ pub struct AgentResponse {
     pub tools: Vec<String>, // Array of tool IDs
     pub icon: Option<String>,
     pub system_prompt: Option<String>,
+    pub reasoning_patterns: Option<Vec<String>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -111,6 +118,13 @@ impl From<Agent> for AgentResponse {
             tools,
             icon: agent.icon,
             system_prompt: agent.system_prompt,
+            reasoning_patterns: agent.reasoning_patterns.and_then(|v| {
+                v.as_array().map(|arr| {
+                    arr.iter()
+                        .filter_map(|s| s.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
+            }),
             created_at: agent.created_at,
             updated_at: agent.updated_at,
         }

@@ -1,12 +1,14 @@
 use crate::db::DbPool;
 use crate::error::AppError;
-use crate::models::agent::{Agent, AgentResponse, CreateAgentRequest, NewAgent, UpdateAgentRequest};
+use crate::models::agent::{
+    Agent, AgentResponse, CreateAgentRequest, NewAgent, UpdateAgentRequest,
+};
 use crate::schema::agents;
 use chrono::Utc;
 use diesel::prelude::*;
+use log::{debug, error, info};
 use serde_json::json;
 use uuid::Uuid;
-use log::{debug, error, info};
 
 pub struct AgentService;
 
@@ -135,6 +137,13 @@ impl AgentService {
             diesel::update(agents::table)
                 .filter(agents::id.eq(id))
                 .set(agents::system_prompt.eq(system_prompt))
+                .execute(conn)?;
+        }
+
+        if let Some(patterns) = &request.reasoning_patterns {
+            diesel::update(agents::table)
+                .filter(agents::id.eq(id))
+                .set(agents::reasoning_patterns.eq(patterns))
                 .execute(conn)?;
         }
 
