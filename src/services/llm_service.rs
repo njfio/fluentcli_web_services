@@ -66,8 +66,9 @@ impl LLMService {
 
         let api_key = Self::get_api_key(pool, user_config).await?;
 
+        let llm_provider = llm_providers::get_provider(&provider.provider_type);
         let client = Client::new();
-        let request = Self::prepare_request(&client, provider, &messages, &api_key)?;
+        let request = llm_provider.prepare_request(&messages, &provider.configuration, &api_key)?;
 
         let response = request.send().await.map_err(|e| {
             error!("Failed to send request: {:?}", e);
@@ -96,7 +97,7 @@ impl LLMService {
             )))
         })?;
 
-        Ok(response_text)
+        llm_provider.parse_response(&response_text)
     }
 
     pub async fn llm_stream_chat(
@@ -199,40 +200,4 @@ impl LLMService {
         Ok(api_key.key_value)
     }
 
-    fn prepare_request(
-        client: &Client,
-        provider: &LLMProvider,
-        messages: &[LLMChatMessage],
-        api_key: &str,
-    ) -> Result<RequestBuilder, LLMServiceError> {
-        // Implement provider-specific request preparation here
-        // For now, we'll return a placeholder implementation
-        Ok(client
-            .post(&provider.api_endpoint)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&messages))
-    }
-
-    fn stream_response(
-        response: reqwest::Response,
-    ) -> Pin<Box<dyn Stream<Item = Result<String, LLMServiceError>> + Send>> {
-        Box::pin(futures::stream::unfold(
-            response,
-            |mut response| async move {
-                match response.chunk().await {
-                    Ok(Some(chunk)) => {
-                        let chunk_str = String::from_utf8_lossy(&chunk).to_string();
-                        Some((Ok(chunk_str), response))
-                    }
-                    Ok(None) => None,
-                    Err(e) => Some((
-                        Err(LLMServiceError(AppError::ExternalServiceError(
-                            e.to_string(),
-                        ))),
-                        response,
-                    )),
-                }
-            },
-        ))
-    }
 }
