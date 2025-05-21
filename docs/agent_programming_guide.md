@@ -311,6 +311,34 @@ let system_prompt = format!(
 5. **Memory Management**: Implement summarization for long conversations
 6. **Logging**: Log all agent actions for debugging and improvement
 
+### Combining Patterns
+
+Multiple reasoning patterns can be used together. Create a `PatternComposer` and
+pass the desired patterns in order. The generated system prompt will include the
+instructions for each pattern followed by the list of available tools.
+
+```rust
+use fluent_web_services::services::{
+    PatternComposer, ReasoningPattern
+};
+
+let composer = PatternComposer::new(vec![
+    ReasoningPattern::Planning,
+    ReasoningPattern::ReAct,
+    ReasoningPattern::Reflection,
+]);
+
+let system_prompt = composer.system_prompt(
+    &agent.name,
+    &agent.description,
+    &agent.tools,
+);
+```
+
+Persist the selected `ReasoningPattern` list with each agent so the
+frontend can reconfigure them. Pass this list to `PatternComposer` when
+generating the system prompt.
+
 ## Example: Research Agent
 
 ```rust

@@ -22,6 +22,7 @@ diesel::table! {
         tools -> Jsonb,
         icon -> Nullable<Varchar>,
         system_prompt -> Nullable<Text>,
+        reasoning_patterns -> Nullable<Jsonb>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
